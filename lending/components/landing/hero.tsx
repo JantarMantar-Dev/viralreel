@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { motion } from "framer-motion"
 import { PlayCircle, ArrowRight } from "lucide-react"
+import { WaitlistModal } from "@/components/waitlist-modal"
 
 export function Hero() {
     return (
@@ -56,10 +57,12 @@ export function Hero() {
                             transition={{ duration: 0.5, delay: 0.3 }}
                             className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto"
                         >
-                            <Button size="lg" variant="gradient" className="w-full sm:w-auto group">
-                                Start Creating Free
-                                <ArrowRight className="ml-2 size-4 group-hover:translate-x-1 transition-transform" />
-                            </Button>
+                            <WaitlistModal>
+                                <Button size="lg" variant="gradient" className="w-full sm:w-auto group">
+                                    Start Creating Free
+                                    <ArrowRight className="ml-2 size-4 group-hover:translate-x-1 transition-transform" />
+                                </Button>
+                            </WaitlistModal>
                             <Button variant="outline" size="lg" className="w-full sm:w-auto border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-slate-900">
                                 <PlayCircle className="mr-2 size-4" />
                                 Watch Demo

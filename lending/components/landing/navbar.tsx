@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import { WaitlistModal } from "@/components/waitlist-modal"
 import { Sparkles } from "lucide-react"
 
 export function Navbar() {
@@ -22,9 +23,11 @@ export function Navbar() {
                     <Link href="/blog" className="inline-flex items-center justify-center rounded-full font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 h-9 px-4 text-sm hover:bg-slate-100 text-slate-600 hover:text-slate-900">
                         Blog
                     </Link>
-                    <Button variant="gradient" size="sm">
-                        Get Started
-                    </Button>
+                    <WaitlistModal>
+                        <Button variant="gradient" size="sm">
+                            Get Started
+                        </Button>
+                    </WaitlistModal>
                 </div>
             </div>
         </header>
