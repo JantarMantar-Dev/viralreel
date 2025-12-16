@@ -126,25 +126,13 @@ export function Hero() {
                         <div className="absolute inset-0 bg-slate-800 flex items-center justify-center relative group cursor-pointer overflow-hidden">
                             <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/60 z-10" />
                             <img
-                                src="https://images.unsplash.com/photo-1611162616475-46b635cb6868?q=80&w=1000&auto=format&fit=crop"
+                                src="/reel-thumbnail.jpg"
                                 alt="Reel Preview"
                                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                             />
                             <div className="absolute z-20 flex flex-col items-center gap-4">
                                 <div className="size-16 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/40 shadow-xl transition-transform group-hover:scale-110">
                                     <PlayCircle className="size-8 text-white fill-white" />
-                                </div>
-                            </div>
-                            {/* Mock UI Elements for Reel */}
-                            <div className="absolute bottom-8 right-4 z-20 flex flex-col gap-4">
-                                <div className="size-10 rounded-full bg-white/10 backdrop-blur flex items-center justify-center">
-                                    <span className="text-white text-xs">❤️</span>
-                                </div>
-                                <div className="size-10 rounded-full bg-white/10 backdrop-blur flex items-center justify-center">
-                                    <span className="text-white text-xs">💬</span>
-                                </div>
-                                <div className="size-10 rounded-full bg-white/10 backdrop-blur flex items-center justify-center">
-                                    <span className="text-white text-xs">↗️</span>
                                 </div>
                             </div>
                         </div>
