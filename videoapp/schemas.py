@@ -97,3 +97,9 @@ class ItemResponse(BaseModel):
     
     class Config:
         from_attributes = True
+
+class ErrorResponse(BaseModel):
+    error: bool = True
+    code: str
+    message: str
+    details: Optional[Dict[str, Any]] = None

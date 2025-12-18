@@ -156,8 +156,22 @@ async def test_unique_constraints(db_session):
     await db_session.rollback()
 
     # VideoItem Metadata Unique Item ID verification
+    # Create dependencies first
+    niche_c = ContentNiche(name="Constraint Niche")
+    db_session.add(niche_c)
+    await db_session.commit()
+
+    group_c = VideoGroup(
+        name="Constraint Group",
+        user_id="user_c",
+        group_type=GroupType.SINGLE,
+        niche_id=niche_c.id
+    )
+    db_session.add(group_c)
+    await db_session.commit()
+
     item = VideoItem(
-        group_id=(await db_session.execute(select(VideoGroup).limit(1))).scalar_one().id,
+        group_id=group_c.id,
         title="Test Item"
     )
     db_session.add(item)

@@ -1,4 +1,5 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, Request
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import List, Optional
@@ -10,8 +11,22 @@ from models import (
     ContentNiche, TTSVoice, JobStatus
 )
 import schemas
+from errors import AppError, ResourceNotFoundError
+from schemas import ErrorResponse
 
 app = FastAPI(title="VideoGen API", version="1.0.0")
+
+# Global Exception Handler
+@app.exception_handler(AppError)
+async def app_error_handler(request: Request, exc: AppError):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=ErrorResponse(
+            code=exc.code,
+            message=exc.message,
+            details=exc.details
+        ).model_dump()
+    )
 
 # Startup Event to Init DB (Optional if using Alembic, but good for local dev checks)
 @app.on_event("startup")
@@ -60,7 +75,7 @@ async def create_item(
     # 1. Verify Group Exists
     group = await db.get(VideoGroup, request.group_id)
     if not group:
-        raise HTTPException(status_code=404, detail="Group not found")
+        raise ResourceNotFoundError(resource="VideoGroup", identifier=request.group_id)
 
     # 2. Derive Niche from Group for the Item
     niche_id = group.niche_id
@@ -127,7 +142,7 @@ async def create_item(
 async def get_job_status(job_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     job = await db.get(VideoJob, job_id)
     if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
+        raise ResourceNotFoundError(resource="VideoJob", identifier=job_id)
     return job
 
 app.include_router(router)

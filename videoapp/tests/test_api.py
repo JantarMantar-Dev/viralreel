@@ -53,5 +53,15 @@ async def test_api_flow(db_session):
         response = await ac.get("/api/v1/niches")
         assert response.status_code == 200
         assert isinstance(response.json(), list)
+
+        # 5. Test Error Handling (Not Found)
+        import uuid
+        random_id = str(uuid.uuid4())
+        response = await ac.get(f"/api/v1/jobs/{random_id}")
+        assert response.status_code == 404
+        error_data = response.json()
+        assert error_data["error"] is True
+        assert error_data["code"] == "NOT_FOUND"
+        assert "VideoJob" in error_data["message"]
         
     app.dependency_overrides = {}
