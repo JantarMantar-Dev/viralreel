@@ -14,11 +14,16 @@ import schemas
 from errors import AppError, ResourceNotFoundError
 from schemas import ErrorResponse
 
+from logger import configure_logging
+
+logger = configure_logging("api")
+
 app = FastAPI(title="VideoGen API", version="1.0.0")
 
 # Global Exception Handler
 @app.exception_handler(AppError)
 async def app_error_handler(request: Request, exc: AppError):
+    logger.error(f"AppError: {exc.code} - {exc.message}")
     return JSONResponse(
         status_code=exc.status_code,
         content=ErrorResponse(

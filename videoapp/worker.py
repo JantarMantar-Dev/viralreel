@@ -8,12 +8,10 @@ from database import AsyncSessionLocal
 from models import VideoJob, JobStatus
 from pipeline import VideoPipeline
 
+from logger import configure_logging
+
 # Configure Logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger("worker")
+logger = configure_logging("worker")
 
 class Worker:
     def __init__(self):
