@@ -4,6 +4,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import List, Optional
 import uuid
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from database import get_db
 from models import (

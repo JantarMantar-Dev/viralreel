@@ -16,6 +16,10 @@ from components.mocks import (
     MockScriptGenerator, MockTTSProvider, MockImageProvider,
     MockVideoComposer, MockStorageProvider
 )
+from components.google import (
+    GoogleScriptGenerator, GoogleTTSProvider, GoogleImageProvider
+)
+from components.storage import S3StorageProvider
 from logger import configure_logging
 
 logger = configure_logging("pipeline")
@@ -24,23 +28,43 @@ class VideoPipeline:
     def __init__(
         self,
         db_session: AsyncSession,
-        script_gen: IScriptGenerator = MockScriptGenerator(),
-        tts: ITTSProvider = MockTTSProvider(),
-        image_gen: IImageProvider = MockImageProvider(),
-        composer: IVideoComposer = MockVideoComposer(),
-        storage: IStorageProvider = MockStorageProvider(),
+        script_gen: IScriptGenerator = None,
+        tts: ITTSProvider = None,
+        image_gen: IImageProvider = None,
+        composer: IVideoComposer = None,
+        storage: IStorageProvider = None,
         work_dir: str = "/tmp/viralreel_work"
     ):
         self.db = db_session
-        self.script_gen = script_gen
-        self.tts = tts
-        self.image_gen = image_gen
-        self.composer = composer
-        self.storage = storage
+        
+        # Load Providers based on Env or Defaults
+        self.script_gen = script_gen or self._get_provider("SCRIPT", GoogleScriptGenerator, MockScriptGenerator)
+        self.tts = tts or self._get_provider("TTS", GoogleTTSProvider, MockTTSProvider)
+        self.image_gen = image_gen or self._get_provider("IMAGE", GoogleImageProvider, MockImageProvider)
+        self.composer = composer or MockVideoComposer() # No Google Composer yet
+        
+        self.storage = storage or self._get_provider("STORAGE", S3StorageProvider, MockStorageProvider, enable_value="S3")
+        
         self.work_dir = work_dir
         
         logger.info(f"VideoPipeline initialized. Workdir: {self.work_dir}")
+        logger.info(f"Providers: Script={type(self.script_gen).__name__}, TTS={type(self.tts).__name__}, Image={type(self.image_gen).__name__}, Storage={type(self.storage).__name__}")
+        
         os.makedirs(self.work_dir, exist_ok=True)
+
+    def _get_provider(self, type_name: str, real_cls: Type, mock_cls: Type, enable_value: str = "GOOGLE"):
+        """
+        Selects provider based on VIDEO_PROVIDER_{TYPE} env var.
+        Values: enable_value (e.g 'GOOGLE' or 'S3'), 'MOCK' (Default)
+        """
+        provider_env = os.getenv(f"VIDEO_PROVIDER_{type_name}", "MOCK").upper()
+        if provider_env == enable_value:
+            try:
+                return real_cls()
+            except Exception as e:
+                logger.error(f"Failed to init {real_cls.__name__}, falling back to Mock. Error: {e}")
+                return mock_cls()
+        return mock_cls()
 
     async def _update_status(self, job_id: uuid.UUID, status: JobStatus, output_url: str = None, error: str = None):
         logger.debug(f"Updating job {job_id} to status: {status}")

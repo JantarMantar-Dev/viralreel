@@ -10,8 +10,27 @@ from sqlalchemy.orm import sessionmaker
 from database import Base, get_db
 from models import ContentNiche
 
+from unittest.mock import patch
+
 # Use in-memory SQLite for tests
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+
+@pytest.fixture(scope="session", autouse=True)
+def mock_env():
+    """Ensure tests run with MOCK providers by default, ignoring local .env"""
+    env_vars = {
+        "VIDEO_PROVIDER_SCRIPT": "MOCK",
+        "VIDEO_PROVIDER_TTS": "MOCK",
+        "VIDEO_PROVIDER_IMAGE": "MOCK",
+        "VIDEO_PROVIDER_STORAGE": "MOCK",
+        # Clear IDs to prevent accidental network calls if logic slips
+        "GOOGLE_API_KEY": "test_key",
+        "S3_ENDPOINT_URL": "https://test.s3", 
+        "S3_ACCESS_KEY_ID": "test",
+        "S3_SECRET_ACCESS_KEY": "test"
+    }
+    with patch.dict(os.environ, env_vars):
+        yield
 
 @pytest.fixture(scope="session")
 def event_loop():
