@@ -24,6 +24,8 @@ from logger import configure_logging
 
 logger = configure_logging("pipeline")
 
+from components.composer import MoviePyVideoComposer
+
 class VideoPipeline:
     def __init__(
         self,
@@ -41,14 +43,16 @@ class VideoPipeline:
         self.script_gen = script_gen or self._get_provider("SCRIPT", GoogleScriptGenerator, MockScriptGenerator)
         self.tts = tts or self._get_provider("TTS", GoogleTTSProvider, MockTTSProvider)
         self.image_gen = image_gen or self._get_provider("IMAGE", GoogleImageProvider, MockImageProvider)
-        self.composer = composer or MockVideoComposer() # No Google Composer yet
+        
+        self.composer = composer or self._get_provider("COMPOSER", MoviePyVideoComposer, MockVideoComposer, enable_value="MOVIEPY")
         
         self.storage = storage or self._get_provider("STORAGE", S3StorageProvider, MockStorageProvider, enable_value="S3")
         
         self.work_dir = work_dir
         
         logger.info(f"VideoPipeline initialized. Workdir: {self.work_dir}")
-        logger.info(f"Providers: Script={type(self.script_gen).__name__}, TTS={type(self.tts).__name__}, Image={type(self.image_gen).__name__}, Storage={type(self.storage).__name__}")
+        logger.info(f"Providers: Script={type(self.script_gen).__name__}, TTS={type(self.tts).__name__}, Image={type(self.image_gen).__name__}, Composer={type(self.composer).__name__}, Storage={type(self.storage).__name__}")
+
         
         os.makedirs(self.work_dir, exist_ok=True)
 

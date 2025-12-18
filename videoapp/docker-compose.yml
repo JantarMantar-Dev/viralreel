@@ -1,0 +1,31 @@
+services:
+  api:
+    build: .
+    container_name: viralreel_api
+    command: uv run uvicorn main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./videoapp:/app  # Hot reload for dev (optional, remove for prod)
+      - viralreel_data:/tmp/viralreel_work
+    env_file:
+      - .env
+    environment:
+      - VIDEO_PROVIDER_STORAGE=${VIDEO_PROVIDER_STORAGE:-S3}
+    restart: unless-stopped
+
+  worker:
+    build: .
+    container_name: viralreel_worker
+    command: uv run python worker.py
+    volumes:
+      - ./videoapp:/app
+      - viralreel_data:/tmp/viralreel_work
+    env_file:
+      - .env
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  viralreel_data:

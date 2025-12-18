@@ -23,20 +23,43 @@ class MockScriptGenerator(IScriptGenerator):
             ]
         }
 
+import wave
+from PIL import Image, ImageDraw
+
 class MockTTSProvider(ITTSProvider):
     async def generate_audio(self, text: str, voice_id: str, output_path: str) -> float:
         await asyncio.sleep(0.5)
-        # Create a dummy file
-        with open(output_path, "w") as f:
-            f.write(f"Audio content for: {text}")
-        return 5.0 # Mock duration in seconds
+        # Create a valid WAV file (silent)
+        # MoviePy can handle WAV even if we name it .mp3 usually, but safer to respect format if checked.
+        # But pipeline usually expects mp3 key. We'll write WAV headers.
+        try:
+            with wave.open(output_path, 'wb') as wav_file:
+                # Set parameters: nchannels, sampwidth, framerate, nframes, comptype, compname
+                wav_file.setnchannels(1) # Mono
+                wav_file.setsampwidth(2) # 2 bytes
+                wav_file.setframerate(44100)
+                nframes = 44100 * 3 # 3 seconds
+                wav_file.writeframes(b'\x00' * 2 * nframes)
+            return 3.0
+        except Exception as e:
+            # Fallback for some reason
+            with open(output_path, "wb") as f:
+                 f.write(b'\0' * 1024)
+            return 1.0
 
 class MockImageProvider(IImageProvider):
     async def generate_image(self, prompt: str, style_modifier: str, output_path: str) -> str:
         await asyncio.sleep(0.5)
-        # Create a dummy image file
-        with open(output_path, "w") as f:
-            f.write(f"Image content for: {prompt} with style {style_modifier}")
+        # Create a valid Image via PIL
+        try:
+            img = Image.new('RGB', (720, 1280), color = (73, 109, 137))
+            d = ImageDraw.Draw(img)
+            d.text((10,10), f"Mock Image\n{prompt[:30]}...", fill=(255,255,0))
+            img.save(output_path)
+        except ImportError:
+             # Fallback if PIL missing (shouldn't happen with moviepy installed)
+             with open(output_path, "wb") as f:
+                 f.write(b'\0' * 1024)
         return output_path
 
 class MockVideoComposer(IVideoComposer):
