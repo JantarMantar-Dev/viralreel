@@ -16,7 +16,7 @@ services:
   worker:
     build: .
     container_name: viralreel_worker
-    command: sh -c "uv run python seed_data.py && uv run python worker.py"
+    command: uv run python worker.py
     volumes:
       - ./work_dir:/app/work_dir
     env_file:

@@ -29,7 +29,7 @@ RUN pip install uv
 COPY pyproject.toml uv.lock ./
 
 # Install Dependencies
-# --system installs into system python, avoiding venv creation inside container
+ENV UV_PROJECT_ENVIRONMENT=/app/.venv
 RUN uv sync --frozen --no-dev
 
 # Copy Application Code

@@ -126,9 +126,9 @@ class MoviePyVideoComposer(IVideoComposer):
                     n = ceil(final_clip.duration / bg_music.duration)
                     # Audio concatenation
                     from moviepy import concatenate_audioclips
-                    bg_music = concatenate_audioclips([bg_music] * n).subclip(0, final_clip.duration)
+                    bg_music = concatenate_audioclips([bg_music] * n).subclipped(0, final_clip.duration)
                 else:
-                    bg_music = bg_music.subclip(0, final_clip.duration)
+                    bg_music = bg_music.subclipped(0, final_clip.duration)
                 
                 # Volume Ducking
                 # v2: with_volume_scaled(factor)

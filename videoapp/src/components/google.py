@@ -129,9 +129,14 @@ class GeminiTTSProvider(ITTSProvider):
         if not self.api_key:
             raise AppError("Missing GOOGLE_API_KEY", ErrorCode.INTERNAL_ERROR)
 
-        voice_name = voice_id if voice_id and len(voice_id) > 1 else self.default_voice
+        # Fallback if voice_id is generic or empty
+        voice_name = voice_id
+        if not voice_id or voice_id == "default_voice" or len(voice_id) < 2:
+            voice_name = self.default_voice
         
-        logger.info(f"Generating TTS with Gemini model {self.model_id} (Voice: {voice_name})")
+        # Ensure lowercase for comparison if needed, though Gemini voices seem specific
+        # The allowed list includes 'kore' (lowercase) in the error message.
+        voice_name = voice_name.lower()
         
         try:
             # Note: generate_content is synchronous in the current SDK version provided in the snippet
