@@ -9,3 +9,4 @@ run_output*.txt
 *_debug.json
 verify_*.png
 manual_test.db
+viralreel.db

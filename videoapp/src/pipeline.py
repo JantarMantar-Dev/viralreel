@@ -155,7 +155,9 @@ class VideoPipeline:
                 audio_paths.append(audio_path)
                 
                 # Image
-                img_prompt = section.get("image_prompt") or text # Fallback
+                base_prompt = section.get("image_prompt") or text # Fallback
+                img_prompt = f"{base_prompt}. Aspect Ratio: {meta.aspect_ratio}"
+                
                 img_style = "Cinematic" # Fetch from DB style if exists. 
                 img_path = os.path.join(self.work_dir, f"{job_id}_seg{idx}.png")
                 

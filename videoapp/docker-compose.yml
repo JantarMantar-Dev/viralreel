@@ -6,7 +6,6 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./videoapp:/app  # Hot reload for dev
       - ./work_dir:/app/work_dir
     env_file:
       - .env
@@ -19,7 +18,6 @@ services:
     container_name: viralreel_worker
     command: uv run python worker.py
     volumes:
-      - ./videoapp:/app
       - ./work_dir:/app/work_dir
     env_file:
       - .env

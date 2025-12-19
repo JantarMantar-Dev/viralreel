@@ -16,6 +16,9 @@ from ..errors import AppError, ErrorCode
 logger = logging.getLogger(__name__)
 
 class MoviePyVideoComposer(IVideoComposer):
+    def __init__(self):
+        logger.info("Initializing MoviePyVideoComposer")
+
     async def compose_video(
         self, 
         audio_segments: List[str], 
