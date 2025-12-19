@@ -10,6 +10,49 @@ services:
       POSTGRES_DB: webapp
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d webapp"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - webapp-network
+
+  server:
+    build: ./server
+    container_name: webapp-server
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - CLIENT_URL=http://localhost:5173
+      - DATABASE_URL=postgresql://user:password@postgres:5432/webapp
+      - BETTER_AUTH_SECRET=placeholder_secret_replace_me_in_prod_1234567890
+      - BETTER_AUTH_URL=http://localhost:3000
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - webapp-network
+
+  client:
+    build:
+      context: ./client
+      args:
+        - VITE_API_URL=http://localhost:3000
+    container_name: webapp-client
+    ports:
+      - "5173:80"
+    depends_on:
+      - server
+    networks:
+      - webapp-network
+
+networks:
+  webapp-network:
+    driver: bridge
 
 volumes:
   postgres_data:
