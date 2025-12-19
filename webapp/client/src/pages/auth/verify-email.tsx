@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { useSearchParams, useNavigate } from "react-router-dom"
 import { Loader2, CheckCircle2, XCircle } from "lucide-react"
+import posthog from "posthog-js"
 
 import { authClient } from "@/lib/auth-client"
 import {
@@ -41,23 +42,17 @@ export default function VerifyEmailPage() {
             // OR they point to the frontend with a token.
             // Assuming frontend verifying:
             try {
-                /* 
-                   There isn't a verifyEmail function in the base createAuthClient return type typically unless configured. 
-                   However, usually simpler flow is simpler: 
-                */
-                // Let's try to verify if logic exists, otherwise assume backend handled it or we just show a 'verifying' state then redirect.
-                // For now, let's implement a generic "processing" UI.
-                // If the standard is server-side verification redirecting to client, we might just show "Email Verified".
-
                 // Assuming we need to manually trigger it:
                 await authClient.verifyEmail({
                     query: {
                         token
                     }
                 })
+                posthog.capture("user_verified_email", { token })
                 setStatus("success")
-            } catch (error) {
+            } catch (error: any) {
                 console.error(error)
+                posthog.capture("email_verification_failed", { token, error: error.message })
                 setStatus("error")
             }
         }

@@ -2,6 +2,7 @@ import { useState } from "react"
 import { Link } from "react-router-dom"
 import { Loader2 } from "lucide-react"
 import { toast } from "sonner"
+import posthog from "posthog-js"
 
 import { authClient } from "@/lib/auth-client"
 import { Button } from "@/components/ui/button"
@@ -33,10 +34,12 @@ export default function ResetPasswordPage() {
                 },
                 {
                     onSuccess: () => {
+                        posthog.capture("password_reset_requested", { email })
                         setSubmitted(true)
                         toast.success("Password reset link sent to your email.")
                     },
                     onError: (ctx: any) => {
+                        posthog.capture("password_reset_request_failed", { email, error: ctx.error.message })
                         toast.error(ctx.error.message)
                     },
                 }

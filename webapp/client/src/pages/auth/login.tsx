@@ -2,6 +2,7 @@ import { useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { Loader2 } from "lucide-react"
 import { toast } from "sonner"
+import posthog from "posthog-js"
 
 import { authClient } from "@/lib/auth-client"
 import { Button } from "@/components/ui/button"
@@ -34,9 +35,11 @@ export default function LoginPage() {
                 },
                 {
                     onSuccess: () => {
+                        posthog.capture("user_logged_in", { email })
                         navigate("/dashboard")
                     },
                     onError: (ctx) => {
+                        posthog.capture("login_failed", { email, error: ctx.error.message })
                         toast.error(ctx.error.message)
                     },
                 }
