@@ -1,8 +1,13 @@
-const fastify = require('fastify')({ logger: true })
-const cors = require('@fastify/cors')
-require('dotenv').config()
-const { toNodeHandler } = require("better-auth/node");
-const { auth } = require('./lib/auth')
+import Fastify from 'fastify';
+import cors from '@fastify/cors';
+import dotenv from 'dotenv';
+import WelcomeEmail from "./emails/welcome.js";
+import VerifyEmail from "./emails/verify.js";
+import { auth } from './lib/auth.js';
+
+dotenv.config();
+
+const fastify = Fastify({ logger: true });
 
 // Parse trusted origins
 const trustedOrigins = (process.env.TRUSTED_ORIGINS || "")
@@ -12,8 +17,7 @@ const trustedOrigins = (process.env.TRUSTED_ORIGINS || "")
 
 // Register CORS
 fastify.register(cors, {
-    origin: [...trustedOrigins, process.env.CLIENT_URL, "http://localhost:3000", "http://127.0.0.1:3000"],
-    logger: true,
+    origin: [...trustedOrigins, process.env.CLIENT_URL || "", "http://localhost:3000", "http://127.0.0.1:3000"],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: [
         "Content-Type",
@@ -22,7 +26,7 @@ fastify.register(cors, {
     ],
     credentials: true,
     maxAge: 86400
-})
+});
 
 // Register authentication endpoint
 fastify.route({
@@ -55,7 +59,7 @@ fastify.route({
             reply.send(response.body ? await response.text() : null);
 
         } catch (error) {
-            fastify.log.error("Authentication Error:", error);
+            fastify.log.error(error as Error, "Authentication Error");
             reply.status(500).send({
                 error: "Internal authentication error",
                 code: "AUTH_FAILURE"
@@ -65,17 +69,17 @@ fastify.route({
 });
 
 // Health check route
-fastify.get('/api/health', async (request, reply) => {
-    return { status: 'ok', message: 'Fastify server is running' }
-})
+fastify.get('/api/health', async (_request, _reply) => {
+    return { status: 'ok', message: 'Fastify server is running' };
+});
 
 // Run the server
 const start = async () => {
     try {
-        await fastify.listen({ port: process.env.PORT || 3000, host: '0.0.0.0' })
+        await fastify.listen({ port: Number(process.env.PORT) || 3000, host: '0.0.0.0' });
     } catch (err) {
-        fastify.log.error(err)
-        process.exit(1)
+        fastify.log.error(err);
+        process.exit(1);
     }
-}
-start()
+};
+start();

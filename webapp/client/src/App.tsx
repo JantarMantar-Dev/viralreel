@@ -3,8 +3,13 @@ import { Button } from "@/components/ui/button"
 import { authClient } from "@/lib/auth-client"
 import { useState } from 'react'
 
+interface HealthData {
+  status: string;
+  message: string;
+}
+
 function App() {
-  const { isPending, error, data } = useQuery({
+  const { isPending, error, data } = useQuery<HealthData>({
     queryKey: ['health'],
     queryFn: () =>
       fetch(`${import.meta.env.VITE_API_URL}/api/health`).then((res) =>

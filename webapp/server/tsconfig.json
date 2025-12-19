@@ -1,7 +1,7 @@
 {
     "compilerOptions": {
         "target": "es2020",
-        "module": "commonjs",
+        "module": "NodeNext",
         "lib": [
             "es2020",
             "dom"
@@ -10,7 +10,7 @@
         "esModuleInterop": true,
         "skipLibCheck": true,
         "forceConsistentCasingInFileNames": true,
-        "moduleResolution": "node",
+        "moduleResolution": "NodeNext",
         "outDir": "./dist",
         "jsx": "react-jsx"
     },

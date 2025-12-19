@@ -1,7 +1,7 @@
 import nodemailer from "nodemailer";
 import { render } from "@react-email/render";
-import WelcomeEmail from "../emails/welcome";
-import VerifyEmail from "../emails/verify";
+import WelcomeEmail from "../emails/welcome.js";
+import VerifyEmail from "../emails/verify.js";
 import * as React from "react";
 
 // Create a transporter using SMTP credentials from environment variables

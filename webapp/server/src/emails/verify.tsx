@@ -1,6 +1,6 @@
 import { Button, Section, Text } from "@react-email/components";
 import * as React from "react";
-import { EmailLayout } from "./components/Layout";
+import { EmailLayout } from "./components/Layout.js";
 
 interface VerifyEmailProps {
     url: string;
