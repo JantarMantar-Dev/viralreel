@@ -7,25 +7,25 @@ from typing import Dict, Any, Type
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from errors import AppError, ErrorCode
-from models import VideoJob, VideoItem, VideoItemMetadata, JobStatus
-from interfaces import (
+from .errors import AppError, ErrorCode
+from .models import VideoJob, VideoItem, VideoItemMetadata, JobStatus
+from .interfaces import (
     IScriptGenerator, ITTSProvider, IImageProvider, 
     IVideoComposer, IStorageProvider
 )
-from components.mocks import (
+from .components.mocks import (
     MockScriptGenerator, MockTTSProvider, MockImageProvider,
     MockVideoComposer, MockStorageProvider
 )
-from components.google import (
+from .components.google import (
     GoogleScriptGenerator, GoogleTTSProvider, GoogleImageProvider
 )
-from components.storage import S3StorageProvider
-from logger import configure_logging
+from .components.storage import S3StorageProvider
+from .logger import configure_logging
 
 logger = configure_logging("pipeline")
 
-from components.composer import MoviePyVideoComposer
+from .components.composer import MoviePyVideoComposer
 
 class VideoPipeline:
     def __init__(

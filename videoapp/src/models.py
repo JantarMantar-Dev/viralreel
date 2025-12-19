@@ -4,7 +4,7 @@ from datetime import datetime
 from sqlalchemy import Column, String, Integer, Text, Boolean, DateTime, ForeignKey, Enum, JSON, Uuid
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from database import Base
+from .database import Base
 
 # Enums
 class GroupType(str, enum.Enum):

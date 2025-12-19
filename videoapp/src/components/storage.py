@@ -2,8 +2,8 @@ import os
 import logging
 import boto3
 from botocore.exceptions import ClientError
-from interfaces import IStorageProvider
-from errors import AppError, ErrorCode
+from ..interfaces import IStorageProvider
+from ..errors import AppError, ErrorCode
 
 logger = logging.getLogger(__name__)
 

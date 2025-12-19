@@ -1,7 +1,7 @@
 from typing import List, Dict, Optional
 import json
 import asyncio
-from interfaces import (
+from ..interfaces import (
     IScriptGenerator, ITTSProvider, IImageProvider, 
     IVideoComposer, IStorageProvider
 )

@@ -6,8 +6,8 @@ from google import genai
 from google.genai import types
 from google.cloud import texttospeech
 
-from interfaces import IScriptGenerator, ITTSProvider, IImageProvider
-from errors import AppError, ErrorCode
+from ..interfaces import IScriptGenerator, ITTSProvider, IImageProvider
+from ..errors import AppError, ErrorCode
 
 logger = logging.getLogger(__name__)
 

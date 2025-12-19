@@ -10,8 +10,8 @@ from moviepy import (
 # Note: MoviePy 2.x uses 'with_' prefix for modifiers returning new clips.
 # Checking installed version 2.1.2 usage.
 
-from interfaces import IVideoComposer
-from errors import AppError, ErrorCode
+from ..interfaces import IVideoComposer
+from ..errors import AppError, ErrorCode
 
 logger = logging.getLogger(__name__)
 

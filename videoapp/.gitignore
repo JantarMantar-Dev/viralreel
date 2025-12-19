@@ -5,3 +5,7 @@ __pycache__/
 venv/
 .venv/
 work_dir/
+run_output*.txt
+*_debug.json
+verify_*.png
+manual_test.db
