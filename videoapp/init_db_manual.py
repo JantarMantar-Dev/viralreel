@@ -2,8 +2,8 @@ import asyncio
 import sys
 import os
 
-# Add /app to path if needed, but we run from /app
-sys.path.append("/app")
+# Add current directory to path
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from src.database import engine
 # Import models to register them with Base

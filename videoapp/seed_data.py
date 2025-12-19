@@ -12,7 +12,7 @@ from src.models import SubtitleStyle, MusicTrack, ContentNiche
 import os
 import boto3
 
-async def download_if_missing(dest_path: str):
+async def download_if_missing(key: str, dest_path: str):
     if os.path.exists(dest_path):
         print(f"File already exists: {dest_path}")
         return
@@ -20,7 +20,6 @@ async def download_if_missing(dest_path: str):
     os.makedirs(os.path.dirname(dest_path), exist_ok=True)
     
     bucket = os.getenv("S3_BUCKET_NAME")
-    key = "bgmusic/bg-2.mp3"
     
     print(f"Downloading {bucket}/{key} to {dest_path} via S3...")
     try:
@@ -32,18 +31,19 @@ async def download_if_missing(dest_path: str):
         s3.download_file(bucket, key, dest_path)
         print("Download complete.")
     except Exception as e:
-        print(f"Failed to download music via S3: {e}")
+        print(f"Failed to download {key} via S3: {e}")
+        raise e
 
 async def seed():
     print("Seeding Subtitle Styles and Music Tracks...")
     
     app_env = os.getenv("APP_ENV", "prod")
-    bg_music_url = os.getenv("BG_MUSIC_WASHABI_URL", "https://s3.wasabisys.com/viralai-dev/assets/bg-2.mp3")
-    bg_music_dir = os.getenv("BG_MUSIC_DIR", "/app/bgmusic")
+    bg_music_dir = os.getenv("BG_MUSIC_DIR", "/app/work_dir/bgmusic")
     dev_music_path = os.path.join(bg_music_dir, "bg-2.mp3")
 
     if app_env == "dev":
-        await download_if_missing(dev_music_path)
+        # In dev, we ensure a generic background music is available locally
+        await download_if_missing("bgmusic/bg-2.mp3", dev_music_path)
 
     async with engine.begin() as conn:
         from sqlalchemy import select, insert, delete
@@ -93,18 +93,25 @@ async def seed():
 
         # Music Tracks
         raw_tracks = [
-            {"name": "Breathing Shadows", "mood": "Dark, mysterious", "url": "mock://breathing_shadows"},
-            {"name": "Quiet Before Storm", "mood": "Tense, building", "url": "mock://quiet_before_storm"},
-            {"name": "Brilliant Symphony", "mood": "Uplifting, inspiring", "url": "mock://brilliant_symphony"},
-            {"name": "Tension Suspense", "mood": "Suspenseful, tense", "url": "mock://tension_suspense"},
-            {"name": "Dark Thriller", "mood": "Thrilling, ominous", "url": "mock://dark_thriller"},
-            {"name": "Spooky Piano", "mood": "Eerie, haunting", "url": "mock://spooky_piano"}
+            {"name": "Breathing Shadows", "mood": "Dark, mysterious", "url": "breathing_shadows.mp3"},
+            {"name": "Quiet Before Storm", "mood": "Tense, building", "url": "quiet_before_storm.mp3"},
+            {"name": "Brilliant Symphony", "mood": "Uplifting, inspiring", "url": "brilliant_symphony.mp3"},
+            {"name": "Tension Suspense", "mood": "Suspenseful, tense", "url": "tension_suspense.mp3"},
+            {"name": "Dark Thriller", "mood": "Thrilling, ominous", "url": "dark_thriller.mp3"},
+            {"name": "Spooky Piano", "mood": "Eerie, haunting", "url": "spooky_piano.mp3"}
         ]
 
         tracks = []
         for t in raw_tracks:
+            filename = t["url"]
             if app_env == "dev":
+                # In dev, use the local fixed music
                 t["url"] = dev_music_path
+            else:
+                # In prod, use the S3 key
+                t["url"] = f"{bg_music_dir}/{filename}"
+                bgmusic_filename = f"bgmusic/{filename}"
+                await download_if_missing(bgmusic_filename, t["url"])
             tracks.append(t)
 
         for s in styles:
