@@ -5,6 +5,7 @@ from typing import Dict, Optional, List
 from google import genai
 from google.genai import types
 from google.cloud import texttospeech
+import wave
 
 from ..interfaces import IScriptGenerator, ITTSProvider, IImageProvider
 from ..errors import AppError, ErrorCode
@@ -111,6 +112,78 @@ class GoogleTTSProvider(ITTSProvider):
         except Exception as e:
             logger.error(f"Google TTS failed: {e}", exc_info=True)
             raise AppError(f"TTS Failed: {e}", ErrorCode.INTERNAL_ERROR)
+
+
+class GeminiTTSProvider(ITTSProvider):
+    def __init__(self, api_key: str = None):
+        self.api_key = api_key or os.getenv("GOOGLE_API_KEY")
+        if not self.api_key:
+            logger.warning("GOOGLE_API_KEY not set. GeminiTTSProvider will fail.")
+        else:
+            self.client = genai.Client(api_key=self.api_key)
+        
+        self.model_id = os.getenv("GOOGLE_TTS_MODEL", "gemini-2.5-flash-preview-tts")
+        self.default_voice = os.getenv("GOOGLE_TTS_VOICE", "Kore")
+
+    async def generate_audio(self, text: str, voice_id: str, output_path: str) -> float:
+        if not self.api_key:
+            raise AppError("Missing GOOGLE_API_KEY", ErrorCode.INTERNAL_ERROR)
+
+        voice_name = voice_id if voice_id and len(voice_id) > 1 else self.default_voice
+        
+        logger.info(f"Generating TTS with Gemini model {self.model_id} (Voice: {voice_name})")
+        
+        try:
+            # Note: generate_content is synchronous in the current SDK version provided in the snippet
+            response = self.client.models.generate_content(
+                model=self.model_id,
+                contents=text,
+                config=types.GenerateContentConfig(
+                    response_modalities=["AUDIO"],
+                    speech_config=types.SpeechConfig(
+                        voice_config=types.VoiceConfig(
+                            prebuilt_voice_config=types.PrebuiltVoiceConfig(
+                                voice_name=voice_name,
+                            )
+                        )
+                    ),
+                )
+            )
+
+            audio_data = None
+            if response.candidates and response.candidates[0].content.parts:
+                for part in response.candidates[0].content.parts:
+                    if part.inline_data:
+                        audio_data = part.inline_data.data
+                        break
+            
+            if not audio_data:
+                raise AppError("Gemini TTS returned no audio data", ErrorCode.INTERNAL_ERROR)
+
+            # The snippet used a helper to save wave, but we can just write bytes if it's already a valid format
+            # or use the wave module if we need to set headers. 
+            # Given the snippet used wave.open, the 'data' might be raw PCM.
+            # "rate=24000" was used in the snippet.
+            
+            def save_wave_file(filename, pcm, channels=1, rate=24000, sample_width=2):
+                with wave.open(filename, "wb") as wf:
+                    wf.setnchannels(channels)
+                    wf.setsampwidth(sample_width)
+                    wf.setframerate(rate)
+                    wf.writeframes(pcm)
+
+            # If output_path ends in .mp3 but we get PCM, we might need conversion.
+            # However, IScriptGenerator/ITTSProvider usually expects the caller to provide correct path.
+            # MoviePy can handle .wav.
+            
+            save_wave_file(output_path, audio_data)
+            
+            estimate = len(text.split()) / 2.5
+            return estimate
+
+        except Exception as e:
+            logger.error(f"Gemini TTS failed: {e}", exc_info=True)
+            raise AppError(f"Gemini TTS Failed: {e}", ErrorCode.INTERNAL_ERROR)
 
 
 class GoogleImageProvider(IImageProvider):

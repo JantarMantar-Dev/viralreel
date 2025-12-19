@@ -18,7 +18,7 @@ from .components.mocks import (
     MockVideoComposer, MockStorageProvider
 )
 from .components.google import (
-    GoogleScriptGenerator, GoogleTTSProvider, GoogleImageProvider
+    GoogleScriptGenerator, GoogleTTSProvider, GoogleImageProvider, GeminiTTSProvider
 )
 from .components.storage import S3StorageProvider
 from .logger import configure_logging
@@ -43,7 +43,18 @@ class VideoPipeline:
         
         # Load Providers based on Env or Defaults
         self.script_gen = script_gen or self._get_provider("SCRIPT", GoogleScriptGenerator, MockScriptGenerator)
-        self.tts = tts or self._get_provider("TTS", GoogleTTSProvider, MockTTSProvider)
+        
+        # TTS logic: Support GOOGLE or GEMINI
+        self.tts = tts
+        if not self.tts:
+            tts_env = os.getenv("VIDEO_PROVIDER_TTS", "MOCK").upper()
+            if tts_env == "GOOGLE":
+                self.tts = GoogleTTSProvider()
+            elif tts_env == "GEMINI":
+                self.tts = GeminiTTSProvider()
+            else:
+                self.tts = MockTTSProvider()
+
         self.image_gen = image_gen or self._get_provider("IMAGE", GoogleImageProvider, MockImageProvider)
         
         self.composer = composer or self._get_provider("COMPOSER", MoviePyVideoComposer, MockVideoComposer, enable_value="MOVIEPY")
