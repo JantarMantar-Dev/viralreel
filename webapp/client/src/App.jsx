@@ -42,6 +42,12 @@ function App() {
     alert('Signed out!')
   }
 
+  const handleGoogleSignIn = async () => {
+    await authClient.signIn.social({
+      provider: 'google',
+    })
+  }
+
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-4">
       <h1 className="text-4xl font-bold mb-8">Web App Scaffolding</h1>
@@ -98,6 +104,11 @@ function App() {
             <div className="flex gap-2">
               <Button onClick={handleSignIn}>Sign In</Button>
               <Button variant="outline" onClick={handleSignUp}>Sign Up</Button>
+            </div>
+            <div className="pt-2 border-t">
+              <Button variant="secondary" className="w-full" onClick={handleGoogleSignIn}>
+                Sign in with Google
+              </Button>
             </div>
           </div>
         )}
