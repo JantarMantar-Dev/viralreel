@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "nodemon src/index.js",
+    "dev": "tsx watch src/index.js",
     "studio": "drizzle-kit studio",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -14,16 +14,27 @@
   "type": "commonjs",
   "dependencies": {
     "@fastify/cors": "^11.2.0",
+    "@react-email/components": "^1.0.2",
+    "@react-email/render": "^2.0.0",
+    "@types/nodemailer": "^7.0.4",
     "better-auth": "^1.4.7",
     "dotenv": "^17.2.3",
     "drizzle-orm": "^0.41.0",
     "fastify": "^5.6.2",
     "node-fetch": "^3.3.2",
-    "pg": "^8.16.3"
+    "nodemailer": "^7.0.11",
+    "pg": "^8.16.3",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "resend": "^6.6.0",
+    "tsx": "^4.21.0"
   },
   "devDependencies": {
     "@types/pg": "^8.16.0",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
     "drizzle-kit": "^0.31.8",
-    "nodemon": "^3.1.11"
+    "nodemon": "^3.1.11",
+    "typescript": "^5.9.3"
   }
 }
