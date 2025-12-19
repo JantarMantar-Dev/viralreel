@@ -1,6 +1,7 @@
 import logging
 import datetime
 import os
+import json # Added missing import
 import uuid
 from typing import Dict, Any, Type
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -35,9 +36,10 @@ class VideoPipeline:
         image_gen: IImageProvider = None,
         composer: IVideoComposer = None,
         storage: IStorageProvider = None,
-        work_dir: str = "/tmp/viralreel_work"
+        work_dir: str = None
     ):
         self.db = db_session
+        self.work_dir = work_dir or os.getenv("VIDEO_WORK_DIR", "/tmp/viralreel_work")
         
         # Load Providers based on Env or Defaults
         self.script_gen = script_gen or self._get_provider("SCRIPT", GoogleScriptGenerator, MockScriptGenerator)
@@ -47,8 +49,6 @@ class VideoPipeline:
         self.composer = composer or self._get_provider("COMPOSER", MoviePyVideoComposer, MockVideoComposer, enable_value="MOVIEPY")
         
         self.storage = storage or self._get_provider("STORAGE", S3StorageProvider, MockStorageProvider, enable_value="S3")
-        
-        self.work_dir = work_dir
         
         logger.info(f"VideoPipeline initialized. Workdir: {self.work_dir}")
         logger.info(f"Providers: Script={type(self.script_gen).__name__}, TTS={type(self.tts).__name__}, Image={type(self.image_gen).__name__}, Composer={type(self.composer).__name__}, Storage={type(self.storage).__name__}")
@@ -118,6 +118,18 @@ class VideoPipeline:
                     duration_category=meta.duration_category,
                     niche_config={} # Retrieve niche config if needed
                 )
+                
+                # Debug: Save Response
+                if os.getenv("DEBUG_SAVE_RESPONSES", "False").lower() == "true":
+                    try:
+                        debug_path = os.path.join(self.work_dir, f"{job_id}_script_debug.json")
+                        logger.info(f"Attempting to save script (Type: {type(script)}) to {debug_path}")
+                        with open(debug_path, "w") as f:
+                            json.dump(script, f, indent=2)
+                        logger.info(f"Saved debug script to {debug_path}")
+                    except Exception as e:
+                        logger.error(f"Failed to save debug script: {e}", exc_info=True)
+
                 logger.info("Script generated successfully.")
                 # Save generated script back to DB
                 meta.script_payload = script

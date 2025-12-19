@@ -132,25 +132,32 @@ class GoogleImageProvider(IImageProvider):
             
             logger.info(f"Generating image with {model_id} for prompt: {prompt}")
             
-            response = self.client.models.generate_images(
-                model=model_id,
-                prompt=f"{prompt} . Style: {style_modifier}",
-                config=types.GenerateImagesConfig(
-                    number_of_images=1,
-                    include_rai_reason=True,
-                    output_mime_type="image/png"
+            # Check if using Gemini 3 image preview model which uses generate_content
+            if "gemini" in model_id.lower() and "image" in model_id.lower():
+                response = self.client.models.generate_content(
+                    model=model_id,
+                    contents=f"{prompt} . Style: {style_modifier}",
                 )
-            )
-            
-            if not response.generated_images:
-                 raise AppError("Imagen returned no images", ErrorCode.INTERNAL_ERROR)
-            
-            image_bytes = response.generated_images[0].image.image_bytes
-            
-            with open(output_path, "wb") as f:
-                f.write(image_bytes)
                 
-            return output_path
+                image_bytes = None
+                if response.parts:
+                    for part in response.parts:
+                        if part.inline_data:
+                            image_bytes = part.inline_data.data
+                            break
+                            
+                if not image_bytes:
+                     raise AppError("Gemini returned no inline image data", ErrorCode.INTERNAL_ERROR)
+                     
+                with open(output_path, "wb") as f:
+                    f.write(image_bytes)
+                return output_path
+
+            # If not a Gemini Image model, raise error as we explicitly don't want Imagen
+            raise AppError(
+                f"Unsupported Image Model: {model_id}. Only Gemini Image models (e.g. 'gemini-3-pro-image-preview') are supported.", 
+                ErrorCode.INTERNAL_ERROR
+            )
 
         except Exception as e:
             logger.error(f"Imagen Generation failed: {e}", exc_info=True)

@@ -6,8 +6,8 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./videoapp:/app  # Hot reload for dev (optional, remove for prod)
-      - viralreel_data:/tmp/viralreel_work
+      - ./videoapp:/app  # Hot reload for dev
+      - ./work_dir:/app/work_dir
     env_file:
       - .env
     environment:
@@ -20,12 +20,11 @@ services:
     command: uv run python worker.py
     volumes:
       - ./videoapp:/app
-      - viralreel_data:/tmp/viralreel_work
+      - ./work_dir:/app/work_dir
     env_file:
       - .env
     depends_on:
       - api
     restart: unless-stopped
 
-volumes:
-  viralreel_data:
+
