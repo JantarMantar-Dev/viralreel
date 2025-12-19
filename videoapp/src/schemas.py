@@ -98,6 +98,27 @@ class ItemResponse(BaseModel):
     class Config:
         from_attributes = True
 
+class SubtitleStyleResponse(BaseModel):
+    id: UUID4
+    name: str
+    font_name: Optional[str]
+    font_size: Optional[int]
+    font_color: Optional[str]
+    stroke_color: Optional[str]
+    background_color: Optional[str]
+    
+    class Config:
+        from_attributes = True
+
+class MusicTrackResponse(BaseModel):
+    id: UUID4
+    name: str
+    mood: Optional[str]
+    url: str
+    
+    class Config:
+        from_attributes = True
+
 class ErrorResponse(BaseModel):
     error: bool = True
     code: str

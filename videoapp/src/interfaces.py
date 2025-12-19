@@ -34,6 +34,7 @@ class IVideoComposer(ABC):
         self, 
         audio_segments: List[str], 
         image_paths: List[str], 
+        texts: List[str],
         subtitle_config: Dict, 
         background_music_path: Optional[str],
         output_path: str

@@ -24,17 +24,35 @@ async def main():
         group = resp.json()
         group_id = group["id"]
         print(f"Created Group: {group_id}")
+
+        # 1.5 Fetch Subtitle Styles to find one
+        print("Fetching Subtitle Styles...")
+        resp = await client.get(f"{API_URL}/subtitle-styles")
+        styles = resp.json()
+        selected_style = next((s for s in styles if s["name"] == "Neon Glow"), styles[0])
+        style_id = selected_style["id"]
+        print(f"Selected Style: {selected_style['name']} ({style_id})")
+
+        # 1.6 Fetch Music Tracks
+        print("Fetching Music Tracks...")
+        resp = await client.get(f"{API_URL}/music-tracks")
+        tracks = resp.json()
+        selected_track = next((t for t in tracks if t["name"] == "Brilliant Symphony"), tracks[0])
+        music_id = selected_track["id"]
+        print(f"Selected Music: {selected_track['name']} ({music_id})")
         
         # 2. Create Item (Trigger Job)
         item_payload = {
             "group_id": group_id,
-            "title": "Docker Test Video",
+            "title": "Docker Subtitle & Music Test",
             "auto_render": True,
             "metadata": {
                 "master_prompt": "A futuristic cyberpunk city with neon lights",
                 "platform": "TIKTOK",
                 "duration_category": "SHORT",
                 "aspect_ratio": "9:16",
+                "subtitle_style_id": style_id,
+                "background_music_id": music_id,
                 "script_payload": {
                     "sections": [
                         {

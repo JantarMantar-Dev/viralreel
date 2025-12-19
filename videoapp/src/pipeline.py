@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from .errors import AppError, ErrorCode
-from .models import VideoJob, VideoItem, VideoItemMetadata, JobStatus
+from .models import VideoJob, VideoItem, VideoItemMetadata, JobStatus, SubtitleStyle, MusicTrack
 from .interfaces import (
     IScriptGenerator, ITTSProvider, IImageProvider, 
     IVideoComposer, IStorageProvider
@@ -170,11 +170,38 @@ class VideoPipeline:
             # 4. Compose Video
             logger.info("Starting Video Composition...")
             final_video_path = os.path.join(self.work_dir, f"{job_id}_final.mp4")
+            
+            # Subtitle Config
+            subtitle_config = {}
+            if meta.subtitle_style_id:
+                style = await self.db.get(SubtitleStyle, meta.subtitle_style_id)
+                if style:
+                    subtitle_config = {
+                        "font": style.font_name,
+                        "fontsize": style.font_size,
+                        "color": style.font_color,
+                        "stroke_color": style.stroke_color,
+                        "bg_color": style.background_color,
+                        "words_per_line": meta.subtitle_words_per_line or style.default_words_per_line or 1
+                    }
+
+            # Music Track
+            music_path = None
+            if meta.background_music_id:
+                track = await self.db.get(MusicTrack, meta.background_music_id)
+                if track and not track.url.startswith("mock://"):
+                    music_path = track.url
+                    logger.info(f"Using background music: {track.name} ({music_path})")
+
+            # Collect texts
+            texts = [s["text"] for s in script["sections"]]
+
             await self.composer.compose_video(
                 audio_segments=audio_paths,
                 image_paths=image_paths,
-                subtitle_config={},
-                background_music_path=None, 
+                texts=texts,
+                subtitle_config=subtitle_config,
+                background_music_path=music_path, 
                 output_path=final_video_path
             )
             logger.info(f"Video Composed at: {final_video_path}")

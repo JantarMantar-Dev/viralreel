@@ -52,7 +52,8 @@ class MockImageProvider(IImageProvider):
         await asyncio.sleep(0.5)
         # Create a valid Image via PIL
         try:
-            img = Image.new('RGB', (720, 1280), color = (73, 109, 137))
+            # User requested black images for dev
+            img = Image.new('RGB', (720, 1280), color = (0, 0, 0))
             d = ImageDraw.Draw(img)
             d.text((10,10), f"Mock Image\n{prompt[:30]}...", fill=(255,255,0))
             img.save(output_path)
@@ -67,6 +68,7 @@ class MockVideoComposer(IVideoComposer):
         self, 
         audio_segments: List[str], 
         image_paths: List[str], 
+        texts: List[str],
         subtitle_config: Dict, 
         background_music_path: Optional[str],
         output_path: str

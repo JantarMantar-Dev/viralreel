@@ -7,6 +7,11 @@ FROM python:3.12-slim
 RUN apt-get update && apt-get install -y \
     ffmpeg \
     curl \
+    imagemagick \
+    ghostscript \
+    fonts-dejavu \
+    fonts-liberation \
+    && sed -i 's/policy domain="path" rights="none" pattern="@\*"/policy domain="path" rights="read|write" pattern="@*"/' /etc/ImageMagick-*/policy.xml \
     && rm -rf /var/lib/apt/lists/*
 
 # Set Working Directory

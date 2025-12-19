@@ -3,7 +3,7 @@ import logging
 from typing import List, Dict, Optional
 from moviepy import (
     AudioFileClip, ImageClip, concatenate_videoclips, 
-    CompositeAudioClip
+    CompositeAudioClip, TextClip, CompositeVideoClip
 )
 # For v2, effects are often methods or in specific modules.
 # We'll use the clip methods where available or manual imports if needed.
@@ -23,36 +23,87 @@ class MoviePyVideoComposer(IVideoComposer):
         self, 
         audio_segments: List[str], 
         image_paths: List[str], 
+        texts: List[str],
         subtitle_config: Dict, 
         background_music_path: Optional[str], 
         output_path: str
     ) -> str:
         
-        logger.info("Starting MoviePy Composition (v2)...")
+        logger.info("Starting MoviePy Composition (v2) with Subtitles...")
         
         if len(audio_segments) != len(image_paths):
             raise AppError("Mismatch between audio segments and images count", ErrorCode.INTERNAL_ERROR)
 
         clips = []
         
+        # Subtitle defaults
+        font = subtitle_config.get("font", "Arial-Bold")
+        fontsize = subtitle_config.get("fontsize", 70)
+        color = subtitle_config.get("color", "white")
+        stroke_color = subtitle_config.get("stroke_color")
+        bg_color = subtitle_config.get("bg_color")
+        words_per_line = subtitle_config.get("words_per_line", 1)
+
         try:
-            # 1. Create Clips (Image + Audio pairs)
-            for audio_path, img_path in zip(audio_segments, image_paths):
+            # 1. Create Clips (Image + Audio + Subtitles pairs)
+            for audio_path, img_path, text in zip(audio_segments, image_paths, texts):
                 # Load Audio
                 audio_clip = AudioFileClip(audio_path)
+                duration = audio_clip.duration
                 
                 # Create Image Clip
-                # v2: ImageClip(path)
-                # Modifiers: with_duration, with_fps
                 img_clip = (
                     ImageClip(img_path)
-                    .with_duration(audio_clip.duration)
+                    .with_duration(duration)
                     .with_fps(24)
                 )
                 
-                # Set Audio
-                video_clip = img_clip.with_audio(audio_clip)
+                # Create Subtitle Clips
+                subtitle_clips = []
+                if text and subtitle_config:
+                    words = text.split()
+                    # Group words by words_per_line
+                    chunks = [" ".join(words[i:i + words_per_line]) for i in range(0, len(words), words_per_line)]
+                    
+                    if chunks:
+                        chunk_duration = duration / len(chunks)
+                        for i, chunk in enumerate(chunks):
+                            # MoviePy v2 TextClip can be tricky with None size
+                            # We'll try to use a width-only size if possible, or cast the result.
+                            clean_bg = bg_color[:7] if bg_color and bg_color.startswith("#") and len(bg_color) > 7 else bg_color
+                            
+                            target_w = int(img_clip.w * 0.9)
+                            target_h = int(fontsize * 3)
+                            
+                            txt_clip = TextClip(
+                                text=str(chunk),
+                                font=str(font),
+                                font_size=int(fontsize),
+                                color=str(color),
+                                stroke_color=str(stroke_color) if stroke_color else None,
+                                stroke_width=int(2 if stroke_color else 0),
+                                bg_color=clean_bg,
+                                method='caption', 
+                                size=(target_w, target_h)
+                            )
+                            
+                            # v2: with_duration, with_start, with_position
+                            txt_clip = (
+                                txt_clip
+                                .with_duration(float(chunk_duration))
+                                .with_start(float(i * chunk_duration))
+                                .with_position(('center', 'center'))
+                            )
+                            subtitle_clips.append(txt_clip)
+
+                # Composite Image + Subtitles
+                if subtitle_clips:
+                    video_clip = CompositeVideoClip([img_clip] + subtitle_clips)
+                else:
+                    video_clip = img_clip
                 
+                # Set Audio
+                video_clip = video_clip.with_audio(audio_clip)
                 clips.append(video_clip)
 
             # 2. Concatenate

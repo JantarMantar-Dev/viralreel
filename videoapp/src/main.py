@@ -11,7 +11,7 @@ load_dotenv()
 from .database import get_db
 from .models import (
     VideoGroup, VideoItem, VideoItemMetadata, VideoJob,
-    ContentNiche, TTSVoice, JobStatus
+    ContentNiche, TTSVoice, JobStatus, SubtitleStyle, MusicTrack
 )
 from . import schemas
 from .errors import AppError, ResourceNotFoundError
@@ -56,6 +56,16 @@ async def list_niches(db: AsyncSession = Depends(get_db)):
 @router.get("/voices", response_model=List[schemas.VoiceResponse])
 async def list_voices(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(TTSVoice).where(TTSVoice.is_active == True))
+    return result.scalars().all()
+
+@router.get("/subtitle-styles", response_model=List[schemas.SubtitleStyleResponse])
+async def list_subtitle_styles(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(SubtitleStyle))
+    return result.scalars().all()
+
+@router.get("/music-tracks", response_model=List[schemas.MusicTrackResponse])
+async def list_music_tracks(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(MusicTrack).where(MusicTrack.is_active == True))
     return result.scalars().all()
 
 @router.post("/groups", response_model=schemas.GroupResponse, status_code=status.HTTP_201_CREATED)
