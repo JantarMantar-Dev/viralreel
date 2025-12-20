@@ -194,7 +194,7 @@ const Sidebar = React.forwardRef<
             <div
                 ref={ref}
                 className={cn(
-                    "group peer hidden md:flex h-svh flex-col border-r bg-sidebar text-sidebar-foreground transition-[width] ease-linear w-[--sidebar-width]",
+                    "group peer hidden md:flex h-svh flex-col border-r bg-gradient-to-b from-purple-50 to-white dark:from-purple-950/20 dark:to-background text-sidebar-foreground transition-[width] ease-linear w-[--sidebar-width] backdrop-blur-xl shadow-sm",
                     "group-data-[collapsible=icon]:w-[--sidebar-width-icon]",
                     className
                 )}
@@ -459,7 +459,7 @@ const SidebarMenuItem = React.forwardRef<
 SidebarMenuItem.displayName = "SidebarMenuItem"
 
 const sidebarMenuButtonVariants = cva(
-    "peer/menu-button flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm outline-none ring-sidebar-ring transition-[width,height,padding] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 group-has-[[data-sidebar=menu-action]]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground data-[active=true]:[&>svg]:stroke-purple-400 data-[state=open]:hover:bg-sidebar-accent data-[state=open]:hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:!size-8 group-data-[collapsible=icon]:!p-2 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0",
+    "peer/menu-button flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm outline-none ring-sidebar-ring transition-[width,height,padding] hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-purple-100 dark:active:bg-purple-900/30 active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 group-has-[[data-sidebar=menu-action]]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:bg-purple-100 dark:data-[active=true]:bg-purple-900/30 data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground data-[active=true]:[&>svg]:stroke-purple-500 data-[state=open]:hover:bg-sidebar-accent data-[state=open]:hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:!size-8 group-data-[collapsible=icon]:!p-2 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0",
     {
         variants: {
             variant: {
