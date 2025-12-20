@@ -1,7 +1,5 @@
 import { useNavigate } from "react-router-dom"
 import { LogOut } from "lucide-react"
-import posthog from "posthog-js"
-import { useEffect } from "react"
 
 import { authClient } from "@/lib/auth-client"
 import { Button } from "@/components/ui/button"
@@ -16,15 +14,10 @@ import {
 export default function SettingsPage() {
     const navigate = useNavigate()
 
-    useEffect(() => {
-        posthog.capture("settings_viewed")
-    }, [])
-
     const handleLogout = async () => {
         await authClient.signOut({
             fetchOptions: {
                 onSuccess: () => {
-                    posthog.capture("user_logged_out")
                     navigate("/auth/login")
                 },
             },

@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { motion } from "framer-motion"
 import { PlayCircle, ArrowRight } from "lucide-react"
 import { WaitlistModal } from "@/components/waitlist-modal"
+import posthog from 'posthog-js'
 
 export function Hero() {
     return (
@@ -58,12 +59,22 @@ export function Hero() {
                             className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto"
                         >
                             <WaitlistModal>
-                                <Button size="lg" variant="gradient" className="w-full sm:w-auto group">
+                                <Button
+                                    size="lg"
+                                    variant="gradient"
+                                    className="w-full sm:w-auto group"
+                                    onClick={() => posthog.capture('hero_cta_clicked', { button: 'start_creating_free' })}
+                                >
                                     Start Creating Free
                                     <ArrowRight className="ml-2 size-4 group-hover:translate-x-1 transition-transform" />
                                 </Button>
                             </WaitlistModal>
-                            <Button variant="outline" size="lg" className="w-full sm:w-auto border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-slate-900">
+                            <Button
+                                variant="outline"
+                                size="lg"
+                                className="w-full sm:w-auto border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+                                onClick={() => posthog.capture('hero_cta_clicked', { button: 'watch_demo' })}
+                            >
                                 <PlayCircle className="mr-2 size-4" />
                                 Watch Demo
                             </Button>

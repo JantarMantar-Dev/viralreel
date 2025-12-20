@@ -48,11 +48,9 @@ export default function VerifyEmailPage() {
                         token
                     }
                 })
-                posthog.capture("user_verified_email", { token })
                 setStatus("success")
             } catch (error: any) {
                 console.error(error)
-                posthog.capture("email_verification_failed", { token, error: error.message })
                 setStatus("error")
             }
         }

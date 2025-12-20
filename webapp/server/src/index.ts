@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import WelcomeEmail from "./emails/welcome.js";
 import VerifyEmail from "./emails/verify.js";
 import { auth } from './lib/auth.js';
+import { posthog } from './lib/posthog.js';
 
 dotenv.config();
 
@@ -60,6 +61,14 @@ fastify.route({
 
         } catch (error) {
             fastify.log.error(error as Error, "Authentication Error");
+            posthog.capture({
+                distinctId: 'server',
+                event: 'server_auth_error',
+                properties: {
+                    error: (error as Error).message,
+                    path: request.url
+                }
+            })
             reply.status(500).send({
                 error: "Internal authentication error",
                 code: "AUTH_FAILURE"

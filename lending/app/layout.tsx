@@ -21,6 +21,8 @@ export const metadata: Metadata = {
   },
 };
 
+import { PHProvider } from "../components/posthog-provider";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -28,11 +30,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-zinc-50 text-slate-900`}
-      >
-        {children}
-      </body>
+      <PHProvider>
+        <body
+          className={`${geistSans.variable} ${geistMono.variable} antialiased bg-zinc-50 text-slate-900`}
+        >
+          {children}
+        </body>
+      </PHProvider>
     </html>
   );
 }

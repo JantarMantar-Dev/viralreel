@@ -1,8 +1,11 @@
+"use client"
+
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Check } from "lucide-react"
 import { WaitlistModal } from "@/components/waitlist-modal"
+import posthog from 'posthog-js'
 
 export function Pricing() {
     return (
@@ -49,7 +52,12 @@ export function Pricing() {
                             ))}
                         </ul>
                         <WaitlistModal>
-                            <Button className="w-full bg-white border-2 border-slate-100 text-slate-900 hover:bg-slate-50 hover:border-purple-200">Start Monthly Plan</Button>
+                            <Button
+                                className="w-full bg-white border-2 border-slate-100 text-slate-900 hover:bg-slate-50 hover:border-purple-200"
+                                onClick={() => posthog.capture('pricing_cta_clicked', { plan: 'creator' })}
+                            >
+                                Start Monthly Plan
+                            </Button>
                         </WaitlistModal>
                     </Card>
 
@@ -90,7 +98,10 @@ export function Pricing() {
                             ))}
                         </ul>
                         <WaitlistModal>
-                            <Button className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:opacity-90 transition-opacity shadow-lg shadow-purple-200">
+                            <Button
+                                className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:opacity-90 transition-opacity shadow-lg shadow-purple-200"
+                                onClick={() => posthog.capture('pricing_cta_clicked', { plan: 'creator_plus' })}
+                            >
                                 Join Creator Plus
                             </Button>
                         </WaitlistModal>
@@ -121,7 +132,12 @@ export function Pricing() {
                             ))}
                         </ul>
                         <WaitlistModal>
-                            <Button className="w-full bg-white border-2 border-slate-100 text-slate-900 hover:bg-slate-50 hover:border-purple-200">Try the Starter Pack</Button>
+                            <Button
+                                className="w-full bg-white border-2 border-slate-100 text-slate-900 hover:bg-slate-50 hover:border-purple-200"
+                                onClick={() => posthog.capture('pricing_cta_clicked', { plan: 'starter_pack' })}
+                            >
+                                Try the Starter Pack
+                            </Button>
                         </WaitlistModal>
                     </Card>
                 </div>
