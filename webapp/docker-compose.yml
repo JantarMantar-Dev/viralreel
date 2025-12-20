@@ -54,6 +54,9 @@ services:
     volumes:
       - ./client:/app
       - /app/node_modules
+    environment:
+      - VITE_API_URL=http://localhost:3000
+      - VITE_LENDING_URL=${VITE_LENDING_URL:-http://localhost:3001}
     command: npm run dev -- --host
     depends_on:
       - server

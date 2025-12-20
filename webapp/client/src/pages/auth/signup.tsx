@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
-import { Loader2 } from "lucide-react"
+import { ArrowLeft, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import posthog from "posthog-js"
 
@@ -62,8 +62,20 @@ export default function SignupPage() {
     return (
         <Card>
             <CardHeader>
-                <CardTitle className="text-2xl">Sign Up</CardTitle>
-                <CardDescription>
+                <div className="flex items-center justify-center relative">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="absolute left-0"
+                        asChild
+                    >
+                        <a href={import.meta.env.VITE_LENDING_URL || "http://localhost:3001"}>
+                            <ArrowLeft className="h-4 w-4" />
+                        </a>
+                    </Button>
+                    <CardTitle className="text-2xl text-center">Sign Up</CardTitle>
+                </div>
+                <CardDescription className="text-center">
                     Enter your information to create an account
                 </CardDescription>
             </CardHeader>
