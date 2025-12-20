@@ -4,6 +4,8 @@ import { db } from "../db/index.js";
 import * as schema from "../db/schema.js";
 
 console.log("BETTER_AUTH_URL:", process.env.BETTER_AUTH_URL);
+console.log("GOOGLE_CLIENT_ID:", process.env.GOOGLE_CLIENT_ID);
+console.log("GOOGLE_CLIENT_SECRET:", process.env.GOOGLE_CLIENT_SECRET);
 
 export const auth = betterAuth({
     database: drizzleAdapter(db, {

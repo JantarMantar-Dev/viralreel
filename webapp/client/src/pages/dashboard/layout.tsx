@@ -1,5 +1,5 @@
 import { useEffect } from "react"
-import { Outlet, useNavigate } from "react-router-dom"
+import { Outlet, useNavigate, useLocation } from "react-router-dom"
 import { LayoutDashboard, LogOut, Settings, User } from "lucide-react"
 
 import { authClient } from "@/lib/auth-client"
@@ -27,10 +27,17 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Separator } from "@/components/ui/separator"
 import { Toaster } from "@/components/ui/sonner"
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 export default function DashboardLayout() {
     const { data: session, isPending, error } = authClient.useSession()
     const navigate = useNavigate()
+    const location = useLocation()
 
     useEffect(() => {
         if (!isPending && !session) {
@@ -63,19 +70,18 @@ export default function DashboardLayout() {
             <Sidebar collapsible="icon">
                 <SidebarHeader>
                     <div className="flex items-center gap-2 px-2 py-1">
-                        <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                            <LayoutDashboard className="size-4" />
+                        <div className="flex aspect-square size-6 items-center justify-center rounded-lg bg-gradient-to-br from-purple-600 to-blue-600 p-1">
+                            <img src="/logo.svg" alt="Viral Reel Logo" className="w-full h-full object-contain" />
                         </div>
                         <div className="grid flex-1 text-left text-sm leading-tight">
                             <span className="truncate font-semibold">ViralReel</span>
-                            <span className="truncate text-xs">Dashboard</span>
                         </div>
                     </div>
                 </SidebarHeader>
                 <SidebarContent>
                     <SidebarMenu>
                         <SidebarMenuItem>
-                            <SidebarMenuButton asChild tooltip="Dashboard">
+                            <SidebarMenuButton asChild tooltip="Dashboard" isActive={location.pathname === "/dashboard"}>
                                 <a href="/dashboard">
                                     <LayoutDashboard />
                                     <span>Dashboard</span>
@@ -83,7 +89,7 @@ export default function DashboardLayout() {
                             </SidebarMenuButton>
                         </SidebarMenuItem>
                         <SidebarMenuItem>
-                            <SidebarMenuButton asChild tooltip="Settings">
+                            <SidebarMenuButton asChild tooltip="Settings" isActive={location.pathname === "/dashboard/settings"}>
                                 <a href="/dashboard/settings">
                                     <Settings />
                                     <span>Settings</span>
@@ -107,9 +113,20 @@ export default function DashboardLayout() {
                                                 {session.user.name?.charAt(0) || "U"}
                                             </AvatarFallback>
                                         </Avatar>
-                                        <div className="grid flex-1 text-left text-sm leading-tight">
+                                        <div className="grid flex-1 text-left text-sm leading-tight max-w-[150px]">
                                             <span className="truncate font-semibold">{session.user.name}</span>
-                                            <span className="truncate text-xs">{session.user.email}</span>
+                                            <TooltipProvider>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <span className="truncate text-xs cursor-default">
+                                                            {session.user.email}
+                                                        </span>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent side="right">
+                                                        {session.user.email}
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            </TooltipProvider>
                                         </div>
                                         <User className="ml-auto size-4" />
                                     </SidebarMenuButton>
