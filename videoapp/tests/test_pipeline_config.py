@@ -1,12 +1,12 @@
 import pytest
 import os
 from unittest.mock import patch, MagicMock
-from constants import VIDEO_PROVIDER_SCRIPT, VIDEO_PROVIDER_TTS, VIDEO_PROVIDER_IMAGE
-from pipeline import VideoPipeline
-from components.mocks import MockScriptGenerator, MockTTSProvider
-from components.google import GoogleScriptGenerator, GoogleTTSProvider
-from components.storage import S3StorageProvider
-from components.composer import MoviePyVideoComposer
+from src.constants import VIDEO_PROVIDER_SCRIPT, VIDEO_PROVIDER_TTS, VIDEO_PROVIDER_IMAGE
+from src.pipeline import VideoPipeline
+from src.components.mocks import MockScriptGenerator, MockTTSProvider
+from src.components.google import GoogleScriptGenerator, GoogleTTSProvider
+from src.components.storage import S3StorageProvider
+from src.components.composer import MoviePyVideoComposer
 
 @pytest.mark.asyncio
 async def test_pipeline_default_providers(db_session):
@@ -15,11 +15,11 @@ async def test_pipeline_default_providers(db_session):
     assert isinstance(pipeline.script_gen, MockScriptGenerator)
     assert isinstance(pipeline.tts, MockTTSProvider)
 
-@patch("pipeline.GoogleScriptGenerator")
-@patch("pipeline.GoogleTTSProvider")
-@patch("pipeline.GoogleImageProvider")
-@patch("pipeline.S3StorageProvider")
-@patch("pipeline.MoviePyVideoComposer")
+@patch("src.pipeline.GoogleScriptGenerator")
+@patch("src.pipeline.GoogleTTSProvider")
+@patch("src.pipeline.GoogleImageProvider")
+@patch("src.pipeline.S3StorageProvider")
+@patch("src.pipeline.MoviePyVideoComposer")
 @pytest.mark.asyncio
 async def test_pipeline_google_providers(mock_composer, mock_storage, mock_img, mock_tts, mock_script, db_session):
     # Setup Mocks to avoid real init

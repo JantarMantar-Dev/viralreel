@@ -1,6 +1,6 @@
 import pytest
-from worker import Worker
-from models import VideoJob, JobStatus
+from src.worker import Worker
+from src.models import VideoJob, JobStatus
 from sqlalchemy import select
 
 @pytest.mark.asyncio
