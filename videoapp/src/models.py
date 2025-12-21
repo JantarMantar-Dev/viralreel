@@ -1,12 +1,11 @@
 import uuid
 import enum
 from datetime import datetime
-from sqlalchemy import Column, String, Integer, Text, Boolean, DateTime, ForeignKey, Enum, JSON, Uuid
-from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func
-from .database import Base
+from typing import List, Optional, Any, Dict
+from sqlmodel import SQLModel, Field, Relationship, JSON, Column
+from sqlalchemy import Text, func
 
-# Enums
+# Keep Enums as they are
 class GroupType(str, enum.Enum):
     SINGLE = "SINGLE"
     SERIES = "SERIES"
@@ -25,172 +24,223 @@ class JobStatus(str, enum.Enum):
 
 # --- Content Configuration Models ---
 
-class ContentNiche(Base):
+class ContentNiche(SQLModel, table=True):
     __tablename__ = "content_niches"
     
-    id = Column(Uuid, primary_key=True, default=uuid.uuid4)
-    name = Column(String(100), unique=True, nullable=False)
-    description = Column(Text)
-    icon_url = Column(String(255))
+    id: Optional[uuid.UUID] = Field(default_factory=uuid.uuid4, primary_key=True)
+    name: str = Field(unique=True, max_length=100, nullable=False)
+    description: Optional[str] = Field(default=None, sa_type=Text)
+    icon_url: Optional[str] = Field(default=None, max_length=255)
     
-    script_prompt = Column(Text)
-    video_prompt = Column(Text)
+    script_prompt: Optional[str] = Field(default=None, sa_type=Text)
+    video_prompt: Optional[str] = Field(default=None, sa_type=Text)
     
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    created_at: Optional[datetime] = Field(
+        default=None, 
+        sa_column_kwargs={"server_default": func.now()}
+    )
+    updated_at: Optional[datetime] = Field(
+        default=None, 
+        sa_column_kwargs={"server_default": func.now(), "onupdate": func.now()}
+    )
 
-class ImageStyle(Base):
+class ImageStyle(SQLModel, table=True):
     __tablename__ = "image_styles"
     
-    id = Column(Uuid, primary_key=True, default=uuid.uuid4)
-    name = Column(String(50), unique=True, nullable=False)
-    description = Column(Text)
-    prompt_modifier = Column(Text)
-    is_active = Column(Boolean, default=True)
+    id: Optional[uuid.UUID] = Field(default_factory=uuid.uuid4, primary_key=True)
+    name: str = Field(unique=True, max_length=50, nullable=False)
+    description: Optional[str] = Field(default=None, sa_type=Text)
+    prompt_modifier: Optional[str] = Field(default=None, sa_type=Text)
+    is_active: bool = Field(default=True)
     
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at: Optional[datetime] = Field(
+        default=None, 
+        sa_column_kwargs={"server_default": func.now()}
+    )
 
-class SubtitleStyle(Base):
+class SubtitleStyle(SQLModel, table=True):
     __tablename__ = "subtitle_styles"
     
-    id = Column(Uuid, primary_key=True, default=uuid.uuid4)
-    name = Column(String(50), unique=True, nullable=False)
+    id: Optional[uuid.UUID] = Field(default_factory=uuid.uuid4, primary_key=True)
+    name: str = Field(unique=True, max_length=50, nullable=False)
     
-    font_name = Column(String(50))
-    font_size = Column(Integer)
-    font_color = Column(String(20), default="#FFFFFF")
-    stroke_color = Column(String(20), default="#000000")
-    background_color = Column(String(20))
+    font_name: Optional[str] = Field(default=None, max_length=50)
+    font_size: Optional[int] = Field(default=None)
+    font_color: Optional[str] = Field(default="#FFFFFF", max_length=20)
+    stroke_color: Optional[str] = Field(default="#000000", max_length=20)
+    background_color: Optional[str] = Field(default=None, max_length=20)
     
-    default_words_per_line = Column(Integer, default=1)
+    default_words_per_line: Optional[int] = Field(default=1)
     
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at: Optional[datetime] = Field(
+        default=None, 
+        sa_column_kwargs={"server_default": func.now()}
+    )
 
-class MusicTrack(Base):
+class MusicTrack(SQLModel, table=True):
     __tablename__ = "music_tracks"
     
-    id = Column(Uuid, primary_key=True, default=uuid.uuid4)
-    name = Column(String(100), nullable=False)
-    url = Column(String(512), nullable=False)
-    mood = Column(String(50))
-    duration_seconds = Column(Integer)
+    id: Optional[uuid.UUID] = Field(default_factory=uuid.uuid4, primary_key=True)
+    name: str = Field(max_length=100, nullable=False)
+    url: str = Field(max_length=512, nullable=False)
+    mood: Optional[str] = Field(default=None, max_length=50)
+    duration_seconds: Optional[int] = Field(default=None)
     
-    is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    is_active: bool = Field(default=True)
+    created_at: Optional[datetime] = Field(
+        default=None, 
+        sa_column_kwargs={"server_default": func.now()}
+    )
 
-class TTSVoice(Base):
+class TTSVoice(SQLModel, table=True):
     __tablename__ = "tts_voices"
     
-    id = Column(Uuid, primary_key=True, default=uuid.uuid4)
-    provider = Column(String(50), nullable=False) # 'ELEVENLABS', 'OPENAI'
-    provider_voice_id = Column(String(100), nullable=False)
+    id: Optional[uuid.UUID] = Field(default_factory=uuid.uuid4, primary_key=True)
+    provider: str = Field(max_length=50, nullable=False) # 'ELEVENLABS', 'OPENAI'
+    provider_voice_id: str = Field(max_length=100, nullable=False)
     
-    name = Column(String(100), nullable=False)
-    gender = Column(String(20))
-    language_code = Column(String(10), default="en")
-    preview_url = Column(String(512))
+    name: str = Field(max_length=100, nullable=False)
+    gender: Optional[str] = Field(default=None, max_length=20)
+    language_code: Optional[str] = Field(default="en", max_length=10)
+    preview_url: Optional[str] = Field(default=None, max_length=512)
     
-    is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    is_active: bool = Field(default=True)
+    created_at: Optional[datetime] = Field(
+        default=None, 
+        sa_column_kwargs={"server_default": func.now()}
+    )
 
 # --- Core Video Models ---
 
-class VideoGroup(Base):
+class VideoGroup(SQLModel, table=True):
     __tablename__ = "video_groups"
     
-    id = Column(Uuid, primary_key=True, default=uuid.uuid4)
-    user_id = Column(String(100), nullable=False, index=True)
-    niche_id = Column(Uuid, ForeignKey("content_niches.id"), nullable=True)
+    id: Optional[uuid.UUID] = Field(default_factory=uuid.uuid4, primary_key=True)
+    user_id: str = Field(max_length=100, nullable=False, index=True)
+    niche_id: Optional[uuid.UUID] = Field(default=None, foreign_key="content_niches.id")
     
-    name = Column(String(255), nullable=False)
-    description = Column(Text)
-    group_type = Column(String(20), nullable=False, index=True) 
+    name: str = Field(max_length=255, nullable=False)
+    description: Optional[str] = Field(default=None, sa_type=Text)
+    group_type: str = Field(max_length=20, nullable=False, index=True) 
     
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    created_at: Optional[datetime] = Field(
+        default=None, 
+        sa_column_kwargs={"server_default": func.now()}
+    )
+    updated_at: Optional[datetime] = Field(
+        default=None, 
+        sa_column_kwargs={"server_default": func.now(), "onupdate": func.now()}
+    )
     
     # Relationships
-    items = relationship("VideoItem", back_populates="group", cascade="all, delete-orphan")
-    niche = relationship("ContentNiche")
+    items: List["VideoItem"] = Relationship(
+        back_populates="group", 
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+    niche: Optional[ContentNiche] = Relationship()
 
-class VideoItem(Base):
+class VideoItem(SQLModel, table=True):
     __tablename__ = "video_items"
     
-    id = Column(Uuid, primary_key=True, default=uuid.uuid4)
-    group_id = Column(Uuid, ForeignKey("video_groups.id"), nullable=False)
-    niche_id = Column(Uuid, ForeignKey("content_niches.id"), nullable=True)
+    id: Optional[uuid.UUID] = Field(default_factory=uuid.uuid4, primary_key=True)
+    group_id: uuid.UUID = Field(foreign_key="video_groups.id", nullable=False)
+    niche_id: Optional[uuid.UUID] = Field(default=None, foreign_key="content_niches.id")
     
-    episode_number = Column(Integer, default=1)
-    title = Column(String(255), nullable=False)
+    episode_number: Optional[int] = Field(default=1)
+    title: str = Field(max_length=255, nullable=False)
     
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    created_at: Optional[datetime] = Field(
+        default=None, 
+        sa_column_kwargs={"server_default": func.now()}
+    )
+    updated_at: Optional[datetime] = Field(
+        default=None, 
+        sa_column_kwargs={"server_default": func.now(), "onupdate": func.now()}
+    )
     
     # Relationships
-    group = relationship("VideoGroup", back_populates="items")
-    metadata_rel = relationship("VideoItemMetadata", back_populates="item", uselist=False, cascade="all, delete-orphan")
-    jobs = relationship("VideoJob", back_populates="item", cascade="all, delete-orphan")
+    group: VideoGroup = Relationship(back_populates="items")
+    metadata_rel: Optional["VideoItemMetadata"] = Relationship(
+        back_populates="item", 
+        sa_relationship_kwargs={"uselist": False, "cascade": "all, delete-orphan"}
+    )
+    jobs: List["VideoJob"] = Relationship(
+        back_populates="item", 
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
 
-class VideoItemMetadata(Base):
+class VideoItemMetadata(SQLModel, table=True):
     __tablename__ = "video_item_metadata"
     
-    id = Column(Uuid, primary_key=True, default=uuid.uuid4)
-    item_id = Column(Uuid, ForeignKey("video_items.id"), nullable=False, unique=True)
+    id: Optional[uuid.UUID] = Field(default_factory=uuid.uuid4, primary_key=True)
+    item_id: uuid.UUID = Field(foreign_key="video_items.id", nullable=False, unique=True)
     
     # Visual & Audio Style Links
-    image_style_id = Column(Uuid, ForeignKey("image_styles.id"), nullable=True)
-    subtitle_style_id = Column(Uuid, ForeignKey("subtitle_styles.id"), nullable=True)
-    background_music_id = Column(Uuid, ForeignKey("music_tracks.id"), nullable=True)
-    voice_id = Column(Uuid, ForeignKey("tts_voices.id"), nullable=True)
+    image_style_id: Optional[uuid.UUID] = Field(default=None, foreign_key="image_styles.id")
+    subtitle_style_id: Optional[uuid.UUID] = Field(default=None, foreign_key="subtitle_styles.id")
+    background_music_id: Optional[uuid.UUID] = Field(default=None, foreign_key="music_tracks.id")
+    voice_id: Optional[uuid.UUID] = Field(default=None, foreign_key="tts_voices.id")
     
     # Content Definition
-    master_prompt = Column(Text)
-    script_payload = Column(JSON) 
+    master_prompt: Optional[str] = Field(default=None, sa_type=Text)
+    script_payload: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON)) 
     
     # Tech Specs
-    platform = Column(String(50))
-    aspect_ratio = Column(String(20), default="9:16")
-    duration_category = Column(String(20))
+    platform: Optional[str] = Field(default=None, max_length=50)
+    aspect_ratio: Optional[str] = Field(default="9:16", max_length=20)
+    duration_category: Optional[str] = Field(default=None, max_length=20)
     
     # Pacing
-    subtitle_words_per_line = Column(Integer)
+    subtitle_words_per_line: Optional[int] = Field(default=None)
     
     # Output
-    output_url = Column(String(512))
+    output_url: Optional[str] = Field(default=None, max_length=512)
     
     # Config
-    extra_parameters = Column(JSON)
+    extra_parameters: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
     
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    created_at: Optional[datetime] = Field(
+        default=None, 
+        sa_column_kwargs={"server_default": func.now()}
+    )
+    updated_at: Optional[datetime] = Field(
+        default=None, 
+        sa_column_kwargs={"server_default": func.now(), "onupdate": func.now()}
+    )
     
     # Relationships
-    item = relationship("VideoItem", back_populates="metadata_rel")
-    image_style = relationship("ImageStyle")
-    subtitle_style = relationship("SubtitleStyle")
-    background_music = relationship("MusicTrack")
-    voice = relationship("TTSVoice")
+    item: VideoItem = Relationship(back_populates="metadata_rel")
+    image_style: Optional[ImageStyle] = Relationship()
+    subtitle_style: Optional[SubtitleStyle] = Relationship()
+    background_music: Optional[MusicTrack] = Relationship()
+    voice: Optional[TTSVoice] = Relationship()
 
 
-class VideoJob(Base):
+class VideoJob(SQLModel, table=True):
     __tablename__ = "video_jobs"
     
-    id = Column(Uuid, primary_key=True, default=uuid.uuid4)
-    item_id = Column(Uuid, ForeignKey("video_items.id"), nullable=True)
-    user_id = Column(String(100), index=True)
+    id: Optional[uuid.UUID] = Field(default_factory=uuid.uuid4, primary_key=True)
+    item_id: Optional[uuid.UUID] = Field(default=None, foreign_key="video_items.id")
+    user_id: Optional[str] = Field(default=None, max_length=100, index=True)
     
-    status = Column(String(20), nullable=False, index=True) # QUEUED, PROCESSING...
-    priority = Column(Integer, default=0)
+    status: str = Field(max_length=20, nullable=False, index=True) # QUEUED, PROCESSING...
+    priority: Optional[int] = Field(default=0)
     
-    worker_id = Column(String(50))
-    started_at = Column(DateTime(timezone=True))
-    completed_at = Column(DateTime(timezone=True))
+    worker_id: Optional[str] = Field(default=None, max_length=50)
+    started_at: Optional[datetime] = Field(default=None)
+    completed_at: Optional[datetime] = Field(default=None)
     
-    output_url = Column(String(255))
-    error_message = Column(Text)
+    output_url: Optional[str] = Field(default=None, max_length=255)
+    error_message: Optional[str] = Field(default=None, sa_type=Text)
     
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    created_at: Optional[datetime] = Field(
+        default=None, 
+        sa_column_kwargs={"server_default": func.now()}
+    )
+    updated_at: Optional[datetime] = Field(
+        default=None, 
+        sa_column_kwargs={"server_default": func.now(), "onupdate": func.now()}
+    )
     
     # Relationships
-    item = relationship("VideoItem", back_populates="jobs")
+    item: Optional[VideoItem] = Relationship(back_populates="jobs")

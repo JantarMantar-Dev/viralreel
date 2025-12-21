@@ -39,7 +39,7 @@ async def app_error_handler(request: Request, exc: AppError):
 # Startup Event to Init DB (Optional if using Alembic, but good for local dev checks)
 @app.on_event("startup")
 async def on_startup():
-    # await init_db() # We use Alembic now
+    # Database initialization is handled externally
     pass
 
 # --- API V1 Router ---
