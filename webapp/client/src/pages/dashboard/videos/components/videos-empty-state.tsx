@@ -39,7 +39,7 @@ export function VideosEmptyState({ onCreateNew }: VideosEmptyStateProps) {
                 className="bg-purple-600 hover:bg-purple-700 text-white h-14 px-8 rounded-2xl shadow-lg shadow-purple-200 transition-all transform hover:scale-[1.02] flex items-center gap-2 text-lg font-semibold mb-16"
             >
                 <Plus className="w-6 h-6" />
-                Create New Project
+                Create New
             </Button>
 
             <div className="flex flex-col items-center w-full">

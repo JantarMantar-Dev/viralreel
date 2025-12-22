@@ -1,5 +1,6 @@
 import { SquarePlay, Layers, ArrowRight, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Link } from "react-router-dom"
 
 export function OnboardingEmptyState() {
     return (
@@ -26,9 +27,12 @@ export function OnboardingEmptyState() {
                     </p>
 
                     <Button
+                        asChild
                         className="w-full mt-auto bg-slate-900 hover:bg-slate-800 text-white h-12 rounded-xl group-hover:scale-[1.02] transition-transform"
                     >
-                        Start Creating <ArrowRight className="ml-2 h-4 w-4" />
+                        <Link to="/dashboard/create">
+                            Start Creating <ArrowRight className="ml-2 h-4 w-4" />
+                        </Link>
                     </Button>
                 </div>
 
@@ -50,10 +54,13 @@ export function OnboardingEmptyState() {
                     </p>
 
                     <Button
+                        asChild
                         variant="outline"
                         className="w-full mt-auto border-slate-200 hover:bg-slate-50 hover:text-slate-900 h-12 rounded-xl group-hover:scale-[1.02] transition-transform"
                     >
-                        Create Series <Plus className="ml-2 h-4 w-4" />
+                        <Link to="/dashboard/create">
+                            Create Series <Plus className="ml-2 h-4 w-4" />
+                        </Link>
                     </Button>
                 </div>
             </div>

@@ -5,6 +5,8 @@ import WelcomeEmail from "./emails/welcome.js";
 import VerifyEmail from "./emails/verify.js";
 import { auth } from './lib/auth.js';
 import { posthog } from './lib/posthog.js';
+import authMiddleware from './middleware/auth.js';
+import nicheRoutes from './api/niches.js';
 
 dotenv.config();
 
@@ -81,6 +83,12 @@ fastify.route({
 fastify.get('/api/health', async (_request, _reply) => {
     return { status: 'ok', message: 'Fastify server is running' };
 });
+
+// Register authentication middleware
+fastify.register(authMiddleware);
+
+// Register modular API routes
+fastify.register(nicheRoutes, { prefix: "/api/niches" });
 
 // Run the server
 const start = async () => {
