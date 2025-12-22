@@ -22,6 +22,14 @@ const STEPS = [
 interface CreationContextType {
     selectedNiche: string | null
     setSelectedNiche: (niche: string) => void
+    scriptIdea: string
+    setScriptIdea: (idea: string) => void
+    duration: number
+    setDuration: (duration: number) => void
+    segments: number
+    setSegments: (segments: number) => void
+    visualFormat: "image" | "video"
+    setVisualFormat: (format: "image" | "video") => void
     nextStep: () => void
     prevStep: () => void
     currentStep: number
@@ -37,6 +45,10 @@ export function useCreation() {
 
 export default function CreateVideoLayout() {
     const [selectedNiche, setSelectedNiche] = useState<string | null>(null)
+    const [scriptIdea, setScriptIdea] = useState("")
+    const [duration, setDuration] = useState<number>(1)
+    const [segments, setSegments] = useState<number>(3)
+    const [visualFormat, setVisualFormat] = useState<"image" | "video">("image")
     const navigate = useNavigate()
     const location = useLocation()
 
@@ -65,6 +77,14 @@ export default function CreateVideoLayout() {
         <CreationContext.Provider value={{
             selectedNiche,
             setSelectedNiche,
+            scriptIdea,
+            setScriptIdea,
+            duration,
+            setDuration,
+            segments,
+            setSegments,
+            visualFormat,
+            setVisualFormat,
             nextStep,
             prevStep,
             currentStep
@@ -153,13 +173,28 @@ export default function CreateVideoLayout() {
 
                 {/* Sticky Footer Navigation */}
                 {selectedNiche && (
-                    <footer className="sticky bottom-0 z-30 w-full bg-white/80 backdrop-blur-md border-t border-slate-200 px-4 md:px-6 py-4 flex justify-center mt-auto">
-                        <Button
-                            onClick={nextStep}
-                            className="max-w-xs w-full h-12 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-lg shadow-xl shadow-purple-200 transition-all hover:scale-[1.02] active:scale-[0.98]"
-                        >
-                            {currentStep === 7 ? "Generate Video" : `Continue to Step ${currentStep + 1}`}
-                        </Button>
+                    <footer className="sticky bottom-0 z-30 w-full bg-white/80 backdrop-blur-md border-t border-slate-200 px-4 md:px-6 py-4 mt-auto">
+                        <div className="max-w-6xl mx-auto w-full flex items-center justify-between gap-4">
+                            {currentStep > 1 ? (
+                                <Button
+                                    variant="outline"
+                                    onClick={prevStep}
+                                    className="h-12 px-6 rounded-xl border-2 border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-600 font-bold text-lg transition-all"
+                                >
+                                    Back
+                                </Button>
+                            ) : (
+                                <div /> /* Spacer to keep Next button on the right */
+                            )}
+
+                            <Button
+                                onClick={nextStep}
+                                disabled={currentStep === 2 && !scriptIdea.trim()}
+                                className="max-w-xs w-full h-12 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-lg shadow-xl shadow-purple-200 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:shadow-none"
+                            >
+                                {currentStep === 7 ? "Generate Video" : `Continue to Step ${currentStep + 1}`}
+                            </Button>
+                        </div>
                     </footer>
                 )}
             </div>
