@@ -7,8 +7,9 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
-from database import Base, get_db
-from models import ContentNiche
+from src.database import get_db
+from sqlmodel import SQLModel
+from src.models import ContentNiche
 
 from unittest.mock import patch
 
@@ -43,7 +44,7 @@ def event_loop():
 async def test_engine():
     engine = create_async_engine(TEST_DATABASE_URL, echo=False, future=True)
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(SQLModel.metadata.create_all)
     yield engine
     await engine.dispose()
 
@@ -58,7 +59,7 @@ async def db_session(test_engine):
 
 @pytest_asyncio.fixture
 async def job_factory(db_session):
-    from models import VideoGroup, VideoItem, VideoItemMetadata, VideoJob, ContentNiche, GroupType, Platform, JobStatus
+    from src.models import VideoGroup, VideoItem, VideoItemMetadata, VideoJob, ContentNiche, GroupType, Platform, JobStatus
     import uuid
     
     async def _create_job(

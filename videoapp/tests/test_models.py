@@ -1,12 +1,12 @@
 import pytest
 from sqlalchemy import select
-from models import VideoGroup, VideoItem, GroupType
+from src.models import VideoGroup, VideoItem, GroupType
 import uuid
 
 import pytest
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from models import (
+from src.models import (
     VideoGroup, VideoItem, VideoItemMetadata, VideoJob,
     ContentNiche, ImageStyle, SubtitleStyle, MusicTrack, TTSVoice,
     GroupType, JobStatus, Platform

@@ -1,7 +1,15 @@
-import { useEffect } from "react"
-import posthog from "posthog-js"
+import { useState } from "react"
+import { OnboardingEmptyState } from "./components/onboarding-empty-state"
 
 export default function DashboardPage() {
+    // Mock state for now. In real app, this would check if user has created any videos.
+    // Default to false for testing the requested UI.
+    const [hasProjects, setHasProjects] = useState(false)
+
+    if (!hasProjects) {
+        return <OnboardingEmptyState />
+    }
+
     return (
         <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
             <div className="grid auto-rows-min gap-4 md:grid-cols-3">

@@ -1,5 +1,6 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.orm import sessionmaker
+from sqlmodel import SQLModel
 import os
 
 # Default to SQLite for local development if DATABASE_URL not set
@@ -17,11 +18,10 @@ AsyncSessionLocal = sessionmaker(
     expire_on_commit=False
 )
 
-Base = declarative_base()
-
 async def get_db():
     async with AsyncSessionLocal() as session:
         try:
             yield session
         finally:
             await session.close()
+

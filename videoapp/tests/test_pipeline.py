@@ -2,12 +2,12 @@ import pytest
 import uuid
 import os
 from sqlalchemy import select
-from models import (
+from src.models import (
     VideoGroup, VideoItem, VideoItemMetadata, VideoJob,
     ContentNiche, JobStatus, GroupType, Platform
 )
-from pipeline import VideoPipeline
-from components.mocks import (
+from src.pipeline import VideoPipeline
+from src.components.mocks import (
     MockScriptGenerator, MockTTSProvider, MockImageProvider,
     MockVideoComposer, MockStorageProvider
 )

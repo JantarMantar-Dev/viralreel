@@ -1,8 +1,8 @@
 import pytest
 from httpx import AsyncClient, ASGITransport
-from main import app
-from database import get_db
-import schemas
+from src.main import app
+from src.database import get_db
+import src.schemas as schemas
 
 @pytest.mark.asyncio
 async def test_api_flow(db_session):

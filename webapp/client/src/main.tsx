@@ -1,22 +1,37 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClient, QueryClientProvider, QueryCache, MutationCache } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import posthog from 'posthog-js'
 import App from './App'
+import { AuthProvider } from './context/auth-context'
 import './index.css'
 
 posthog.init('phc_Pvxpy70enymJ3fGuvqBDIkZu2G2lbIXqap2uwMHdmdl', {
   api_host: 'https://us.i.posthog.com',
 })
 
-const queryClient = new QueryClient()
+const queryClient = new QueryClient({
+  queryCache: new QueryCache({
+    onError: (error) => {
+      toast.error(`API Error: ${error.message || 'Something went wrong'}`)
+    },
+  }),
+  mutationCache: new MutationCache({
+    onError: (error) => {
+      toast.error(`Error: ${error.message || 'Action failed'}`)
+    },
+  }),
+})
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <App />
+        <AuthProvider>
+          <App />
+        </AuthProvider>
       </BrowserRouter>
     </QueryClientProvider>
   </React.StrictMode>,

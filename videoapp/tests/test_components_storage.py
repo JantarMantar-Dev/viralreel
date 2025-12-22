@@ -1,8 +1,8 @@
 import pytest
 import os
 from unittest.mock import MagicMock, patch
-from components.storage import S3StorageProvider
-from errors import AppError
+from src.components.storage import S3StorageProvider
+from src.errors import AppError
 
 @patch("boto3.client")
 @pytest.mark.asyncio

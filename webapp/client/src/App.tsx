@@ -9,7 +9,17 @@ import VerifyEmailPage from "./pages/auth/verify-email"
 
 import DashboardLayout from "./pages/dashboard/layout"
 import DashboardPage from "./pages/dashboard/page"
+import ProjectsPage from "./pages/dashboard/videos/page"
 import SettingsPage from "./pages/dashboard/settings"
+import CreateLayout from "./pages/dashboard/create/layout"
+import NicheStep from "./pages/dashboard/create/steps/niche-step"
+import ScriptStep from "./pages/dashboard/create/steps/script-step"
+import VoiceStep from "./pages/dashboard/create/steps/voice-step"
+import MusicStep from "./pages/dashboard/create/steps/music-step"
+import SubtitleStep from "./pages/dashboard/create/steps/subtitle-step"
+import ReviewStep from "./pages/dashboard/create/steps/review-step"
+import PlaceholderStep from "./pages/dashboard/create/steps/placeholder-step"
+import NotFoundPage from "./pages/dashboard/not-found"
 
 function App() {
   return (
@@ -28,7 +38,19 @@ function App() {
         {/* Dashboard Routes */}
         <Route path="/dashboard" element={<DashboardLayout />}>
           <Route index element={<DashboardPage />} />
+          <Route path="videos" element={<ProjectsPage />} />
           <Route path="settings" element={<SettingsPage />} />
+          <Route path="create" element={<CreateLayout />}>
+            <Route index element={<Navigate to="niche" replace />} />
+            <Route path="niche" element={<NicheStep />} />
+            <Route path="script" element={<ScriptStep />} />
+            <Route path="voice" element={<VoiceStep />} />
+            {/* Removed Visuals Route */}
+            <Route path="subtitles" element={<SubtitleStep />} />
+            <Route path="music" element={<MusicStep />} />
+            <Route path="review" element={<ReviewStep />} /> {/* Mapped 'review' to ReviewStep */}
+          </Route>
+          <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>
       <Toaster />
