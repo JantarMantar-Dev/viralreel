@@ -54,12 +54,6 @@ export function VideosEmptyState({ onCreateNew }: VideosEmptyStateProps) {
                 <div className="flex gap-4 opacity-60">
                     <button disabled className="flex flex-col items-center gap-3 p-6 bg-white rounded-2xl border border-slate-100 shadow-sm w-36 cursor-default">
                         <div className="w-10 h-10 bg-slate-50 rounded-lg flex items-center justify-center text-slate-400">
-                            <FileText className="w-5 h-5" />
-                        </div>
-                        <span className="text-sm font-medium text-slate-400">Blog Post</span>
-                    </button>
-                    <button disabled className="flex flex-col items-center gap-3 p-6 bg-white rounded-2xl border border-slate-100 shadow-sm w-36 cursor-default">
-                        <div className="w-10 h-10 bg-slate-50 rounded-lg flex items-center justify-center text-slate-400">
                             <ShoppingBag className="w-5 h-5" />
                         </div>
                         <span className="text-sm font-medium text-slate-400">Product Ad</span>
