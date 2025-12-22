@@ -9,7 +9,9 @@ import VerifyEmailPage from "./pages/auth/verify-email"
 
 import DashboardLayout from "./pages/dashboard/layout"
 import DashboardPage from "./pages/dashboard/page"
+import ProjectsPage from "./pages/dashboard/videos/page"
 import SettingsPage from "./pages/dashboard/settings"
+import NotFoundPage from "./pages/dashboard/not-found"
 
 function App() {
   return (
@@ -28,7 +30,9 @@ function App() {
         {/* Dashboard Routes */}
         <Route path="/dashboard" element={<DashboardLayout />}>
           <Route index element={<DashboardPage />} />
+          <Route path="videos" element={<ProjectsPage />} />
           <Route path="settings" element={<SettingsPage />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>
       <Toaster />

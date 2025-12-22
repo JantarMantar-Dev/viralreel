@@ -10,7 +10,9 @@ import {
     Image as ImageIcon,
     LayoutTemplate,
     GraduationCap,
-    Video
+    Video,
+    Search,
+    Bell
 } from "lucide-react"
 
 import { authClient } from "@/lib/auth-client"
@@ -30,6 +32,7 @@ import {
     SidebarGroupLabel,
     SidebarGroupContent
 } from "@/components/ui/sidebar"
+import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
@@ -108,6 +111,19 @@ export default function DashboardLayout() {
                                         <a href="/dashboard">
                                             <LayoutDashboard className="h-4 w-4" />
                                             <span>Dashboard</span>
+                                        </a>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+                                <SidebarMenuItem>
+                                    <SidebarMenuButton
+                                        asChild
+                                        tooltip="My Videos"
+                                        isActive={location.pathname === "/dashboard/videos"}
+                                        className="data-[active=true]:bg-purple-50 data-[active=true]:text-purple-600 hover:bg-slate-50 text-slate-600 font-medium"
+                                    >
+                                        <a href="/dashboard/videos">
+                                            <FolderOpen className="h-4 w-4" />
+                                            <span>My Videos</span>
                                         </a>
                                     </SidebarMenuButton>
                                 </SidebarMenuItem>
