@@ -30,7 +30,7 @@ export function OnboardingEmptyState() {
                         asChild
                         className="w-full mt-auto bg-slate-900 hover:bg-slate-800 text-white h-12 rounded-xl group-hover:scale-[1.02] transition-transform"
                     >
-                        <Link to="/dashboard/create">
+                        <Link to="/dashboard/create?type=video">
                             Start Creating <ArrowRight className="ml-2 h-4 w-4" />
                         </Link>
                     </Button>
@@ -58,7 +58,7 @@ export function OnboardingEmptyState() {
                         variant="outline"
                         className="w-full mt-auto border-slate-200 hover:bg-slate-50 hover:text-slate-900 h-12 rounded-xl group-hover:scale-[1.02] transition-transform"
                     >
-                        <Link to="/dashboard/create">
+                        <Link to="/dashboard/create?type=series">
                             Create Series <Plus className="ml-2 h-4 w-4" />
                         </Link>
                     </Button>

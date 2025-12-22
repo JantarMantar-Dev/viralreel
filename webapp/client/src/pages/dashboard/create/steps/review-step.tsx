@@ -51,7 +51,7 @@ export default function ReviewStep() {
                         <div className="flex items-center justify-between">
                             <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
                                 <Clapperboard className="h-4 w-4 text-purple-600" />
-                                Series Name
+                                {request.jobType === "series" ? "Series Name" : "Video Name"}
                             </h3>
                             <span className="text-[10px] font-bold text-slate-400">Main Collection</span>
                         </div>
@@ -61,31 +61,33 @@ export default function ReviewStep() {
                                 value={request.seriesName}
                                 onChange={(e) => updateRequest({ seriesName: e.target.value })}
                                 className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-3 text-lg font-bold text-slate-900 outline-none focus:border-purple-200 focus:bg-white transition-all group-hover:bg-slate-50/80"
-                                placeholder="Enter Series Name"
+                                placeholder={request.jobType === "series" ? "Enter Series Name" : "Enter Video Name"}
                             />
                             <Pencil className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-hover:text-purple-600 transition-colors pointer-events-none" />
                         </div>
                     </div>
 
-                    <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                                <FileText className="h-4 w-4 text-purple-600" />
-                                Episode 1 Title
-                            </h3>
-                            <span className="text-[10px] font-bold text-slate-400">First Episode</span>
+                    {request.jobType === "series" && (
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                                    <FileText className="h-4 w-4 text-purple-600" />
+                                    Episode 1 Title
+                                </h3>
+                                <span className="text-[10px] font-bold text-slate-400">First Episode</span>
+                            </div>
+                            <div className="relative group">
+                                <input
+                                    type="text"
+                                    value={request.episode1Title}
+                                    onChange={(e) => updateRequest({ episode1Title: e.target.value })}
+                                    className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-3 text-lg font-bold text-slate-900 outline-none focus:border-purple-200 focus:bg-white transition-all group-hover:bg-slate-50/80"
+                                    placeholder="Enter Episode Title"
+                                />
+                                <Pencil className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-hover:text-purple-600 transition-colors pointer-events-none" />
+                            </div>
                         </div>
-                        <div className="relative group">
-                            <input
-                                type="text"
-                                value={request.episode1Title}
-                                onChange={(e) => updateRequest({ episode1Title: e.target.value })}
-                                className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-3 text-lg font-bold text-slate-900 outline-none focus:border-purple-200 focus:bg-white transition-all group-hover:bg-slate-50/80"
-                                placeholder="Enter Episode Title"
-                            />
-                            <Pencil className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-hover:text-purple-600 transition-colors pointer-events-none" />
-                        </div>
-                    </div>
+                    )}
                 </div>
             </div>
 
@@ -116,7 +118,9 @@ export default function ReviewStep() {
                             </div>
                         </div>
                         <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 md:col-span-8">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Series Idea / Topic</span>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                                {request.jobType === "series" ? "Series Idea / Topic" : "Video Idea / Topic"}
+                            </span>
                             <p className="text-sm font-bold text-slate-900 truncate">{request.scriptIdea || "No topic defined"}</p>
                         </div>
                     </div>

@@ -58,7 +58,7 @@ export default function VoiceStep() {
     return (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-6xl mx-auto space-y-8">
             <StepHeader
-                title="Select Series Voice"
+                title={request.jobType === "series" ? "Select Series Voice" : "Select Video Voice"}
                 description="Choose the perfect narrator for your stories. Each voice is optimized for high-engagement social media content."
             />
 

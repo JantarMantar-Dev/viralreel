@@ -1,6 +1,7 @@
 import { createContext, useContext, ReactNode } from "react"
 
 export interface VideoJobRequest {
+    jobType: "video" | "series"
     seriesName: string
     episode1Title: string
     nicheId: string | null
@@ -31,6 +32,7 @@ export function useCreation() {
 }
 
 export const INITIAL_REQUEST: VideoJobRequest = {
+    jobType: "series",
     seriesName: "",
     episode1Title: "",
     nicheId: null,

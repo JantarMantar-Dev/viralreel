@@ -1,5 +1,5 @@
-import { useState } from "react"
-import { useNavigate, useLocation, Outlet } from "react-router-dom"
+import { useState, useEffect } from "react"
+import { useNavigate, useLocation, Outlet, useSearchParams } from "react-router-dom"
 import {
     ChevronLeft,
     X,
@@ -30,7 +30,12 @@ const STEPS = [
 
 
 export default function CreateVideoLayout() {
-    const [request, setRequest] = useState<VideoJobRequest>(INITIAL_REQUEST)
+    const [searchParams] = useSearchParams()
+    // Initialize jobType from URL or default to "series"
+    const [request, setRequest] = useState<VideoJobRequest>(() => ({
+        ...INITIAL_REQUEST,
+        jobType: (searchParams.get("type") as "video" | "series") || "series"
+    }))
     const navigate = useNavigate()
     const location = useLocation()
 
@@ -75,9 +80,11 @@ export default function CreateVideoLayout() {
                 <header className="sticky top-0 z-30 w-full bg-white border-b border-slate-200 px-4 md:px-6 h-16 md:h-20 flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <div className="hidden sm:flex text-sm text-slate-500 items-center gap-2">
-                            <span>Projects</span>
+                            <span>My Videos</span>
                             <ChevronLeft className="h-4 w-4 rotate-180" />
-                            <span className="text-slate-900 font-medium whitespace-nowrap">Create Series</span>
+                            <span className="text-slate-900 font-medium whitespace-nowrap">
+                                {request.jobType === "series" ? "Create Series" : "Create Video"}
+                            </span>
                         </div>
                         {/* Mobile back button */}
                         <div className="flex sm:hidden">
@@ -201,7 +208,7 @@ export default function CreateVideoLayout() {
                                 <Button
                                     onClick={nextStep}
                                     disabled={
-                                        (currentStep === 2 && (!request.scriptIdea.trim() || !request.seriesName.trim() || !request.episode1Title.trim())) ||
+                                        (currentStep === 2 && (!request.scriptIdea.trim() || !request.seriesName.trim() || (request.jobType === 'series' && !request.episode1Title.trim()))) ||
                                         (currentStep === 5 && !request.subtitleTemplateId)
                                     }
                                     className={cn(
@@ -214,7 +221,7 @@ export default function CreateVideoLayout() {
                                     {currentStep === 6 ? (
                                         <>
                                             <Wand2 className="mr-2 h-5 w-5" />
-                                            Generate Series
+                                            {request.jobType === "series" ? "Generate Series" : "Generate Video"}
                                         </>
                                     ) : (
                                         `Continue to Step ${currentStep + 1}`

@@ -106,7 +106,7 @@ export default function MusicStep() {
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-5xl mx-auto space-y-8">
             <StepHeader
                 title="Set the tone"
-                description={`Choose a background track that matches the mood of your series "${request.scriptIdea.slice(0, 30)}${request.scriptIdea.length > 30 ? '...' : ''}".`}
+                description={`Choose a background track that matches the mood of your ${request.jobType === "series" ? "series" : "video"} "${request.scriptIdea.slice(0, 30)}${request.scriptIdea.length > 30 ? '...' : ''}".`}
             />
 
             {/* Source Tabs */}
@@ -195,7 +195,7 @@ export default function MusicStep() {
                     </div>
                     <div>
                         <h4 className={cn("font-bold text-base", !request.musicId ? "text-purple-900" : "text-slate-900")}>Skip Background Music</h4>
-                        <p className="text-xs font-semibold text-slate-400">Create the series without any background track</p>
+                        <p className="text-xs font-semibold text-slate-400">Create the {request.jobType === "series" ? "series" : "video"} without any background track</p>
                     </div>
                 </div>
                 {!request.musicId && (

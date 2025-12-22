@@ -56,7 +56,7 @@ export default function NicheStep() {
     return (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
             <StepHeader
-                title="What's your series about?"
+                title={request.jobType === "series" ? "What's your series about?" : "What's your video about?"}
                 description="Select a popular niche to get started with optimized templates, or describe your own unique idea."
             />
 

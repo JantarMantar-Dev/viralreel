@@ -55,29 +55,31 @@ export default function ScriptStep() {
                     <div className="space-y-2">
                         <label className="flex items-center gap-2 text-sm font-bold text-slate-700 ml-1">
                             <Clapperboard className="h-4 w-4 text-purple-600" />
-                            Series Name
+                            {request.jobType === "series" ? "Series Name" : "Video Name"}
                         </label>
                         <input
                             type="text"
                             value={request.seriesName}
                             onChange={(e) => updateRequest({ seriesName: e.target.value })}
-                            placeholder="e.g. Unsolved Mysteries of the Deep"
+                            placeholder={request.jobType === "series" ? "e.g. Unsolved Mysteries of the Deep" : "e.g. My Amazing Video"}
                             className="w-full h-12 px-4 rounded-xl border border-slate-200 bg-slate-50/50 text-slate-900 placeholder:text-slate-400 focus:ring-4 focus:ring-purple-50 focus:border-purple-500 outline-none transition-all font-medium"
                         />
                     </div>
-                    <div className="space-y-2">
-                        <label className="flex items-center gap-2 text-sm font-bold text-slate-700 ml-1">
-                            <FileText className="h-4 w-4 text-purple-600" />
-                            Episode 1 Title
-                        </label>
-                        <input
-                            type="text"
-                            value={request.episode1Title}
-                            onChange={(e) => updateRequest({ episode1Title: e.target.value })}
-                            placeholder="e.g. The Bermuda Triangle Secret"
-                            className="w-full h-12 px-4 rounded-xl border border-slate-200 bg-slate-50/50 text-slate-900 placeholder:text-slate-400 focus:ring-4 focus:ring-purple-50 focus:border-purple-500 outline-none transition-all font-medium"
-                        />
-                    </div>
+                    {request.jobType === "series" && (
+                        <div className="space-y-2">
+                            <label className="flex items-center gap-2 text-sm font-bold text-slate-700 ml-1">
+                                <FileText className="h-4 w-4 text-purple-600" />
+                                Episode 1 Title
+                            </label>
+                            <input
+                                type="text"
+                                value={request.episode1Title}
+                                onChange={(e) => updateRequest({ episode1Title: e.target.value })}
+                                placeholder="e.g. The Bermuda Triangle Secret"
+                                className="w-full h-12 px-4 rounded-xl border border-slate-200 bg-slate-50/50 text-slate-900 placeholder:text-slate-400 focus:ring-4 focus:ring-purple-50 focus:border-purple-500 outline-none transition-all font-medium"
+                            />
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -88,7 +90,9 @@ export default function ScriptStep() {
                         <Lightbulb className="h-6 w-6" />
                     </div>
                     <div>
-                        <h3 className="text-xl font-bold text-slate-900">Series Idea & Context</h3>
+                        <h3 className="text-xl font-bold text-slate-900">
+                            {request.jobType === "series" ? "Series Idea & Context" : "Video Idea & Context"}
+                        </h3>
                         <p className="text-slate-500 text-sm font-medium mt-1">
                             Describe what you want the AI to talk about. Be as detailed as possible about tone, style, and specific topics.
                         </p>
