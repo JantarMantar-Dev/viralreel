@@ -205,7 +205,19 @@ export default function DashboardLayout() {
                 </SidebarFooter>
                 <SidebarRail />
             </Sidebar>
-            <SidebarInset className="bg-slate-50">
+            <SidebarInset className="bg-slate-50 flex flex-col">
+                <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 md:hidden">
+                    <div className="flex items-center gap-2">
+                        <SidebarTrigger />
+                        <Separator orientation="vertical" className="mr-2 h-4" />
+                        <div className="flex items-center gap-2">
+                            <div className="flex aspect-square size-6 items-center justify-center rounded bg-purple-600 text-white shadow-sm">
+                                <img src="/logo.svg" alt="ViralReel" className="w-full h-full object-contain p-0.5" />
+                            </div>
+                            <span className="font-bold text-slate-900 leading-tight text-sm">ViralReel</span>
+                        </div>
+                    </div>
+                </header>
                 <div className="flex flex-1 flex-col bg-[radial-gradient(circle_at_center,theme(colors.purple.50)_0%,theme(colors.slate.50)_75%)]">
                     <Outlet />
                 </div>
