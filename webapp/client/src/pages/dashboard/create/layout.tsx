@@ -201,9 +201,7 @@ export default function CreateVideoLayout() {
                                 <Button
                                     onClick={nextStep}
                                     disabled={
-                                        (currentStep === 2 && !request.scriptIdea.trim()) ||
-                                        (currentStep === 3 && !request.voiceId) ||
-                                        (currentStep === 4 && !request.musicId) ||
+                                        (currentStep === 2 && (!request.scriptIdea.trim() || !request.seriesName.trim() || !request.episode1Title.trim())) ||
                                         (currentStep === 5 && !request.subtitleTemplateId)
                                     }
                                     className={cn(

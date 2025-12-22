@@ -3,12 +3,39 @@ import {
     Timer,
     Sparkles,
     Layers,
-    Check
+    Check,
+    Palette,
+    Zap,
+    Ghost,
+    Cloud,
+    Sword,
+    Moon,
+    Box,
+    Camera,
+    Stars,
+    Aperture,
+    PlayCircle,
+    Clapperboard,
+    FileText
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useCreation } from "../context/creation-context"
 import { Button } from "@/components/ui/button"
 import StepHeader from "../components/step-header"
+
+export const IMAGE_STYLES = [
+    { id: "comic", name: "Comic", description: "Bold comic-book style, thick outlines", icon: Zap },
+    { id: "creepy-comic", name: "Creepy Comic", description: "Horror-comic style, exaggerated shades", icon: Ghost },
+    { id: "painting", name: "Painting", description: "Detailed traditional painting style", icon: Palette },
+    { id: "ghibli", name: "Ghibli", description: "Studio Ghibli-inspired, soft colors", icon: Cloud },
+    { id: "anime", name: "Anime", description: "Clean anime style, sharp linework", icon: Sword },
+    { id: "dark-fantasy", name: "Dark Fantasy", description: "Moody atmosphere, dark colors", icon: Moon },
+    { id: "lego", name: "Lego", description: "Plastic texture, LEGO figure style", icon: Box },
+    { id: "polaroid", name: "Polaroid", description: "Vintage Polaroid style, soft glow", icon: Camera },
+    { id: "disney", name: "Disney", description: "Classic animation style, soft curves", icon: Stars },
+    { id: "realism", name: "Realism", description: "Ultra-realistic photographic style", icon: Aperture },
+    { id: "fantastic", name: "Fantastic", description: "Vibrant magical fantasy style", icon: Sparkles },
+]
 
 export default function ScriptStep() {
     const {
@@ -22,6 +49,37 @@ export default function ScriptStep() {
                 title="Define your Video Details"
                 description="Provide specific instructions to tailor the AI script, choose the duration, and structure the storytelling flow."
             />
+            {/* Section 0: Series Basics */}
+            <div className="bg-white rounded-3xl border border-slate-200 p-6 md:p-8 shadow-sm space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                        <label className="flex items-center gap-2 text-sm font-bold text-slate-700 ml-1">
+                            <Clapperboard className="h-4 w-4 text-purple-600" />
+                            Series Name
+                        </label>
+                        <input
+                            type="text"
+                            value={request.seriesName}
+                            onChange={(e) => updateRequest({ seriesName: e.target.value })}
+                            placeholder="e.g. Unsolved Mysteries of the Deep"
+                            className="w-full h-12 px-4 rounded-xl border border-slate-200 bg-slate-50/50 text-slate-900 placeholder:text-slate-400 focus:ring-4 focus:ring-purple-50 focus:border-purple-500 outline-none transition-all font-medium"
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <label className="flex items-center gap-2 text-sm font-bold text-slate-700 ml-1">
+                            <FileText className="h-4 w-4 text-purple-600" />
+                            Episode 1 Title
+                        </label>
+                        <input
+                            type="text"
+                            value={request.episode1Title}
+                            onChange={(e) => updateRequest({ episode1Title: e.target.value })}
+                            placeholder="e.g. The Bermuda Triangle Secret"
+                            className="w-full h-12 px-4 rounded-xl border border-slate-200 bg-slate-50/50 text-slate-900 placeholder:text-slate-400 focus:ring-4 focus:ring-purple-50 focus:border-purple-500 outline-none transition-all font-medium"
+                        />
+                    </div>
+                </div>
+            </div>
 
             {/* Section 1: Series Idea & Context */}
             <div className="bg-white rounded-3xl border border-slate-200 p-6 md:p-8 shadow-sm">
@@ -58,6 +116,64 @@ export default function ScriptStep() {
                             Enhance with AI
                         </Button>
                     </div>
+                </div>
+            </div>
+
+            {/* Section 1.5: Image Style */}
+            <div className="bg-white rounded-3xl border border-slate-200 p-6 md:p-8 shadow-sm">
+                <div className="flex items-start gap-4 mb-6">
+                    <div className="p-3 rounded-2xl bg-purple-50 text-purple-600">
+                        <Palette className="h-6 w-6" />
+                    </div>
+                    <div>
+                        <h3 className="text-xl font-bold text-slate-900">Image Style</h3>
+                        <p className="text-slate-500 text-sm font-medium mt-1">
+                            Choose the artistic direction for your AI-generated visuals.
+                        </p>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {IMAGE_STYLES.map((style) => {
+                        const isSelected = request.visualStyle === style.id
+                        return (
+                            <div
+                                key={style.id}
+                                onClick={() => updateRequest({ visualStyle: style.id })}
+                                className={cn(
+                                    "relative p-4 rounded-[20px] border-2 cursor-pointer transition-all duration-300 group overflow-hidden",
+                                    isSelected
+                                        ? "border-purple-600 bg-purple-50/30 shadow-md ring-2 ring-purple-100"
+                                        : "border-slate-100 bg-slate-50/50 hover:border-purple-200 hover:bg-white"
+                                )}
+                            >
+                                {isSelected && (
+                                    <div className="absolute top-3 right-3 bg-purple-600 text-white p-0.5 rounded-full z-10 animate-in zoom-in duration-300 shadow-md">
+                                        <Check className="h-3 w-3" />
+                                    </div>
+                                )}
+                                <div className="flex items-center gap-4">
+                                    <div className={cn(
+                                        "w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300 transform group-hover:scale-110",
+                                        isSelected ? "bg-purple-600 text-white" : "bg-white text-slate-400 group-hover:text-purple-600 shadow-sm border border-slate-100"
+                                    )}>
+                                        <style.icon className="h-6 w-6" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <h4 className={cn(
+                                            "font-extrabold text-sm truncate",
+                                            isSelected ? "text-purple-900" : "text-slate-700"
+                                        )}>
+                                            {style.name}
+                                        </h4>
+                                        <p className="text-[10px] font-semibold text-slate-400 leading-tight mt-0.5">
+                                            {style.description}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        )
+                    })}
                 </div>
             </div>
 

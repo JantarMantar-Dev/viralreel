@@ -11,11 +11,13 @@ import { VOICES, Voice } from "./voice-step"
 import { TRACKS } from "./music-step"
 import { SUBTITLE_STYLES, SubtitleStyle } from "./subtitle-step"
 import { Track } from "../components/music-list"
+import { IMAGE_STYLES } from "./script-step"
+import { Palette, VolumeX, Music, Ban, Clapperboard, FileText } from "lucide-react"
+import StepHeader from "../components/step-header"
 
 export default function ReviewStep() {
     const { request, updateRequest } = useCreation()
     const navigate = useNavigate()
-    const [title, setTitle] = useState(request.scriptIdea.split(' ').slice(0, 5).join(' ') + (request.scriptIdea.length > 50 ? '...' : '') || "New Video Series")
 
     const { data: niches } = useQuery<Niche[]>({
         queryKey: ["niches"],
@@ -31,6 +33,7 @@ export default function ReviewStep() {
     const selectedVoice = VOICES.find((v: Voice) => v.id === request.voiceId)
     const selectedTrack = TRACKS.find((t: Track) => t.id === request.musicId)
     const selectedStyle = SUBTITLE_STYLES.find((s: SubtitleStyle) => s.id === request.subtitleTemplateId)
+    const selectedImageStyle = IMAGE_STYLES.find(s => s.id === request.visualStyle)
 
     return (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-5xl mx-auto space-y-8 pb-32">
@@ -41,24 +44,49 @@ export default function ReviewStep() {
                 </p>
             </div>
 
-            {/* Series Name */}
-            <div className="bg-white rounded-[24px] border border-slate-200 p-8 shadow-sm">
-                <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">Series Name</h3>
-                    <span className="text-xs font-bold text-slate-400">Visible on Dashboard</span>
+            {/* Series Basics Review */}
+            <div className="bg-white rounded-[24px] border border-slate-200 p-8 shadow-sm space-y-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                                <Clapperboard className="h-4 w-4 text-purple-600" />
+                                Series Name
+                            </h3>
+                            <span className="text-[10px] font-bold text-slate-400">Main Collection</span>
+                        </div>
+                        <div className="relative group">
+                            <input
+                                type="text"
+                                value={request.seriesName}
+                                onChange={(e) => updateRequest({ seriesName: e.target.value })}
+                                className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-3 text-lg font-bold text-slate-900 outline-none focus:border-purple-200 focus:bg-white transition-all group-hover:bg-slate-50/80"
+                                placeholder="Enter Series Name"
+                            />
+                            <Pencil className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-hover:text-purple-600 transition-colors pointer-events-none" />
+                        </div>
+                    </div>
+
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                                <FileText className="h-4 w-4 text-purple-600" />
+                                Episode 1 Title
+                            </h3>
+                            <span className="text-[10px] font-bold text-slate-400">First Episode</span>
+                        </div>
+                        <div className="relative group">
+                            <input
+                                type="text"
+                                value={request.episode1Title}
+                                onChange={(e) => updateRequest({ episode1Title: e.target.value })}
+                                className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-3 text-lg font-bold text-slate-900 outline-none focus:border-purple-200 focus:bg-white transition-all group-hover:bg-slate-50/80"
+                                placeholder="Enter Episode Title"
+                            />
+                            <Pencil className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-hover:text-purple-600 transition-colors pointer-events-none" />
+                        </div>
+                    </div>
                 </div>
-                <div className="relative group">
-                    <input
-                        type="text"
-                        value={title}
-                        onChange={(e) => setTitle(e.target.value)}
-                        className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-6 py-4 text-xl font-bold text-slate-900 md:text-2xl outline-none focus:border-purple-200 focus:bg-white transition-all group-hover:bg-slate-50/80"
-                    />
-                    <Pencil className="absolute right-6 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-hover:text-purple-600 transition-colors pointer-events-none" />
-                </div>
-                <p className="text-xs font-semibold text-slate-400 mt-3 ml-1">
-                    Give your series a catchy name to easily identify it later.
-                </p>
             </div>
 
             {/* Content Strategy */}
@@ -78,24 +106,36 @@ export default function ReviewStep() {
                     </Button>
                 </div>
 
-                <div className="grid md:grid-cols-2 gap-4">
-                    <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Niche</span>
-                        <div className="flex items-center gap-2">
-                            <span className="text-lg font-bold text-slate-900">{selectedNiche?.name || "Unselected"}</span>
+                <div className="space-y-4">
+                    {/* Row 1: Niche and Topic */}
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                        <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 md:col-span-4">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Niche</span>
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm font-bold text-slate-900">{selectedNiche?.name || "Unselected"}</span>
+                            </div>
+                        </div>
+                        <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 md:col-span-8">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Series Idea / Topic</span>
+                            <p className="text-sm font-bold text-slate-900 truncate">{request.scriptIdea || "No topic defined"}</p>
                         </div>
                     </div>
-                    <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Series Topic</span>
-                        <p className="text-lg font-bold text-slate-900 truncate">{request.scriptIdea || "No topic defined"}</p>
-                    </div>
-                </div>
 
-                <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">Target Audience</span>
-                    <p className="text-base font-bold text-slate-900">
-                        {selectedNiche ? `${selectedNiche.name} enthusiasts, early adopters` : "General Audience"}
-                    </p>
+                    {/* Row 2: Style and Metadata */}
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Image Style</span>
+                            <p className="text-sm font-bold text-slate-900 truncate">{selectedImageStyle?.name || "Comic"}</p>
+                        </div>
+                        <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Duration</span>
+                            <p className="text-sm font-bold text-slate-900 truncate">{request.duration} min</p>
+                        </div>
+                        <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Total Segments</span>
+                            <p className="text-sm font-bold text-slate-900 truncate">{request.segments} parts</p>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -118,32 +158,46 @@ export default function ReviewStep() {
 
                 {/* Voice Card */}
                 <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <div className={cn(
-                            "w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shadow-sm overflow-hidden",
-                            selectedVoice?.gender === 'Female' ? "bg-orange-100 text-orange-600" : "bg-blue-100 text-blue-600"
-                        )}>
-                            {selectedVoice?.avatar ? (
-                                <img src={selectedVoice.avatar} alt={selectedVoice.name} className="w-full h-full object-cover" />
-                            ) : (
-                                selectedVoice?.name.charAt(0) || "?"
-                            )}
+                    {selectedVoice ? (
+                        <div className="flex items-center gap-4">
+                            <div className={cn(
+                                "w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shadow-sm overflow-hidden",
+                                selectedVoice.gender === 'Female' ? "bg-orange-100 text-orange-600" : "bg-blue-100 text-blue-600"
+                            )}>
+                                {selectedVoice.avatar ? (
+                                    <img src={selectedVoice.avatar} alt={selectedVoice.name} className="w-full h-full object-cover" />
+                                ) : (
+                                    selectedVoice.name.charAt(0)
+                                )}
+                            </div>
+                            <div>
+                                <h4 className="text-base font-bold text-slate-900">{selectedVoice.name}</h4>
+                                <p className="text-xs font-semibold text-slate-400">{selectedVoice.gender} • {selectedVoice.accent}</p>
+                            </div>
                         </div>
-                        <div>
-                            <h4 className="text-base font-bold text-slate-900">{selectedVoice?.name || "No Voice Selected"}</h4>
-                            <p className="text-xs font-semibold text-slate-400">{selectedVoice?.gender} • {selectedVoice?.accent}</p>
+                    ) : (
+                        <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-400">
+                                <VolumeX className="h-5 w-5" />
+                            </div>
+                            <div>
+                                <h4 className="text-base font-bold text-slate-900">Skipped AI Voice</h4>
+                                <p className="text-xs font-semibold text-slate-400">No narration will be added</p>
+                            </div>
                         </div>
-                    </div>
-                    <div className="flex items-center gap-1 h-4">
-                        {[0.4, 0.8, 0.3, 0.9, 0.5, 0.7].map((h, i) => (
-                            <div key={i} style={{ height: `${h * 100}%` }} className="w-1 bg-purple-400 rounded-full opacity-60" />
-                        ))}
-                    </div>
+                    )}
+                    {selectedVoice && (
+                        <div className="flex items-center gap-1 h-4">
+                            {[0.4, 0.8, 0.3, 0.9, 0.5, 0.7].map((h, i) => (
+                                <div key={i} style={{ height: `${h * 100}%` }} className="w-1 bg-purple-400 rounded-full opacity-60" />
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 {/* Music Card */}
-                {selectedTrack && (
-                    <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 flex items-center justify-between">
+                <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 flex items-center justify-between">
+                    {selectedTrack ? (
                         <div className="flex items-center gap-4">
                             <div className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center text-slate-400">
                                 <Play className="h-4 w-4" />
@@ -153,8 +207,18 @@ export default function ReviewStep() {
                                 <p className="text-xs font-semibold text-slate-400">{selectedTrack.genre} • {selectedTrack.mood}</p>
                             </div>
                         </div>
-                    </div>
-                )}
+                    ) : (
+                        <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-400">
+                                <Ban className="h-5 w-5" />
+                            </div>
+                            <div>
+                                <h4 className="text-base font-bold text-slate-900">Skipped Music</h4>
+                                <p className="text-xs font-semibold text-slate-400">No background track will be added</p>
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
 
             {/* Visuals & Style */}

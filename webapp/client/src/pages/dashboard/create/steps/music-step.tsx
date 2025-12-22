@@ -5,7 +5,8 @@ import {
     Upload,
     ChevronDown,
     Plus,
-    CloudUpload
+    CloudUpload,
+    Check
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useCreation } from "../context/creation-context"
@@ -171,6 +172,35 @@ export default function MusicStep() {
                                 {cat.label}
                             </button>
                         ))}
+                    </div>
+                )}
+            </div>
+
+            {/* Skip Option */}
+            <div
+                onClick={() => updateRequest({ musicId: undefined })}
+                className={cn(
+                    "p-4 rounded-[20px] border-2 transition-all duration-300 cursor-pointer flex items-center justify-between group",
+                    !request.musicId
+                        ? "border-purple-600 bg-purple-50/30 shadow-md ring-2 ring-purple-100"
+                        : "border-slate-100 bg-white hover:border-purple-200"
+                )}
+            >
+                <div className="flex items-center gap-4">
+                    <div className={cn(
+                        "w-12 h-12 rounded-full flex items-center justify-center transition-all",
+                        !request.musicId ? "bg-purple-600 text-white" : "bg-slate-100 text-slate-400 group-hover:text-purple-600"
+                    )}>
+                        <Music className="h-6 w-6" />
+                    </div>
+                    <div>
+                        <h4 className={cn("font-bold text-base", !request.musicId ? "text-purple-900" : "text-slate-900")}>Skip Background Music</h4>
+                        <p className="text-xs font-semibold text-slate-400">Create the series without any background track</p>
+                    </div>
+                </div>
+                {!request.musicId && (
+                    <div className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center animate-in zoom-in duration-300">
+                        <Check className="h-3.5 w-3.5 text-white" />
                     </div>
                 )}
             </div>

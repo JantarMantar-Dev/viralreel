@@ -1,6 +1,8 @@
 import { createContext, useContext, ReactNode } from "react"
 
 export interface VideoJobRequest {
+    seriesName: string
+    episode1Title: string
     nicheId: string | null
     scriptIdea: string
     duration: number
@@ -29,9 +31,15 @@ export function useCreation() {
 }
 
 export const INITIAL_REQUEST: VideoJobRequest = {
+    seriesName: "",
+    episode1Title: "",
     nicheId: null,
     scriptIdea: "",
     duration: 1,
     segments: 3,
-    visualFormat: "image"
+    visualFormat: "image",
+    visualStyle: "comic",
+    voiceId: undefined,
+    musicId: undefined,
+    subtitleTemplateId: "classic-capcut"
 }
