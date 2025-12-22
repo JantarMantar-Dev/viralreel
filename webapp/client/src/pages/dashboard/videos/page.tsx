@@ -21,6 +21,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Separator } from "@/components/ui/separator"
+import { VideosEmptyState } from "./components/videos-empty-state"
 
 // --- Mock Data ---
 
@@ -229,9 +230,12 @@ function VideoCard({ project }: { project: Project }) {
     )
 }
 
-export default function MyVideosPage() {
-    const [filter, setFilter] = useState<"All" | "Single" | "Series">("All")
+interface VideoListViewProps {
+    filter: "All" | "Single" | "Series"
+    setFilter: (f: "All" | "Single" | "Series") => void
+}
 
+function VideoListView({ filter, setFilter }: VideoListViewProps) {
     return (
         <div className="flex flex-col w-full h-full">
             {/* Top Bar (Search & Actions) - Full Width Header */}
@@ -322,4 +326,15 @@ export default function MyVideosPage() {
             </div>
         </div>
     )
+}
+
+export default function MyVideosPage() {
+    const [filter, setFilter] = useState<"All" | "Single" | "Series">("All")
+    const [hasVideos, setHasVideos] = useState(false)
+
+    if (!hasVideos) {
+        return <VideosEmptyState onCreateNew={() => setHasVideos(true)} />
+    }
+
+    return <VideoListView filter={filter} setFilter={setFilter} />
 }
