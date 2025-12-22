@@ -61,16 +61,16 @@ export default function NicheStep() {
 
     return (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="text-center mb-12">
-                <h1 className="text-4xl font-extrabold tracking-tight text-slate-900 mb-4">
+            <div className="text-center mb-8 md:mb-12">
+                <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight text-slate-900 mb-3 md:mb-4">
                     What's your series about?
                 </h1>
-                <p className="text-lg text-slate-500 max-w-2xl mx-auto font-medium">
+                <p className="text-base md:text-lg text-slate-500 max-w-2xl mx-auto font-medium px-4">
                     Select a popular niche to get started with optimized templates, or describe your own unique idea.
                 </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                 {NICHES.map((niche) => {
                     const Icon = niche.icon
                     const isSelected = selectedNiche === niche.id
@@ -79,7 +79,7 @@ export default function NicheStep() {
                             key={niche.id}
                             onClick={() => setSelectedNiche(niche.id)}
                             className={cn(
-                                "group relative p-8 rounded-3xl border-2 bg-white transition-all duration-300 cursor-pointer",
+                                "group relative p-6 md:p-8 rounded-2xl md:rounded-3xl border-2 bg-white transition-all duration-300 cursor-pointer shadow-sm",
                                 isSelected
                                     ? "border-purple-600 shadow-xl shadow-purple-100/50 ring-4 ring-purple-50"
                                     : "border-slate-100 hover:border-purple-200 hover:shadow-lg"
@@ -92,16 +92,16 @@ export default function NicheStep() {
                             )}
 
                             <div className={cn(
-                                "mb-6 p-4 rounded-2xl w-fit transition-colors duration-300",
+                                "mb-4 md:mb-6 p-3 md:p-4 rounded-xl md:rounded-2xl w-fit transition-colors duration-300",
                                 isSelected ? "bg-purple-600 text-white" : "bg-purple-50 text-purple-600 group-hover:bg-purple-100"
                             )}>
-                                <Icon className="h-8 w-8" />
+                                <Icon className="h-6 w-6 md:h-8 md:w-8" />
                             </div>
 
-                            <h3 className="text-xl font-bold text-slate-900 mb-3 group-hover:text-purple-600 transition-colors">
+                            <h3 className="text-lg md:text-xl font-bold text-slate-900 mb-2 md:mb-3 group-hover:text-purple-600 transition-colors">
                                 {niche.title}
                             </h3>
-                            <p className="text-slate-500 text-sm leading-relaxed mb-6 font-medium">
+                            <p className="text-slate-500 text-sm leading-relaxed mb-4 md:mb-6 font-medium">
                                 {niche.description}
                             </p>
 
@@ -118,14 +118,14 @@ export default function NicheStep() {
 
                 {/* Create Custom Niche Card */}
                 <div
-                    className="group relative p-8 rounded-3xl border-2 border-dashed border-slate-200 bg-slate-50/50 hover:bg-white hover:border-purple-300 hover:border-solid transition-all duration-300 cursor-pointer flex flex-col items-center justify-center text-center outline-none focus:ring-2 focus:ring-purple-500"
+                    className="group relative p-6 md:p-8 rounded-2xl md:rounded-3xl border-2 border-dashed border-slate-200 bg-slate-50/50 hover:bg-white hover:border-purple-300 hover:border-solid transition-all duration-300 cursor-pointer flex flex-col items-center justify-center text-center outline-none focus:ring-2 focus:ring-purple-500 min-h-[200px]"
                     onClick={() => setSelectedNiche("custom")}
                 >
-                    <div className="mb-6 p-4 rounded-2xl bg-white border border-slate-100 text-slate-400 group-hover:text-purple-600 group-hover:border-purple-100 transition-all duration-300">
-                        <Plus className="h-8 w-8" />
+                    <div className="mb-4 md:mb-6 p-3 md:p-4 rounded-xl md:rounded-2xl bg-white border border-slate-100 text-slate-400 group-hover:text-purple-600 group-hover:border-purple-100 transition-all duration-300">
+                        <Plus className="h-6 w-6 md:h-8 md:w-8" />
                     </div>
-                    <h3 className="text-xl font-bold text-slate-900 mb-2">Create Your Own Category</h3>
-                    <p className="text-slate-500 text-sm font-medium">
+                    <h3 className="text-lg md:text-xl font-bold text-slate-900 mb-1 md:mb-2">Create Your Own Category</h3>
+                    <p className="text-slate-500 text-xs md:text-sm font-medium">
                         Define a custom niche from scratch if yours isn't listed here
                     </p>
                 </div>
