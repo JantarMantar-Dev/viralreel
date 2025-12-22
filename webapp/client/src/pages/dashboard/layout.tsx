@@ -206,7 +206,7 @@ export default function DashboardLayout() {
                 <SidebarRail />
             </Sidebar>
             <SidebarInset className="bg-slate-50">
-                <div className="flex flex-1 flex-col gap-4 p-4 pt-0 bg-[radial-gradient(circle_at_center,theme(colors.purple.50)_0%,theme(colors.slate.50)_75%)]">
+                <div className="flex flex-1 flex-col bg-[radial-gradient(circle_at_center,theme(colors.purple.50)_0%,theme(colors.slate.50)_75%)]">
                     <Outlet />
                 </div>
             </SidebarInset>

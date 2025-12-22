@@ -233,80 +233,91 @@ export default function MyVideosPage() {
     const [filter, setFilter] = useState<"All" | "Single" | "Series">("All")
 
     return (
-        <div className="flex flex-col gap-6 w-full max-w-[1600px] mx-auto animate-in fade-in duration-500">
-            {/* Top Bar (Search & Actions) */}
-            <div className="flex items-center justify-between gap-4 py-2">
-                <div className="relative w-full max-w-xl">
+        <div className="flex flex-col w-full h-full">
+            {/* Top Bar (Search & Actions) - Full Width Header */}
+            <div className="flex items-center gap-4 p-4 w-full bg-white border-b border-slate-200 sticky top-0 z-10">
+                <div className="relative flex-1 max-w-4xl">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                     <Input
                         placeholder="Search projects, templates..."
-                        className="pl-10 h-10 w-full bg-white border-slate-200 focus-visible:ring-purple-500/20"
+                        className="pl-10 h-10 w-full bg-slate-50/50 border-transparent focus-visible:bg-white focus-visible:ring-purple-500/20 transition-all"
                     />
                 </div>
 
-                <div className="flex items-center gap-3">
-                    <Button variant="ghost" size="icon" className="text-slate-500 hover:text-purple-600 relative">
-                        <Bell className="h-5 w-5" />
-                        <span className="absolute top-2.5 right-2.5 h-2 w-2 rounded-full bg-red-500 border-2 border-white"></span>
-                    </Button>
+                <div className="flex items-center gap-4 ml-auto">
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="text-slate-500 hover:text-purple-600 relative">
+                                <Bell className="h-5 w-5" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-80 p-0">
+                            <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
+                                <Bell className="h-8 w-8 text-slate-300 mb-3" />
+                                <p className="text-sm font-medium text-slate-900">No notifications</p>
+                                <p className="text-xs text-slate-500 mt-1">You're all caught up! Check back later for updates.</p>
+                            </div>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                     <Button className="bg-purple-600 hover:bg-purple-700 text-white shadow-sm shadow-purple-200">
                         <Plus className="mr-2 h-4 w-4" /> Create New
                     </Button>
                 </div>
             </div>
 
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pt-2">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-slate-900">My Videos</h1>
-                    <p className="text-slate-500 mt-1">Manage and organize your AI generated videos.</p>
+            <div className="flex flex-col gap-6 w-full max-w-[1600px] mx-auto animate-in fade-in duration-500 p-6">
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pt-2">
+                    <div>
+                        <h1 className="text-3xl font-bold tracking-tight text-slate-900">My Videos</h1>
+                        <p className="text-slate-500 mt-1">Manage and organize your AI generated videos.</p>
+                    </div>
+
+                    <div className="flex p-1 bg-slate-100 rounded-lg self-start md:self-auto">
+                        <button
+                            onClick={() => setFilter("All")}
+                            className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${filter === "All"
+                                ? "bg-white text-slate-900 shadow-sm"
+                                : "text-slate-500 hover:text-slate-900"
+                                }`}
+                        >
+                            All Projects
+                        </button>
+                        <button
+                            onClick={() => setFilter("Single")}
+                            className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${filter === "Single"
+                                ? "bg-white text-slate-900 shadow-sm"
+                                : "text-slate-500 hover:text-slate-900"
+                                }`}
+                        >
+                            Single Videos
+                        </button>
+                        <button
+                            onClick={() => setFilter("Series")}
+                            className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${filter === "Series"
+                                ? "bg-white text-slate-900 shadow-sm"
+                                : "text-slate-500 hover:text-slate-900"
+                                }`}
+                        >
+                            Series
+                        </button>
+                    </div>
                 </div>
 
-                <div className="flex p-1 bg-slate-100 rounded-lg self-start md:self-auto">
-                    <button
-                        onClick={() => setFilter("All")}
-                        className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${filter === "All"
-                            ? "bg-white text-slate-900 shadow-sm"
-                            : "text-slate-500 hover:text-slate-900"
-                            }`}
-                    >
-                        All Projects
-                    </button>
-                    <button
-                        onClick={() => setFilter("Single")}
-                        className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${filter === "Single"
-                            ? "bg-white text-slate-900 shadow-sm"
-                            : "text-slate-500 hover:text-slate-900"
-                            }`}
-                    >
-                        Single Videos
-                    </button>
-                    <button
-                        onClick={() => setFilter("Series")}
-                        className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${filter === "Series"
-                            ? "bg-white text-slate-900 shadow-sm"
-                            : "text-slate-500 hover:text-slate-900"
-                            }`}
-                    >
-                        Series
-                    </button>
-                </div>
-            </div>
-
-            {/* Filters & Content */}
-            <div className="space-y-6">
-                {/* Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                    {mockProjects
-                        .filter(p => {
-                            if (filter === "All") return true
-                            if (filter === "Single") return p.type === "Single Video"
-                            if (filter === "Series") return p.type === "Series"
-                            return true
-                        })
-                        .map((project) => (
-                            <VideoCard key={project.id} project={project} />
-                        ))}
+                {/* Filters & Content */}
+                <div className="space-y-6">
+                    {/* Grid */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                        {mockProjects
+                            .filter(p => {
+                                if (filter === "All") return true
+                                if (filter === "Single") return p.type === "Single Video"
+                                if (filter === "Series") return p.type === "Series"
+                                return true
+                            })
+                            .map((project) => (
+                                <VideoCard key={project.id} project={project} />
+                            ))}
+                    </div>
                 </div>
             </div>
         </div>
