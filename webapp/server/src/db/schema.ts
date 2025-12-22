@@ -62,6 +62,8 @@ export const contentNiche = pgTable("content_niche", {
     name: text("name").notNull().unique(), // Unique identifier name for the niche
     description: text("description"), // Human-readable description
     iconUrl: text("icon_url"), // URL to an icon representing this niche
+    iconName: text("icon_name"), // Lucide icon name for frontend mapping
+    tags: text("tags"), // Comma-separated tags for the niche
 
     // Prompts
     scriptPrompt: text("script_prompt"), // System prompt used for script generation

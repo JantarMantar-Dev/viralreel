@@ -6,13 +6,12 @@ import {
     Zap,
     TrendingUp,
     Plus,
-    Check
+    Check,
+    Lightbulb,
+    Search
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useCreation } from "../layout"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Tag } from "lucide-react"
 
 const NICHES = [
     {
@@ -56,6 +55,20 @@ const NICHES = [
         description: "Market analysis, entrepreneurship tips, and money management.",
         icon: TrendingUp,
         tags: ["#money", "#startup"]
+    },
+    {
+        id: "mindblowing-facts",
+        title: "Mindblowing Facts",
+        description: "Extraordinary facts that challenge common knowledge or reveal hidden wonders.",
+        icon: Lightbulb,
+        tags: ["#facts", "#wonder"]
+    },
+    {
+        id: "mysteries-unsolved",
+        title: "Mysteries & Unsolved",
+        description: "Explore unexplained phenomena, missing person cases, or bizarre anomalies.",
+        icon: Search,
+        tags: ["#mystery", "#unsolved"]
     }
 ]
 
@@ -133,34 +146,6 @@ export default function NicheStep() {
                     </p>
                 </div>
             </div>
-
-            {/* Tags Input Section */}
-            {selectedNiche && (
-                <div className="mt-12 max-w-2xl mx-auto p-8 rounded-3xl bg-white border border-slate-100 shadow-xl shadow-slate-200/50 animate-in fade-in slide-in-from-top-4 duration-500">
-                    <div className="flex items-center gap-3 mb-6">
-                        <div className="p-2 rounded-lg bg-purple-50 text-purple-600">
-                            <Tag className="h-5 w-5" />
-                        </div>
-                        <h2 className="text-xl font-bold text-slate-900">Add Tags & Context</h2>
-                    </div>
-
-                    <div className="space-y-4">
-                        <Label htmlFor="tags" className="text-sm font-semibold text-slate-900">
-                            Keywords (Comma Separated)
-                        </Label>
-                        <Input
-                            id="tags"
-                            placeholder="e.g. realistic, cinematic, spooky, mystery"
-                            value={nicheTags}
-                            onChange={(e) => setNicheTags(e.target.value)}
-                            className="h-12 rounded-xl border-slate-200 focus-visible:ring-purple-500 transition-all font-medium"
-                        />
-                        <p className="text-xs text-slate-400 font-medium italic">
-                            These tags will help the AI fine-tune the script and visuals for your series.
-                        </p>
-                    </div>
-                </div>
-            )}
         </div>
     )
 }
