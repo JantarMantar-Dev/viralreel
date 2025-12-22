@@ -1,15 +1,17 @@
-<svg width="100" height="100" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="bg-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#9333ea" />
-      <stop offset="100%" stop-color="#2563eb" />
-    </linearGradient>
-  </defs>
-  <rect width="100" height="100" rx="20" fill="url(#bg-gradient)" />
-  <!-- Play Button -->
-  <path d="M25 20C25 15.38 30.01 12.5 34.02 14.82L80.5 41.82C84.5 44.13 84.5 49.87 80.5 52.18L34.02 79.18C30.01 81.5 25 78.62 25 74V20Z" fill="white"/>
-  <!-- Sparkle/Star -->
-  <path d="M85 15C85 15 87 25 95 25C87 25 85 35 85 35C85 35 83 25 75 25C83 25 85 15 85 15Z" fill="white"/>
-  <!-- Small Dot -->
-  <circle cx="72" cy="40" r="3" fill="white"/>
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="512" height="512" rx="100" fill="#6D28D9"/>
+  
+  <mask id="icon-cutout" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">
+    <rect x="76" y="100" width="360" height="312" rx="40" fill="white"/>
+    
+    <path d="M 162 100 L 202 180 L 152 180 L 112 100 Z" fill="black"/>
+    <path d="M 252 100 L 292 180 L 242 180 L 202 100 Z" fill="black"/>
+    <path d="M 342 100 L 382 180 L 332 180 L 292 100 Z" fill="black"/>
+
+    <path d="M210 235 C210 235 230 285 280 285 C230 285 210 335 210 335 C210 335 190 285 140 285 C190 285 210 235 210 235 Z" fill="black"/>
+    <path d="M330 245 C330 245 340 270 365 270 C340 270 330 295 330 295 C330 295 320 270 295 270 C320 270 330 245 330 245 Z" fill="black"/>
+  
+  </mask>
+
+  <rect x="0" y="0" width="512" height="512" fill="white" mask="url(#icon-cutout)"/>
 </svg>

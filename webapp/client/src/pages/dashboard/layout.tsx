@@ -85,8 +85,8 @@ export default function DashboardLayout() {
             <Sidebar collapsible="icon" className="border-r border-slate-100 bg-white">
                 <SidebarHeader className="bg-white pb-4 pt-4">
                     <div className="flex items-center gap-2 px-2 py-1 mb-4">
-                        <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-purple-600 text-white p-1 shadow-sm">
-                            <Video className="w-5 h-5" />
+                        <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-purple-600 text-white shadow-sm">
+                            <img src="/logo.svg" alt="ViralReel Logo" className="w-full h-full object-contain" />
                         </div>
                         <div className="grid flex-1 text-left">
                             <span className="truncate font-bold text-slate-900 leading-tight">ViralReel</span>
