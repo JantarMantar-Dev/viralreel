@@ -1,6 +1,6 @@
 import { Zap } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { useCreation } from "../layout"
+import { useCreation } from "../context/creation-context"
 
 export default function PlaceholderStep() {
     const { currentStep, prevStep } = useCreation()

@@ -1,56 +1,42 @@
-import { useState, createContext, useContext, ReactNode } from "react"
+import { useState } from "react"
 import { useNavigate, useLocation, Outlet } from "react-router-dom"
 import {
     ChevronLeft,
     X,
-    Check
+    Check,
+    Wand2
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { VOICES, Voice } from "./steps/voice-step"
+import { TRACKS } from "./steps/music-step"
+import { SUBTITLE_STYLES, SubtitleStyle } from "./steps/subtitle-step"
+import { Track } from "./components/music-list"
+import {
+    CreationContext,
+    VideoJobRequest,
+    INITIAL_REQUEST
+} from "./context/creation-context"
 
 const STEPS = [
     { id: 1, title: "Choose Niche", path: "niche" },
     { id: 2, title: "Script & Idea", path: "script" },
     { id: 3, title: "AI Voice", path: "voice" },
-    { id: 4, title: "Visual Style", path: "visuals" },
+    { id: 4, title: "Background Music", path: "music" },
     { id: 5, title: "Subtitles", path: "subtitles" },
-    { id: 6, title: "Music", path: "music" },
-    { id: 7, title: "Review", path: "review" }
+    { id: 6, title: "Review", path: "review" }
 ]
 
-interface CreationContextType {
-    selectedNiche: string | null
-    setSelectedNiche: (niche: string) => void
-    scriptIdea: string
-    setScriptIdea: (idea: string) => void
-    duration: number
-    setDuration: (duration: number) => void
-    segments: number
-    setSegments: (segments: number) => void
-    visualFormat: "image" | "video"
-    setVisualFormat: (format: "image" | "video") => void
-    nextStep: () => void
-    prevStep: () => void
-    currentStep: number
-}
-
-const CreationContext = createContext<CreationContextType | null>(null)
-
-export function useCreation() {
-    const context = useContext(CreationContext)
-    if (!context) throw new Error("useCreation must be used within a CreationProvider")
-    return context
-}
 
 export default function CreateVideoLayout() {
-    const [selectedNiche, setSelectedNiche] = useState<string | null>(null)
-    const [scriptIdea, setScriptIdea] = useState("")
-    const [duration, setDuration] = useState<number>(1)
-    const [segments, setSegments] = useState<number>(3)
-    const [visualFormat, setVisualFormat] = useState<"image" | "video">("image")
+    const [request, setRequest] = useState<VideoJobRequest>(INITIAL_REQUEST)
     const navigate = useNavigate()
     const location = useLocation()
+
+    const updateRequest = (data: Partial<VideoJobRequest>) => {
+        setRequest(prev => ({ ...prev, ...data }))
+    }
 
     // Determine current step based on route path
     const path = location.pathname.split("/").pop()
@@ -64,6 +50,9 @@ export default function CreateVideoLayout() {
     const nextStep = () => {
         if (currentStep < STEPS.length) {
             navigate(STEPS[currentStep].path)
+        } else if (currentStep === STEPS.length) {
+            // Handle generation here
+            console.log("Generating series...", request)
         }
     }
 
@@ -75,16 +64,8 @@ export default function CreateVideoLayout() {
 
     return (
         <CreationContext.Provider value={{
-            selectedNiche,
-            setSelectedNiche,
-            scriptIdea,
-            setScriptIdea,
-            duration,
-            setDuration,
-            segments,
-            setSegments,
-            visualFormat,
-            setVisualFormat,
+            request,
+            updateRequest,
             nextStep,
             prevStep,
             currentStep
@@ -150,7 +131,7 @@ export default function CreateVideoLayout() {
                         </div>
 
                         <div className="hidden md:block ml-4 text-sm font-semibold text-slate-900 min-w-[100px]">
-                            {STEPS.find(s => s.id === currentStep)?.title}
+                            {STEPS.find((s: { id: number; title: string }) => s.id === currentStep)?.title}
                         </div>
                     </div>
 
@@ -172,28 +153,76 @@ export default function CreateVideoLayout() {
                 </main>
 
                 {/* Sticky Footer Navigation */}
-                {selectedNiche && (
+                {request.nicheId && (
                     <footer className="sticky bottom-0 z-30 w-full bg-white/80 backdrop-blur-md border-t border-slate-200 px-4 md:px-6 py-4 mt-auto">
                         <div className="max-w-6xl mx-auto w-full flex items-center justify-between gap-4">
-                            {currentStep > 1 ? (
-                                <Button
-                                    variant="outline"
-                                    onClick={prevStep}
-                                    className="h-12 px-6 rounded-xl border-2 border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-600 font-bold text-lg transition-all"
-                                >
-                                    Back
-                                </Button>
-                            ) : (
-                                <div /> /* Spacer to keep Next button on the right */
-                            )}
+                            <div className="flex items-center gap-6">
+                                {currentStep > 1 && (
+                                    <Button
+                                        variant="outline"
+                                        onClick={prevStep}
+                                        className="h-12 px-6 rounded-xl border-2 border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-600 font-bold text-lg transition-all"
+                                    >
+                                        Back
+                                    </Button>
+                                )}
 
-                            <Button
-                                onClick={nextStep}
-                                disabled={currentStep === 2 && !scriptIdea.trim()}
-                                className="max-w-xs w-full h-12 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-lg shadow-xl shadow-purple-200 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:shadow-none"
-                            >
-                                {currentStep === 7 ? "Generate Video" : `Continue to Step ${currentStep + 1}`}
-                            </Button>
+                                {currentStep === 3 && request.voiceId && (
+                                    <div className="hidden sm:flex items-center gap-2 px-4 py-2 bg-purple-50 rounded-xl border border-purple-100 animate-in fade-in slide-in-from-left-4 duration-300">
+                                        <span className="text-sm font-bold text-slate-500 uppercase tracking-wider">Selected:</span>
+                                        <span className="text-lg font-extrabold text-purple-600 font-display">{VOICES.find((v: Voice) => v.id === request.voiceId)?.name}</span>
+                                    </div>
+                                )}
+
+                                {currentStep === 4 && request.musicId && (
+                                    <div className="hidden lg:flex items-center gap-2 px-4 py-2 bg-purple-50 rounded-xl border border-purple-100 animate-in fade-in slide-in-from-left-4 duration-300">
+                                        <span className="text-sm font-bold text-slate-500 uppercase tracking-wider">Mood:</span>
+                                        <span className="text-lg font-extrabold text-purple-600 font-display">{TRACKS.find((t: Track) => t.id === request.musicId)?.name}</span>
+                                    </div>
+                                )}
+
+                                {currentStep === 5 && request.subtitleTemplateId && (
+                                    <div className="hidden lg:flex items-center gap-2 px-4 py-2 bg-purple-50 rounded-xl border border-purple-100 animate-in fade-in slide-in-from-left-4 duration-300">
+                                        <span className="text-sm font-bold text-slate-500 uppercase tracking-wider">Style:</span>
+                                        <span className="text-lg font-extrabold text-purple-600 font-display">{SUBTITLE_STYLES.find((t: SubtitleStyle) => t.id === request.subtitleTemplateId)?.name}</span>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="flex items-center gap-4 w-full md:w-auto">
+                                {currentStep === 6 && (
+                                    <Button
+                                        variant="outline"
+                                        className="flex-1 md:w-40 h-12 rounded-xl font-bold border-2 border-slate-200 text-slate-600 hover:text-slate-900 transition-all"
+                                    >
+                                        Save Draft
+                                    </Button>
+                                )}
+                                <Button
+                                    onClick={nextStep}
+                                    disabled={
+                                        (currentStep === 2 && !request.scriptIdea.trim()) ||
+                                        (currentStep === 3 && !request.voiceId) ||
+                                        (currentStep === 4 && !request.musicId) ||
+                                        (currentStep === 5 && !request.subtitleTemplateId)
+                                    }
+                                    className={cn(
+                                        "w-full h-12 rounded-xl transition-all font-bold text-lg shadow-xl",
+                                        currentStep === 6
+                                            ? "bg-purple-600 hover:bg-purple-700 text-white md:w-60 shadow-purple-200 hover:scale-[1.02] active:scale-[0.98]"
+                                            : "bg-purple-600 hover:bg-purple-700 text-white max-w-xs shadow-purple-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:shadow-none"
+                                    )}
+                                >
+                                    {currentStep === 6 ? (
+                                        <>
+                                            <Wand2 className="mr-2 h-5 w-5" />
+                                            Generate Series
+                                        </>
+                                    ) : (
+                                        `Continue to Step ${currentStep + 1}`
+                                    )}
+                                </Button>
+                            </div>
                         </div>
                     </footer>
                 )}

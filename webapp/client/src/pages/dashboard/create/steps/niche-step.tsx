@@ -15,7 +15,7 @@ import {
     HelpCircle
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { useCreation } from "../layout"
+import { useCreation } from "../context/creation-context"
 import { useQuery } from "@tanstack/react-query"
 
 const ICON_MAP: Record<string, any> = {
@@ -30,7 +30,7 @@ const ICON_MAP: Record<string, any> = {
     HelpCircle
 }
 
-interface Niche {
+export interface Niche {
     id: string
     name: string
     description: string
@@ -38,8 +38,10 @@ interface Niche {
     tags: string | string[]
 }
 
+import StepHeader from "../components/step-header"
+
 export default function NicheStep() {
-    const { selectedNiche, setSelectedNiche } = useCreation()
+    const { request, updateRequest } = useCreation()
 
     const { data: niches, isLoading, error } = useQuery<Niche[]>({
         queryKey: ["niches"],
@@ -53,14 +55,10 @@ export default function NicheStep() {
 
     return (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="text-center mb-8 md:mb-12">
-                <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight text-slate-900 mb-3 md:mb-4">
-                    What's your series about?
-                </h1>
-                <p className="text-base md:text-lg text-slate-500 max-w-2xl mx-auto font-medium px-4">
-                    Select a popular niche to get started with optimized templates, or describe your own unique idea.
-                </p>
-            </div>
+            <StepHeader
+                title="What's your series about?"
+                description="Select a popular niche to get started with optimized templates, or describe your own unique idea."
+            />
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                 {isLoading ? (
@@ -85,7 +83,7 @@ export default function NicheStep() {
                 ) : (
                     niches?.map((niche) => {
                         const Icon = ICON_MAP[niche.iconName] || Fingerprint
-                        const isSelected = selectedNiche === niche.id
+                        const isSelected = request.nicheId === niche.id
                         const tagsList = typeof niche.tags === 'string'
                             ? niche.tags.split(',').map(t => t.trim())
                             : (Array.isArray(niche.tags) ? niche.tags : [])
@@ -93,7 +91,7 @@ export default function NicheStep() {
                         return (
                             <div
                                 key={niche.id}
-                                onClick={() => setSelectedNiche(niche.id)}
+                                onClick={() => updateRequest({ nicheId: niche.id })}
                                 className={cn(
                                     "group relative p-6 md:p-8 rounded-2xl md:rounded-3xl border-2 bg-white transition-all duration-300 cursor-pointer shadow-sm h-full flex flex-col",
                                     isSelected
@@ -139,7 +137,7 @@ export default function NicheStep() {
                 {!isLoading && !error && (
                     <div
                         className="group relative p-6 md:p-8 rounded-2xl md:rounded-3xl border-2 border-dashed border-slate-200 bg-slate-50/50 hover:bg-white hover:border-purple-300 hover:border-solid transition-all duration-300 cursor-pointer flex flex-col focus:ring-2 focus:ring-purple-500 min-h-[200px]"
-                        onClick={() => setSelectedNiche("custom")}
+                        onClick={() => updateRequest({ nicheId: "custom" })}
                     >
                         <div className="flex items-center gap-4 mb-4 md:mb-6">
                             <div className="p-3 md:p-4 rounded-xl md:rounded-2xl bg-white border border-slate-100 text-slate-400 group-hover:text-purple-600 group-hover:border-purple-100 transition-all duration-300 shrink-0">

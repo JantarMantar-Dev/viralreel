@@ -14,6 +14,10 @@ import SettingsPage from "./pages/dashboard/settings"
 import CreateLayout from "./pages/dashboard/create/layout"
 import NicheStep from "./pages/dashboard/create/steps/niche-step"
 import ScriptStep from "./pages/dashboard/create/steps/script-step"
+import VoiceStep from "./pages/dashboard/create/steps/voice-step"
+import MusicStep from "./pages/dashboard/create/steps/music-step"
+import SubtitleStep from "./pages/dashboard/create/steps/subtitle-step"
+import ReviewStep from "./pages/dashboard/create/steps/review-step"
 import PlaceholderStep from "./pages/dashboard/create/steps/placeholder-step"
 import NotFoundPage from "./pages/dashboard/not-found"
 
@@ -40,11 +44,11 @@ function App() {
             <Route index element={<Navigate to="niche" replace />} />
             <Route path="niche" element={<NicheStep />} />
             <Route path="script" element={<ScriptStep />} />
-            <Route path="voice" element={<PlaceholderStep />} />
-            <Route path="visuals" element={<PlaceholderStep />} />
-            <Route path="subtitles" element={<PlaceholderStep />} />
-            <Route path="music" element={<PlaceholderStep />} />
-            <Route path="review" element={<PlaceholderStep />} />
+            <Route path="voice" element={<VoiceStep />} />
+            {/* Removed Visuals Route */}
+            <Route path="subtitles" element={<SubtitleStep />} />
+            <Route path="music" element={<MusicStep />} />
+            <Route path="review" element={<ReviewStep />} /> {/* Mapped 'review' to ReviewStep */}
           </Route>
           <Route path="*" element={<NotFoundPage />} />
         </Route>

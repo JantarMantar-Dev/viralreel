@@ -6,31 +6,22 @@ import {
     Check
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { useCreation } from "../layout"
+import { useCreation } from "../context/creation-context"
 import { Button } from "@/components/ui/button"
+import StepHeader from "../components/step-header"
 
 export default function ScriptStep() {
     const {
-        scriptIdea,
-        setScriptIdea,
-        duration,
-        setDuration,
-        segments,
-        setSegments,
-        visualFormat,
-        setVisualFormat
+        request,
+        updateRequest
     } = useCreation()
 
     return (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-4xl mx-auto space-y-8">
-            <div className="text-center mb-8 md:mb-12">
-                <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight text-slate-900 mb-3 md:mb-4">
-                    Define your Video Details
-                </h1>
-                <p className="text-base md:text-lg text-slate-500 max-w-2xl mx-auto font-medium px-4">
-                    Provide specific instructions to tailor the AI script, choose the duration, and structure the storytelling flow.
-                </p>
-            </div>
+            <StepHeader
+                title="Define your Video Details"
+                description="Provide specific instructions to tailor the AI script, choose the duration, and structure the storytelling flow."
+            />
 
             {/* Section 1: Series Idea & Context */}
             <div className="bg-white rounded-3xl border border-slate-200 p-6 md:p-8 shadow-sm">
@@ -48,15 +39,15 @@ export default function ScriptStep() {
 
                 <div className="relative">
                     <textarea
-                        value={scriptIdea}
-                        onChange={(e) => setScriptIdea(e.target.value)}
+                        value={request.scriptIdea}
+                        onChange={(e) => updateRequest({ scriptIdea: e.target.value })}
                         placeholder="Example: Create a series about 'Unsolved Ocean Mysteries'. The tone should be suspenseful and eerie. Start with the Bermuda Triangle, then move to the Mariana Trench anomalies..."
                         className="w-full min-h-[180px] p-4 md:p-6 rounded-2xl border border-slate-200 bg-slate-50/50 text-slate-900 placeholder:text-slate-400 focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none resize-none transition-all text-base leading-relaxed"
                         maxLength={1000}
                     />
                     <div className="absolute bottom-4 right-4 flex items-center gap-4">
                         <span className="text-xs font-semibold text-slate-400">
-                            {scriptIdea.length}/1000
+                            {request.scriptIdea.length}/1000
                         </span>
                         <Button
                             variant="outline"
@@ -79,7 +70,7 @@ export default function ScriptStep() {
                     <div>
                         <h3 className="text-xl font-bold text-slate-900">Duration</h3>
                         <p className="text-slate-500 text-sm font-medium mt-1">
-                            Target video length: <span className="text-purple-600 font-bold">{duration === 0.5 ? "30 Seconds" : `${duration} Minute${duration > 1 ? 's' : ''}`}</span>
+                            Target video length: <span className="text-purple-600 font-bold">{request.duration === 0.5 ? "30 Seconds" : `${request.duration} Minute${request.duration > 1 ? 's' : ''}`}</span>
                         </p>
                     </div>
                 </div>
@@ -92,7 +83,7 @@ export default function ScriptStep() {
                             <div
                                 className="h-full bg-purple-600 transition-all duration-300 ease-out"
                                 style={{
-                                    width: `${((([0.5, 1, 2, 3, 4, 5].indexOf(duration) / 5) * 100))}%`
+                                    width: `${((([0.5, 1, 2, 3, 4, 5].indexOf(request.duration) / 5) * 100))}%`
                                 }}
                             />
                         </div>
@@ -100,14 +91,14 @@ export default function ScriptStep() {
                         {/* Steps */}
                         <div className="absolute w-full flex justify-between items-center">
                             {[0.5, 1, 2, 3, 4, 5].map((step, index) => {
-                                const isActive = duration >= step
-                                const isSelected = duration === step
+                                const isActive = request.duration >= step
+                                const isSelected = request.duration === step
 
                                 return (
                                     <div
                                         key={step}
                                         className="relative group cursor-pointer"
-                                        onClick={() => setDuration(step)}
+                                        onClick={() => updateRequest({ duration: step })}
                                     >
                                         <div className={cn(
                                             "w-4 h-4 rounded-full border-2 transition-all duration-300 z-10 relative",
@@ -147,22 +138,22 @@ export default function ScriptStep() {
                 {/* Visual Format Selector */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
                     <div
-                        onClick={() => setVisualFormat('image')}
+                        onClick={() => updateRequest({ visualFormat: 'image' })}
                         className={cn(
                             "relative p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 flex items-center gap-4 group",
-                            visualFormat === 'image'
+                            request.visualFormat === 'image'
                                 ? "border-purple-600 bg-purple-50/30"
                                 : "border-slate-100 bg-slate-50/30 hover:border-slate-300"
                         )}
                     >
                         <div className={cn(
                             "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors shrink-0",
-                            visualFormat === 'image' ? "border-purple-600" : "border-slate-300 group-hover:border-slate-400"
+                            request.visualFormat === 'image' ? "border-purple-600" : "border-slate-300 group-hover:border-slate-400"
                         )}>
-                            {visualFormat === 'image' && <div className="w-2.5 h-2.5 rounded-full bg-purple-600" />}
+                            {request.visualFormat === 'image' && <div className="w-2.5 h-2.5 rounded-full bg-purple-600" />}
                         </div>
                         <div>
-                            <span className={cn("font-bold block", visualFormat === 'image' ? "text-purple-900" : "text-slate-700")}>
+                            <span className={cn("font-bold block", request.visualFormat === 'image' ? "text-purple-900" : "text-slate-700")}>
                                 Dynamic Image Story
                             </span>
                             <span className="text-xs text-slate-500 font-medium">Rotations & Ken Burns effects</span>
@@ -187,7 +178,7 @@ export default function ScriptStep() {
 
                 <div className="flex items-center justify-between mb-4">
                     <h4 className="font-bold text-slate-900">Visual Segments</h4>
-                    <span className="text-purple-600 font-bold text-sm bg-purple-50 px-3 py-1 rounded-full">{segments} Scenes</span>
+                    <span className="text-purple-600 font-bold text-sm bg-purple-50 px-3 py-1 rounded-full">{request.segments} Scenes</span>
                 </div>
 
                 <div className="px-2 md:px-4 py-4">
@@ -198,7 +189,7 @@ export default function ScriptStep() {
                             <div
                                 className="h-full bg-purple-600 transition-all duration-300 ease-out"
                                 style={{
-                                    width: `${(((segments - 3) / 9) * 100)}%`
+                                    width: `${(((request.segments - 3) / 9) * 100)}%`
                                 }}
                             />
                         </div>
@@ -206,14 +197,14 @@ export default function ScriptStep() {
                         {/* Steps */}
                         <div className="absolute w-full flex justify-between items-center">
                             {Array.from({ length: 10 }, (_, i) => i + 3).map((count) => {
-                                const isActive = segments >= count
-                                const isSelected = segments === count
+                                const isActive = request.segments >= count
+                                const isSelected = request.segments === count
 
                                 return (
                                     <div
                                         key={count}
                                         className="relative group cursor-pointer"
-                                        onClick={() => setSegments(count)}
+                                        onClick={() => updateRequest({ segments: count })}
                                     >
                                         <div className={cn(
                                             "w-3 h-3 md:w-4 md:h-4 rounded-full border-2 transition-all duration-300 z-10 relative",
