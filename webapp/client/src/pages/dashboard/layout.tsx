@@ -111,72 +111,6 @@ export default function DashboardLayout() {
                                         </a>
                                     </SidebarMenuButton>
                                 </SidebarMenuItem>
-
-                                <SidebarMenuItem>
-                                    <SidebarMenuButton
-                                        asChild
-                                        tooltip="My Projects"
-                                        isActive={location.pathname === "/dashboard/projects"}
-                                        className="data-[active=true]:bg-purple-50 data-[active=true]:text-purple-600 hover:bg-slate-50 text-slate-600 font-medium"
-                                    >
-                                        <a href="/dashboard/projects">
-                                            <FolderOpen className="h-4 w-4" />
-                                            <span>My Projects</span>
-                                        </a>
-                                    </SidebarMenuButton>
-                                </SidebarMenuItem>
-
-                                <SidebarMenuItem>
-                                    <SidebarMenuButton
-                                        asChild
-                                        tooltip="Assets"
-                                        isActive={location.pathname === "/dashboard/assets"}
-                                        className="data-[active=true]:bg-purple-50 data-[active=true]:text-purple-600 hover:bg-slate-50 text-slate-600 font-medium"
-                                    >
-                                        <a href="/dashboard/assets">
-                                            <ImageIcon className="h-4 w-4" />
-                                            <span>Assets</span>
-                                        </a>
-                                    </SidebarMenuButton>
-                                </SidebarMenuItem>
-                            </SidebarMenu>
-                        </SidebarGroupContent>
-                    </SidebarGroup>
-
-                    <SidebarGroup>
-                        <SidebarGroupLabel className="px-4 text-xs font-semibold text-slate-400 uppercase tracking-widest mt-4">
-                            Resources
-                        </SidebarGroupLabel>
-                        <SidebarGroupContent>
-                            <SidebarMenu>
-                                <SidebarMenuItem>
-                                    <SidebarMenuButton
-                                        asChild
-                                        tooltip="Templates"
-                                        isActive={location.pathname === "/dashboard/templates"}
-                                        className="data-[active=true]:bg-purple-50 data-[active=true]:text-purple-600 hover:bg-slate-50 text-slate-600 font-medium"
-                                    >
-                                        <a href="/dashboard/templates">
-                                            <LayoutTemplate className="h-4 w-4" />
-                                            <span>Templates</span>
-                                        </a>
-                                    </SidebarMenuButton>
-                                </SidebarMenuItem>
-
-                                <SidebarMenuItem>
-                                    <SidebarMenuButton
-                                        asChild
-                                        tooltip="Tutorials"
-                                        isActive={location.pathname === "/dashboard/tutorials"}
-                                        className="data-[active=true]:bg-purple-50 data-[active=true]:text-purple-600 hover:bg-slate-50 text-slate-600 font-medium"
-                                    >
-                                        <a href="/dashboard/tutorials">
-                                            <GraduationCap className="h-4 w-4" />
-                                            <span>Tutorials</span>
-                                        </a>
-                                    </SidebarMenuButton>
-                                </SidebarMenuItem>
-
                                 <SidebarMenuItem>
                                     <SidebarMenuButton
                                         asChild
@@ -255,8 +189,8 @@ export default function DashboardLayout() {
                 </SidebarFooter>
                 <SidebarRail />
             </Sidebar>
-            <SidebarInset className="bg-white">
-                <div className="flex flex-1 flex-col gap-4 p-4 pt-0 bg-white">
+            <SidebarInset className="bg-slate-50">
+                <div className="flex flex-1 flex-col gap-4 p-4 pt-0 bg-slate-50">
                     <Outlet />
                 </div>
             </SidebarInset>

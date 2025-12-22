@@ -1,4 +1,4 @@
-import { Play, Layers, ArrowRight, Plus } from "lucide-react"
+import { SquarePlay, Layers, ArrowRight, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 export function OnboardingEmptyState() {
@@ -15,7 +15,7 @@ export function OnboardingEmptyState() {
                 {/* Create Single Video Card */}
                 <div className="group relative flex flex-col items-start p-8 rounded-2xl border border-slate-200 bg-white hover:border-purple-200 hover:shadow-xl hover:shadow-purple-100/50 transition-all duration-300">
                     <div className="mb-6 p-4 rounded-xl bg-purple-50 text-purple-600">
-                        <Play className="h-8 w-8 fill-current" />
+                        <SquarePlay className="h-8 w-8" />
                     </div>
 
                     <h3 className="text-xl font-semibold text-slate-900 mb-3">
@@ -62,10 +62,6 @@ export function OnboardingEmptyState() {
                 Not ready to create?{" "}
                 <a href="#" className="font-medium text-purple-600 hover:text-purple-700 hover:underline">
                     Explore templates
-                </a>
-                {" "}or{" "}
-                <a href="#" className="font-medium text-purple-600 hover:text-purple-700 hover:underline">
-                    Go to Dashboard
                 </a>
             </div>
         </div>
