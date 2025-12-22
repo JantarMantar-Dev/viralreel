@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useNavigate } from "react-router-dom"
 import {
     Search,
     MoreVertical,
@@ -233,9 +234,10 @@ function VideoCard({ project }: { project: Project }) {
 interface VideoListViewProps {
     filter: "All" | "Single" | "Series"
     setFilter: (f: "All" | "Single" | "Series") => void
+    navigate: ReturnType<typeof useNavigate>
 }
 
-function VideoListView({ filter, setFilter }: VideoListViewProps) {
+function VideoListView({ filter, setFilter, navigate }: VideoListViewProps) {
     return (
         <div className="flex flex-col w-full h-full">
             {/* Top Bar (Search & Actions) - Full Width Header */}
@@ -263,7 +265,10 @@ function VideoListView({ filter, setFilter }: VideoListViewProps) {
                             </div>
                         </DropdownMenuContent>
                     </DropdownMenu>
-                    <Button className="bg-purple-600 hover:bg-purple-700 text-white shadow-sm shadow-purple-200">
+                    <Button
+                        onClick={() => navigate("/dashboard/create")}
+                        className="bg-purple-600 hover:bg-purple-700 text-white shadow-sm shadow-purple-200"
+                    >
                         <Plus className="mr-2 h-4 w-4" /> Create New
                     </Button>
                 </div>
@@ -329,12 +334,13 @@ function VideoListView({ filter, setFilter }: VideoListViewProps) {
 }
 
 export default function MyVideosPage() {
+    const navigate = useNavigate()
     const [filter, setFilter] = useState<"All" | "Single" | "Series">("All")
     const [hasVideos, setHasVideos] = useState(false)
 
     if (!hasVideos) {
-        return <VideosEmptyState onCreateNew={() => setHasVideos(true)} />
+        return <VideosEmptyState onCreateNew={() => navigate("/dashboard/create")} />
     }
 
-    return <VideoListView filter={filter} setFilter={setFilter} />
+    return <VideoListView filter={filter} setFilter={setFilter} navigate={navigate} />
 }

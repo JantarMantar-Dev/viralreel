@@ -11,6 +11,7 @@ import DashboardLayout from "./pages/dashboard/layout"
 import DashboardPage from "./pages/dashboard/page"
 import ProjectsPage from "./pages/dashboard/videos/page"
 import SettingsPage from "./pages/dashboard/settings"
+import CreateVideoPage from "./pages/dashboard/create/page"
 import NotFoundPage from "./pages/dashboard/not-found"
 
 function App() {
@@ -34,6 +35,8 @@ function App() {
           <Route path="settings" element={<SettingsPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
+
+        <Route path="/dashboard/create" element={<CreateVideoPage />} />
       </Routes>
       <Toaster />
     </>
