@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button"
 
 export function OnboardingEmptyState() {
     return (
-        <div className="flex flex-1 flex-col items-center justify-center py-12 text-center animate-in fade-in zoom-in duration-500">
+        <div className="flex flex-1 flex-col items-center justify-center py-12 text-center animate-in fade-in duration-500">
             <h2 className="text-4xl font-bold tracking-tight text-slate-900 mb-4">
                 What would you like to create?
             </h2>
