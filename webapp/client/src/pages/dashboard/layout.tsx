@@ -1,5 +1,5 @@
 import { useEffect } from "react"
-import { Outlet, useNavigate, useLocation } from "react-router-dom"
+import { Outlet, useNavigate, useLocation, Link, NavLink } from "react-router-dom"
 import {
     LayoutDashboard,
     LogOut,
@@ -16,6 +16,7 @@ import {
 } from "lucide-react"
 
 import { authClient } from "@/lib/auth-client"
+import { useAuth } from "@/context/auth-context"
 import {
     Sidebar,
     SidebarContent,
@@ -53,7 +54,7 @@ import {
 } from "@/components/ui/tooltip"
 
 export default function DashboardLayout() {
-    const { data: session, isPending, error } = authClient.useSession()
+    const { session, isPending } = useAuth()
     const navigate = useNavigate()
     const location = useLocation()
 
@@ -108,10 +109,10 @@ export default function DashboardLayout() {
                                         isActive={location.pathname === "/dashboard"}
                                         className="data-[active=true]:bg-purple-50 data-[active=true]:text-purple-600 hover:bg-slate-50 text-slate-600 font-medium"
                                     >
-                                        <a href="/dashboard">
+                                        <NavLink to="/dashboard">
                                             <LayoutDashboard className="h-4 w-4" />
                                             <span>Dashboard</span>
-                                        </a>
+                                        </NavLink>
                                     </SidebarMenuButton>
                                 </SidebarMenuItem>
                                 <SidebarMenuItem>
@@ -121,10 +122,10 @@ export default function DashboardLayout() {
                                         isActive={location.pathname === "/dashboard/videos"}
                                         className="data-[active=true]:bg-purple-50 data-[active=true]:text-purple-600 hover:bg-slate-50 text-slate-600 font-medium"
                                     >
-                                        <a href="/dashboard/videos">
+                                        <NavLink to="/dashboard/videos">
                                             <FolderOpen className="h-4 w-4" />
                                             <span>My Videos</span>
-                                        </a>
+                                        </NavLink>
                                     </SidebarMenuButton>
                                 </SidebarMenuItem>
                                 <SidebarMenuItem>
@@ -134,10 +135,10 @@ export default function DashboardLayout() {
                                         isActive={location.pathname === "/dashboard/settings"}
                                         className="data-[active=true]:bg-purple-50 data-[active=true]:text-purple-600 hover:bg-slate-50 text-slate-600 font-medium"
                                     >
-                                        <a href="/dashboard/settings">
+                                        <NavLink to="/dashboard/settings">
                                             <Settings className="h-4 w-4" />
                                             <span>Settings</span>
-                                        </a>
+                                        </NavLink>
                                     </SidebarMenuButton>
                                 </SidebarMenuItem>
                             </SidebarMenu>

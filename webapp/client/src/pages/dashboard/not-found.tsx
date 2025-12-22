@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button"
 import { AlertTriangle } from "lucide-react"
+import { Link } from "react-router-dom"
 
 export default function NotFoundPage() {
     return (
@@ -16,9 +17,9 @@ export default function NotFoundPage() {
             </p>
 
             <Button asChild className="bg-purple-600 hover:bg-purple-700 text-white shadow-sm shadow-purple-200">
-                <a href="/dashboard">
+                <Link to="/dashboard">
                     Go to Dashboard
-                </a>
+                </Link>
             </Button>
         </div>
     )
