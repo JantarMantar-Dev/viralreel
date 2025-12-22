@@ -135,9 +135,6 @@ export default function CreateVideoLayout() {
                     </div>
 
                     <div className="flex items-center gap-1 md:gap-3">
-                        <Button variant="ghost" className="text-slate-500 font-medium hidden sm:flex">
-                            Save Draft
-                        </Button>
                         <Button
                             variant="ghost"
                             size="icon"
