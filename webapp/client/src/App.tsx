@@ -11,7 +11,9 @@ import DashboardLayout from "./pages/dashboard/layout"
 import DashboardPage from "./pages/dashboard/page"
 import ProjectsPage from "./pages/dashboard/videos/page"
 import SettingsPage from "./pages/dashboard/settings"
-import CreateVideoPage from "./pages/dashboard/create/page"
+import CreateLayout from "./pages/dashboard/create/layout"
+import NicheStep from "./pages/dashboard/create/steps/niche-step"
+import PlaceholderStep from "./pages/dashboard/create/steps/placeholder-step"
 import NotFoundPage from "./pages/dashboard/not-found"
 
 function App() {
@@ -33,10 +35,18 @@ function App() {
           <Route index element={<DashboardPage />} />
           <Route path="videos" element={<ProjectsPage />} />
           <Route path="settings" element={<SettingsPage />} />
+          <Route path="create" element={<CreateLayout />}>
+            <Route index element={<Navigate to="niche" replace />} />
+            <Route path="niche" element={<NicheStep />} />
+            <Route path="script" element={<PlaceholderStep />} />
+            <Route path="voice" element={<PlaceholderStep />} />
+            <Route path="visuals" element={<PlaceholderStep />} />
+            <Route path="subtitles" element={<PlaceholderStep />} />
+            <Route path="music" element={<PlaceholderStep />} />
+            <Route path="review" element={<PlaceholderStep />} />
+          </Route>
           <Route path="*" element={<NotFoundPage />} />
         </Route>
-
-        <Route path="/dashboard/create" element={<CreateVideoPage />} />
       </Routes>
       <Toaster />
     </>

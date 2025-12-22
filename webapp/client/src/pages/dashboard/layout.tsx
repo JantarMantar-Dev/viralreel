@@ -119,7 +119,7 @@ export default function DashboardLayout() {
                                     <SidebarMenuButton
                                         asChild
                                         tooltip="My Videos"
-                                        isActive={location.pathname === "/dashboard/videos"}
+                                        isActive={location.pathname === "/dashboard/videos" || location.pathname === "/dashboard/create"}
                                         className="data-[active=true]:bg-purple-50 data-[active=true]:text-purple-600 hover:bg-slate-50 text-slate-600 font-medium"
                                     >
                                         <NavLink to="/dashboard/videos">
