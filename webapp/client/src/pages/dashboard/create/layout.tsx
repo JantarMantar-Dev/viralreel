@@ -22,8 +22,6 @@ const STEPS = [
 interface CreationContextType {
     selectedNiche: string | null
     setSelectedNiche: (niche: string) => void
-    nicheTags: string
-    setNicheTags: (tags: string) => void
     nextStep: () => void
     prevStep: () => void
     currentStep: number
@@ -39,7 +37,6 @@ export function useCreation() {
 
 export default function CreateVideoLayout() {
     const [selectedNiche, setSelectedNiche] = useState<string | null>(null)
-    const [nicheTags, setNicheTags] = useState("")
     const navigate = useNavigate()
     const location = useLocation()
 
@@ -68,8 +65,6 @@ export default function CreateVideoLayout() {
         <CreationContext.Provider value={{
             selectedNiche,
             setSelectedNiche,
-            nicheTags,
-            setNicheTags,
             nextStep,
             prevStep,
             currentStep
