@@ -43,23 +43,31 @@ export function VideosEmptyState({ onCreateNew }: VideosEmptyStateProps) {
             </Button>
 
             <div className="flex flex-col items-center w-full">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em] mb-8">
-                    Or try a template
-                </span>
-                <div className="flex gap-4">
-                    <button className="flex flex-col items-center gap-3 p-6 bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-purple-200 transition-all w-36 group">
-                        <div className="w-10 h-10 bg-slate-50 rounded-lg flex items-center justify-center text-slate-400 group-hover:bg-purple-50 group-hover:text-purple-600 transition-colors">
+                <div className="flex items-center gap-3 mb-8">
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em]">
+                        Or try a template
+                    </span>
+                    <span className="bg-purple-50 text-purple-600 text-[10px] font-bold px-2 py-0.5 rounded-full border border-purple-100 uppercase tracking-wider">
+                        Coming Soon
+                    </span>
+                </div>
+                <div className="flex gap-4 opacity-60">
+                    <button disabled className="flex flex-col items-center gap-3 p-6 bg-white rounded-2xl border border-slate-100 shadow-sm w-36 cursor-default">
+                        <div className="w-10 h-10 bg-slate-50 rounded-lg flex items-center justify-center text-slate-400">
                             <FileText className="w-5 h-5" />
                         </div>
-                        <span className="text-sm font-medium text-slate-600 group-hover:text-slate-900">Blog Post</span>
+                        <span className="text-sm font-medium text-slate-400">Blog Post</span>
                     </button>
-                    <button className="flex flex-col items-center gap-3 p-6 bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-purple-200 transition-all w-36 group">
-                        <div className="w-10 h-10 bg-slate-50 rounded-lg flex items-center justify-center text-slate-400 group-hover:bg-purple-50 group-hover:text-purple-600 transition-colors">
+                    <button disabled className="flex flex-col items-center gap-3 p-6 bg-white rounded-2xl border border-slate-100 shadow-sm w-36 cursor-default">
+                        <div className="w-10 h-10 bg-slate-50 rounded-lg flex items-center justify-center text-slate-400">
                             <ShoppingBag className="w-5 h-5" />
                         </div>
-                        <span className="text-sm font-medium text-slate-600 group-hover:text-slate-900">Product Ad</span>
+                        <span className="text-sm font-medium text-slate-400">Product Ad</span>
                     </button>
                 </div>
+                <p className="text-xs text-slate-400 mt-6 italic">
+                    Template library is under construction. We'll be adding this feature soon!
+                </p>
             </div>
         </div>
     )
