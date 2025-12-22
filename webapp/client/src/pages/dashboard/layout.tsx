@@ -85,7 +85,7 @@ export default function DashboardLayout() {
     if (!session) return null
 
     return (
-        <SidebarProvider>
+        <SidebarProvider className="h-screen overflow-hidden">
             <Sidebar collapsible="icon" className="border-r border-slate-100 bg-white">
                 <SidebarHeader className="bg-white pb-4 pt-4">
                     <div className="flex items-center gap-2 px-2 py-1 mb-4">
@@ -206,7 +206,7 @@ export default function DashboardLayout() {
                 </SidebarFooter>
                 <SidebarRail />
             </Sidebar>
-            <SidebarInset className="bg-slate-50 flex flex-col">
+            <SidebarInset className="bg-slate-50 flex flex-col overflow-y-auto transition-all duration-300">
                 <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 md:hidden">
                     <div className="flex items-center gap-2">
                         <SidebarTrigger />
