@@ -3,15 +3,9 @@ import { useNavigate } from "react-router-dom"
 import { Pencil, Play, Wand2, ArrowRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useCreation } from "../context/creation-context"
-import { useQuery } from "@tanstack/react-query"
-import { Button } from "@/components/ui/button"
-import { Separator } from "@/components/ui/separator"
-import { Niche } from "./niche-step"
 import { VOICES, Voice } from "./voice-step"
-import { TRACKS } from "./music-step"
-import { SUBTITLE_STYLES, SubtitleStyle } from "./subtitle-step"
-import { Track } from "./music-step"
 import { IMAGE_STYLES } from "./script-step"
+import { Button } from "@/components/ui/button"
 import { Palette, VolumeX, Music, Ban, Clapperboard, FileText } from "lucide-react"
 import StepHeader from "../components/step-header"
 
@@ -19,20 +13,7 @@ export default function ReviewStep() {
     const { request, updateRequest } = useCreation()
     const navigate = useNavigate()
 
-    const { data: niches } = useQuery<Niche[]>({
-        queryKey: ["niches"],
-        queryFn: async () => {
-            const apiBase = import.meta.env.VITE_API_URL || "http://localhost:3000"
-            const res = await fetch(`${apiBase}/api/niches`)
-            if (!res.ok) throw new Error("Failed to fetch niches")
-            return res.json()
-        }
-    })
-
-    const selectedNiche = niches?.find(n => n.id === request.nicheId)
     const selectedVoice = VOICES.find((v: Voice) => v.id === request.voiceId)
-    const selectedTrack = TRACKS.find((t: Track) => t.id === request.musicId)
-    const selectedStyle = SUBTITLE_STYLES.find((s: SubtitleStyle) => s.id === request.subtitleTemplateId)
     const selectedImageStyle = IMAGE_STYLES.find(s => s.id === request.visualStyle)
 
     return (
@@ -114,7 +95,7 @@ export default function ReviewStep() {
                         <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 md:col-span-4">
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Niche</span>
                             <div className="flex items-center gap-2">
-                                <span className="text-sm font-bold text-slate-900">{selectedNiche?.name || "Unselected"}</span>
+                                <span className="text-sm font-bold text-slate-900">{request.nicheName || "Unselected"}</span>
                             </div>
                         </div>
                         <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 md:col-span-8">
@@ -197,14 +178,16 @@ export default function ReviewStep() {
 
                 {/* Music Card */}
                 <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 flex items-center justify-between">
-                    {selectedTrack ? (
+                    {request.musicId ? (
                         <div className="flex items-center gap-4">
                             <div className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center text-slate-400">
                                 <Play className="h-4 w-4" />
                             </div>
                             <div>
-                                <h4 className="text-base font-bold text-slate-900">{selectedTrack.name}</h4>
-                                <p className="text-xs font-semibold text-slate-400">{selectedTrack.genre} • {selectedTrack.mood}</p>
+                                <h4 className="text-base font-bold text-slate-900">{request.musicName}</h4>
+                                <p className="text-xs font-semibold text-slate-400">
+                                    {request.musicDetails}
+                                </p>
                             </div>
                         </div>
                     ) : (
@@ -241,14 +224,14 @@ export default function ReviewStep() {
                 <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">Subtitle Style</span>
                     <div className="flex items-center gap-4">
-                        {selectedStyle ? (
+                        {request.subtitleTemplateId ? (
                             <>
-                                <div className={cn("px-4 py-2 rounded-lg text-lg bg-slate-200", selectedStyle.css)}>
-                                    {selectedStyle.preview}
+                                <div className="px-4 py-2 rounded-lg text-lg bg-slate-200 font-bold">
+                                    {request.subtitleTemplateName}
                                 </div>
                                 <div>
-                                    <h4 className="text-base font-bold text-slate-900">{selectedStyle.name}</h4>
-                                    <p className="text-xs font-semibold text-slate-400">{selectedStyle.description}</p>
+                                    <h4 className="text-base font-bold text-slate-900">{request.subtitleTemplateName}</h4>
+                                    <p className="text-xs font-semibold text-slate-400">Custom transition style</p>
                                 </div>
                             </>
                         ) : (

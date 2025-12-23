@@ -1,6 +1,7 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import fastifyStatic from '@fastify/static';
+import fastifyMultipart from '@fastify/multipart';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
@@ -11,6 +12,7 @@ import { posthog } from './lib/posthog.js';
 import authMiddleware from './middleware/auth.js';
 import nicheRoutes from './api/niches.js';
 import voicesRoutes from './api/voices.js';
+import musicRoutes from './api/music.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -42,6 +44,17 @@ fastify.register(cors, {
 fastify.register(fastifyStatic, {
     root: path.join(__dirname, '../assets'),
     prefix: '/assets/', // optional: default '/'
+});
+
+// Register multipart support for file uploads
+fastify.register(fastifyMultipart, {
+    limits: {
+        fieldNameSize: 100, // Max field name size in bytes
+        fieldSize: 100,     // Max field value size in bytes
+        fields: 10,         // Max number of non-file fields
+        fileSize: 50 * 1024 * 1024, // 50MB max file size
+        files: 1,           // Max number of file fields
+    }
 });
 
 // Register authentication endpoint
@@ -103,6 +116,7 @@ fastify.register(authMiddleware);
 // Register modular API routes
 fastify.register(nicheRoutes, { prefix: "/api/niches" });
 fastify.register(voicesRoutes, { prefix: "/api/voices" });
+fastify.register(musicRoutes, { prefix: "/api/music" });
 
 // Run the server
 const start = async () => {

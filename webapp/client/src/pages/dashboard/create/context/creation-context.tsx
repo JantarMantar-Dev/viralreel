@@ -5,14 +5,19 @@ export interface VideoJobRequest {
     seriesName: string
     episode1Title: string
     nicheId: string | null
+    nicheName?: string
     scriptIdea: string
     duration: number
     segments: number
     visualFormat: "image" | "video"
     voiceId?: string
+    voiceName?: string
     visualStyle?: string
     subtitleTemplateId?: string
+    subtitleTemplateName?: string
     musicId?: string
+    musicName?: string
+    musicDetails?: string
 }
 
 export interface CreationContextType {

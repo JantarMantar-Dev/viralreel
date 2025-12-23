@@ -147,7 +147,7 @@ export default function VoiceStep() {
             <div className="space-y-6">
                 {/* Skip Option */}
                 <div
-                    onClick={() => updateRequest({ voiceId: undefined })}
+                    onClick={() => updateRequest({ voiceId: undefined, voiceName: undefined })}
                     className={cn(
                         "group relative bg-white p-4 rounded-[20px] border-2 transition-all duration-300 cursor-pointer flex items-center gap-6",
                         !request.voiceId
@@ -191,7 +191,10 @@ export default function VoiceStep() {
                     }))}
                     selectedId={request.voiceId}
                     playingId={playingVoice}
-                    onSelect={(id: string) => updateRequest({ voiceId: id })}
+                    onSelect={(id: string) => {
+                        const voice = VOICES.find(v => v.id === id)
+                        updateRequest({ voiceId: id, voiceName: voice?.name })
+                    }}
                     onTogglePlay={(id: string) => {
                         const voice = VOICES.find(v => v.id === id)
                         if (voice) togglePlay(voice)

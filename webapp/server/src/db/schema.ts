@@ -115,8 +115,8 @@ export const musicTrack = pgTable("music_track", {
     id: text("id").primaryKey(), // UUID
     name: text("name").notNull(), // Track title
     url: text("url").notNull(), // URL to the audio file
-    mood: text("mood"), // Mood descriptor (e.g., "Upbeat", "Dark")
     durationSeconds: integer("duration_seconds"), // Length of track
+    userId: text("user_id").default("admin"), // ID of the user who created this track, or 'admin' for defaults
 
     isActive: boolean("is_active").default(true), // Soft delete/enable flag
     createdAt: timestamp("created_at").defaultNow(),

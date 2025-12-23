@@ -90,7 +90,7 @@ export default function SubtitleStep() {
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                 {/* Skip Subtitles Option */}
                 <div
-                    onClick={() => updateRequest({ subtitleTemplateId: undefined })}
+                    onClick={() => updateRequest({ subtitleTemplateId: undefined, subtitleTemplateName: undefined })}
                     className={cn(
                         "group relative flex flex-col items-center justify-between rounded-[24px] border-2 cursor-pointer transition-all duration-300 overflow-hidden aspect-[4/5] bg-slate-50",
                         !request.subtitleTemplateId
@@ -127,7 +127,10 @@ export default function SubtitleStep() {
                     return (
                         <div
                             key={style.id}
-                            onClick={() => updateRequest({ subtitleTemplateId: style.id })} // No visualStyle needed, mapped ID to template
+                            onClick={() => updateRequest({
+                                subtitleTemplateId: style.id,
+                                subtitleTemplateName: style.name
+                            })}
                             className={cn(
                                 "group relative flex flex-col items-center justify-between rounded-[24px] border-2 cursor-pointer transition-all duration-300 overflow-hidden aspect-[4/5] bg-slate-50",
                                 isSelected

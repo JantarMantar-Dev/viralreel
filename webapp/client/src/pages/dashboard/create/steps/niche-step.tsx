@@ -91,7 +91,10 @@ export default function NicheStep() {
                         return (
                             <div
                                 key={niche.id}
-                                onClick={() => updateRequest({ nicheId: niche.id })}
+                                onClick={() => updateRequest({
+                                    nicheId: niche.id,
+                                    nicheName: niche.name
+                                })}
                                 className={cn(
                                     "group relative p-6 md:p-8 rounded-2xl md:rounded-3xl border-2 bg-white transition-all duration-300 cursor-pointer shadow-sm h-full flex flex-col",
                                     isSelected
@@ -137,7 +140,10 @@ export default function NicheStep() {
                 {!isLoading && !error && (
                     <div
                         className="group relative p-6 md:p-8 rounded-2xl md:rounded-3xl border-2 border-dashed border-slate-200 bg-slate-50/50 hover:bg-white hover:border-purple-300 hover:border-solid transition-all duration-300 cursor-pointer flex flex-col focus:ring-2 focus:ring-purple-500 min-h-[200px]"
-                        onClick={() => updateRequest({ nicheId: "custom" })}
+                        onClick={() => updateRequest({
+                            nicheId: "custom",
+                            nicheName: "Custom Niche"
+                        })}
                     >
                         <div className="flex items-center gap-4 mb-4 md:mb-6">
                             <div className="p-3 md:p-4 rounded-xl md:rounded-2xl bg-white border border-slate-100 text-slate-400 group-hover:text-purple-600 group-hover:border-purple-100 transition-all duration-300 shrink-0">

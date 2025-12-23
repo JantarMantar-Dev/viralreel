@@ -9,10 +9,6 @@ import {
 
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { VOICES, Voice } from "./steps/voice-step"
-import { TRACKS } from "./steps/music-step"
-import { SUBTITLE_STYLES, SubtitleStyle } from "./steps/subtitle-step"
-import { Track } from "./steps/music-step"
 import {
     CreationContext,
     VideoJobRequest,
@@ -174,24 +170,24 @@ export default function CreateVideoLayout() {
                                     </Button>
                                 )}
 
-                                {currentStep === 3 && request.voiceId && (
+                                {currentStep === 3 && request.voiceName && (
                                     <div className="hidden sm:flex items-center gap-2 px-4 py-2 bg-purple-50 rounded-xl border border-purple-100 animate-in fade-in slide-in-from-left-4 duration-300">
                                         <span className="text-sm font-bold text-slate-500 uppercase tracking-wider">Selected:</span>
-                                        <span className="text-lg font-extrabold text-purple-600 font-display">{VOICES.find((v: Voice) => v.id === request.voiceId)?.name}</span>
+                                        <span className="text-lg font-extrabold text-purple-600 font-display">{request.voiceName}</span>
                                     </div>
                                 )}
 
-                                {currentStep === 4 && request.musicId && (
+                                {currentStep === 4 && request.musicName && (
                                     <div className="hidden lg:flex items-center gap-2 px-4 py-2 bg-purple-50 rounded-xl border border-purple-100 animate-in fade-in slide-in-from-left-4 duration-300">
-                                        <span className="text-sm font-bold text-slate-500 uppercase tracking-wider">Mood:</span>
-                                        <span className="text-lg font-extrabold text-purple-600 font-display">{TRACKS.find((t: Track) => t.id === request.musicId)?.name}</span>
+                                        <span className="text-sm font-bold text-slate-500 uppercase tracking-wider">Music:</span>
+                                        <span className="text-lg font-extrabold text-purple-600 font-display">{request.musicName}</span>
                                     </div>
                                 )}
 
-                                {currentStep === 5 && request.subtitleTemplateId && (
+                                {currentStep === 5 && request.subtitleTemplateName && (
                                     <div className="hidden lg:flex items-center gap-2 px-4 py-2 bg-purple-50 rounded-xl border border-purple-100 animate-in fade-in slide-in-from-left-4 duration-300">
                                         <span className="text-sm font-bold text-slate-500 uppercase tracking-wider">Style:</span>
-                                        <span className="text-lg font-extrabold text-purple-600 font-display">{SUBTITLE_STYLES.find((t: SubtitleStyle) => t.id === request.subtitleTemplateId)?.name}</span>
+                                        <span className="text-lg font-extrabold text-purple-600 font-display">{request.subtitleTemplateName}</span>
                                     </div>
                                 )}
                             </div>
