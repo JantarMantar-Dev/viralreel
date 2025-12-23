@@ -47,7 +47,9 @@ export default function NicheStep() {
         queryKey: ["niches"],
         queryFn: async () => {
             const apiBase = import.meta.env.VITE_API_URL || "http://localhost:3000"
-            const res = await fetch(`${apiBase}/api/niches`)
+            const res = await fetch(`${apiBase}/api/niches`, {
+                credentials: "include"
+            })
             if (!res.ok) throw new Error("Failed to fetch niches")
             return res.json()
         }

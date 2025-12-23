@@ -56,7 +56,9 @@ export default function MusicStep() {
     const { data: defaultTracks, isLoading: isLoadingDefault, error: errorDefault } = useQuery<Track[]>({
         queryKey: ["music", "default"],
         queryFn: async () => {
-            const res = await fetch(`${apiBase}/api/music/default`)
+            const res = await fetch(`${apiBase}/api/music/default`, {
+                credentials: "include"
+            })
             if (!res.ok) throw new Error("Failed to fetch default music")
             return res.json()
         }
@@ -65,7 +67,9 @@ export default function MusicStep() {
     const { data: userTracks, isLoading: isLoadingUser, error: errorUser } = useQuery<Track[]>({
         queryKey: ["music", "user"],
         queryFn: async () => {
-            const res = await fetch(`${apiBase}/api/music/user`)
+            const res = await fetch(`${apiBase}/api/music/user`, {
+                credentials: "include"
+            })
             if (!res.ok) throw new Error("Failed to fetch user music")
             return res.json()
         }
