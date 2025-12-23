@@ -43,5 +43,5 @@ export const INITIAL_REQUEST: VideoJobRequest = {
     visualStyle: "comic",
     voiceId: undefined,
     musicId: undefined,
-    subtitleTemplateId: "classic-capcut"
+    subtitleTemplateId: undefined
 }

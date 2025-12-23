@@ -101,7 +101,7 @@ export default function MusicStep() {
     const [activeMood, setActiveMood] = useState("all")
     const [playingTrack, setPlayingTrack] = useState<string | null>(null)
     const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
-    const [isUploadEmpty, setIsUploadEmpty] = useState(false)
+    const [isUploadEmpty, setIsUploadEmpty] = useState(true)
 
     const filteredTracks = activeSource === "library"
         ? (activeMood === "all" ? TRACKS : TRACKS.filter(t => t.mood?.toLowerCase() === activeMood.toLowerCase() || t.genre?.toLowerCase() === activeMood.toLowerCase()))

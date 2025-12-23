@@ -10,7 +10,7 @@ import { Niche } from "./niche-step"
 import { VOICES, Voice } from "./voice-step"
 import { TRACKS } from "./music-step"
 import { SUBTITLE_STYLES, SubtitleStyle } from "./subtitle-step"
-import { Track } from "../components/music-list"
+import { Track } from "./music-step"
 import { IMAGE_STYLES } from "./script-step"
 import { Palette, VolumeX, Music, Ban, Clapperboard, FileText } from "lucide-react"
 import StepHeader from "../components/step-header"
@@ -166,17 +166,13 @@ export default function ReviewStep() {
                         <div className="flex items-center gap-4">
                             <div className={cn(
                                 "w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shadow-sm overflow-hidden",
-                                selectedVoice.gender === 'Female' ? "bg-orange-100 text-orange-600" : "bg-blue-100 text-blue-600"
+                                selectedVoice.gender === 'Woman' ? "bg-orange-100 text-orange-600" : "bg-blue-100 text-blue-600"
                             )}>
-                                {selectedVoice.avatar ? (
-                                    <img src={selectedVoice.avatar} alt={selectedVoice.name} className="w-full h-full object-cover" />
-                                ) : (
-                                    selectedVoice.name.charAt(0)
-                                )}
+                                {selectedVoice.name.charAt(0)}
                             </div>
                             <div>
                                 <h4 className="text-base font-bold text-slate-900">{selectedVoice.name}</h4>
-                                <p className="text-xs font-semibold text-slate-400">{selectedVoice.gender} • {selectedVoice.accent}</p>
+                                <p className="text-xs font-semibold text-slate-400">{selectedVoice.gender} • English</p>
                             </div>
                         </div>
                     ) : (
@@ -256,7 +252,13 @@ export default function ReviewStep() {
                                 </div>
                             </>
                         ) : (
-                            <span className="text-slate-500 font-medium">No style selected</span>
+                            <div className="flex items-center gap-4 text-slate-400">
+                                <Ban className="h-8 w-8" />
+                                <div>
+                                    <h4 className="text-base font-bold text-slate-900">Skipped Subtitles</h4>
+                                    <p className="text-xs font-semibold text-slate-400">No text overlays will be added</p>
+                                </div>
+                            </div>
                         )}
                     </div>
                 </div>

@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils"
 import { VOICES, Voice } from "./steps/voice-step"
 import { TRACKS } from "./steps/music-step"
 import { SUBTITLE_STYLES, SubtitleStyle } from "./steps/subtitle-step"
-import { Track } from "./components/music-list"
+import { Track } from "./steps/music-step"
 import {
     CreationContext,
     VideoJobRequest,
@@ -208,8 +208,7 @@ export default function CreateVideoLayout() {
                                 <Button
                                     onClick={nextStep}
                                     disabled={
-                                        (currentStep === 2 && (!request.scriptIdea.trim() || !request.seriesName.trim() || (request.jobType === 'series' && !request.episode1Title.trim()))) ||
-                                        (currentStep === 5 && !request.subtitleTemplateId)
+                                        (currentStep === 2 && (!request.scriptIdea.trim() || !request.seriesName.trim() || (request.jobType === 'series' && !request.episode1Title.trim())))
                                     }
                                     className={cn(
                                         "w-full h-12 rounded-xl transition-all font-bold text-lg shadow-xl",
