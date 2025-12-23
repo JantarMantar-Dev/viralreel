@@ -1,5 +1,8 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import fastifyStatic from '@fastify/static';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import WelcomeEmail from "./emails/welcome.js";
 import VerifyEmail from "./emails/verify.js";
@@ -7,6 +10,10 @@ import { auth } from './lib/auth.js';
 import { posthog } from './lib/posthog.js';
 import authMiddleware from './middleware/auth.js';
 import nicheRoutes from './api/niches.js';
+import voicesRoutes from './api/voices.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 dotenv.config();
 
@@ -29,6 +36,12 @@ fastify.register(cors, {
     ],
     credentials: true,
     maxAge: 86400
+});
+
+// Register static file serving
+fastify.register(fastifyStatic, {
+    root: path.join(__dirname, '../assets'),
+    prefix: '/assets/', // optional: default '/'
 });
 
 // Register authentication endpoint
@@ -89,6 +102,7 @@ fastify.register(authMiddleware);
 
 // Register modular API routes
 fastify.register(nicheRoutes, { prefix: "/api/niches" });
+fastify.register(voicesRoutes, { prefix: "/api/voices" });
 
 // Run the server
 const start = async () => {

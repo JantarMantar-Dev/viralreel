@@ -1,57 +1,107 @@
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
 import {
     Play,
     Pause,
     Search,
     Check,
     Volume2,
-    Type
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useCreation } from "../context/creation-context"
 import { Button } from "@/components/ui/button"
 
 import StepHeader from "../components/step-header"
+import AudioList from "../components/audio-list"
+
+// Import voice assets
+import emmaVoice from "@/assets/vibevoice/en_emma_woman_vibevoice0.5b.wav"
+import frankVoice from "@/assets/vibevoice/en_frank_man_vibevoice0.5b.wav"
+import graceVoice from "@/assets/vibevoice/en_grace_woman_vibevoice0.5b.wav"
+import davisVoice from "@/assets/vibevoice/en_davis_man_vibevoice0.5b.wav"
+import mikeVoice from "@/assets/vibevoice/en_mike_man_vibevoice0.5b.wav"
+import carterVoice from "@/assets/vibevoice/en_carter_man_vibevoice0.5b.wav"
 
 export interface Voice {
     id: string
     name: string
-    accent: string
-    style: string
-    previewUrl: string
     gender: string
+    genre: string
+    duration: string
+    previewUrl: string
     categories: string[]
-    avatar?: string
 }
 
-export const VOICES: Voice[] = [
-    { id: "sarah", name: "Sarah", accent: "American", style: "Narrative", previewUrl: "#", gender: "Female", categories: ["narrative", "all"] },
-    { id: "marcus", name: "Marcus", accent: "British", style: "Deep", previewUrl: "#", gender: "Male", categories: ["factual", "all"] },
-    { id: "elena", name: "Elena", accent: "Spanish", style: "Soft", previewUrl: "#", gender: "Female", categories: ["conversational", "all"] },
-    { id: "david", name: "David", accent: "American", style: "News", previewUrl: "#", gender: "Male", categories: ["factual", "all"] },
-    { id: "sophia", name: "Sophia", accent: "Australian", style: "Friendly", previewUrl: "#", gender: "Female", categories: ["conversational", "all"] },
-    { id: "james", name: "James", accent: "American", style: "Energetic", previewUrl: "#", gender: "Male", categories: ["narrative", "all"] },
+const VOICE_ASSETS = [
+    { file: emmaVoice, filename: "en_emma_woman_vibevoice0.5b.wav" },
+    { file: frankVoice, filename: "en_frank_man_vibevoice0.5b.wav" },
+    { file: graceVoice, filename: "en_grace_woman_vibevoice0.5b.wav" },
+    { file: davisVoice, filename: "en_davis_man_vibevoice0.5b.wav" },
+    { file: mikeVoice, filename: "en_mike_man_vibevoice0.5b.wav" },
+    { file: carterVoice, filename: "en_carter_man_vibevoice0.5b.wav" },
 ]
+
+// Parse voices from assets
+export const VOICES: Voice[] = VOICE_ASSETS.map((asset) => {
+    // Expected format: en_name_gender_vibevoice...
+    const parts = asset.filename.split('_')
+    const name = parts[1].charAt(0).toUpperCase() + parts[1].slice(1)
+    const gender = parts[2].charAt(0).toUpperCase() + parts[2].slice(1)
+
+    return {
+        id: parts[1], // name as id
+        name: name,
+        gender: gender,
+        genre: "English", // Default to English for these assets
+        duration: "00:30", // Default duration for these previews
+        previewUrl: asset.file,
+        categories: ["all", gender.toLowerCase()] // Simple categorization by gender for now
+    }
+})
 
 const CATEGORIES = [
     { id: "all", label: "All Voices" },
-    { id: "narrative", label: "Narration" },
-    { id: "conversational", label: "Conversational" },
-    { id: "factual", label: "News & Factual" },
+    { id: "woman", label: "Women" },
+    { id: "man", label: "Men" },
 ]
 
 export default function VoiceStep() {
     const { request, updateRequest } = useCreation()
     const [activeTab, setActiveTab] = useState("all")
     const [playingVoice, setPlayingVoice] = useState<string | null>(null)
+    const audioRef = useRef<HTMLAudioElement | null>(null)
 
-    const filteredVoices = VOICES.filter(v => v.categories.includes(activeTab))
+    const filteredVoices = VOICES.filter(v => activeTab === "all" || v.categories.includes(activeTab))
 
-    const togglePlay = (id: string) => {
-        if (playingVoice === id) {
+    // Handle audio cleanup on unmount
+    useEffect(() => {
+        return () => {
+            if (audioRef.current) {
+                audioRef.current.pause()
+                audioRef.current = null
+            }
+        }
+    }, [])
+
+    const togglePlay = (voice: Voice) => {
+        if (playingVoice === voice.id) {
+            // Stop current
+            if (audioRef.current) {
+                audioRef.current.pause()
+                audioRef.current.currentTime = 0
+            }
             setPlayingVoice(null)
         } else {
-            setPlayingVoice(id)
+            // Stop previous if any
+            if (audioRef.current) {
+                audioRef.current.pause()
+            }
+
+            // Start new
+            const audio = new Audio(voice.previewUrl)
+            audio.onended = () => setPlayingVoice(null)
+            audioRef.current = audio
+            audio.play().catch(e => console.error("Error playing audio:", e))
+            setPlayingVoice(voice.id)
         }
     }
 
@@ -93,119 +143,60 @@ export default function VoiceStep() {
                 </div>
             </div>
 
-            {/* Voice Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* Voice List */}
+            <div className="space-y-6">
                 {/* Skip Option */}
                 <div
                     onClick={() => updateRequest({ voiceId: undefined })}
                     className={cn(
-                        "group relative bg-white p-4 md:p-5 rounded-[24px] border-2 transition-all duration-300 cursor-pointer flex flex-col items-center justify-center min-h-[160px]",
+                        "group relative bg-white p-4 rounded-[20px] border-2 transition-all duration-300 cursor-pointer flex items-center gap-6",
                         !request.voiceId
-                            ? "border-purple-600 shadow-xl shadow-purple-100 ring-4 ring-purple-50"
-                            : "border-slate-100 hover:border-purple-200 hover:shadow-lg hover:-translate-y-0.5"
+                            ? "border-purple-600 bg-purple-50/10 shadow-lg shadow-purple-50"
+                            : "border-slate-50 hover:border-purple-200 hover:bg-slate-50/50"
                     )}
                 >
-                    {!request.voiceId && (
-                        <div className="absolute top-3 right-3 bg-purple-600 text-white p-0.5 rounded-full animate-in zoom-in duration-300 shadow-md">
-                            <Check className="h-3.5 w-3.5" />
-                        </div>
-                    )}
-                    <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                        <Volume2 className="h-8 w-8 text-slate-400 group-hover:text-purple-600 transition-colors" />
+                    <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center group-hover:bg-white group-hover:text-purple-600 text-slate-400 transition-colors shrink-0">
+                        <Volume2 className="h-6 w-6" />
                     </div>
-                    <div className="text-center">
-                        <h3 className="text-lg font-extrabold text-slate-900 group-hover:text-purple-600 transition-colors">
+
+                    <div className="flex-1 min-w-0">
+                        <h3 className="text-lg font-bold text-slate-900 group-hover:text-purple-600 transition-colors">
                             Skip AI Voice
                         </h3>
                         <p className="text-xs font-semibold text-slate-400 mt-1">
-                            No narration for this series
+                            No narration for this {request.jobType === "series" ? "series" : "video"}
                         </p>
+                    </div>
+
+                    <div
+                        className={cn(
+                            "w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all",
+                            !request.voiceId
+                                ? "bg-purple-600 border-purple-600"
+                                : "border-slate-200 group-hover:border-purple-200"
+                        )}
+                    >
+                        {!request.voiceId && <Check className="h-3.5 w-3.5 text-white" />}
                     </div>
                 </div>
 
-                {filteredVoices.map((voice) => {
-                    const isSelected = request.voiceId === voice.id
-                    const isPlaying = playingVoice === voice.id
-
-                    return (
-                        <div
-                            key={voice.id}
-                            onClick={() => updateRequest({ voiceId: voice.id })}
-                            className={cn(
-                                "group relative bg-white p-4 md:p-5 rounded-[24px] border-2 transition-all duration-300 cursor-pointer flex flex-col items-center",
-                                isSelected
-                                    ? "border-purple-600 shadow-xl shadow-purple-100 ring-4 ring-purple-50"
-                                    : "border-slate-100 hover:border-purple-200 hover:shadow-lg hover:-translate-y-0.5"
-                            )}
-                        >
-                            {/* Selection Checkmark */}
-                            {isSelected && (
-                                <div className="absolute top-3 right-3 bg-purple-600 text-white p-0.5 rounded-full animate-in zoom-in duration-300 shadow-md">
-                                    <Check className="h-3.5 w-3.5" />
-                                </div>
-                            )}
-
-                            {/* Voice Avatar & Info */}
-                            <div className="flex items-center gap-3 w-full mb-4">
-                                <div className={cn(
-                                    "w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg shadow-sm ring-2 ring-white transition-transform group-hover:scale-105 shrink-0",
-                                    voice.gender === 'Female' ? "bg-orange-100 text-orange-600" : "bg-blue-100 text-blue-600"
-                                )}>
-                                    {voice.name.charAt(0)}
-                                </div>
-                                <div className="text-left overflow-hidden">
-                                    <h3 className="text-lg font-extrabold text-slate-900 group-hover:text-purple-600 transition-colors truncate">
-                                        {voice.name}
-                                    </h3>
-                                    <div className="flex flex-wrap gap-1.5 mt-1">
-                                        <span className="text-[9px] font-bold px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded-full uppercase tracking-wider">
-                                            {voice.accent}
-                                        </span>
-                                        <span className="text-[9px] font-bold px-1.5 py-0.5 bg-purple-50 text-purple-600 rounded-full uppercase tracking-wider">
-                                            {voice.style}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Audio Preview Area */}
-                            <div className="w-full bg-slate-50/80 rounded-xl p-2.5 flex items-center gap-3 group/audio border border-slate-100 transition-colors hover:bg-slate-100/80">
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation()
-                                        togglePlay(voice.id)
-                                    }}
-                                    className={cn(
-                                        "w-8 h-8 rounded-full flex items-center justify-center transition-all shadow-sm active:scale-90 shrink-0",
-                                        isPlaying
-                                            ? "bg-white text-purple-600"
-                                            : "bg-purple-600 text-white hover:bg-purple-700"
-                                    )}
-                                >
-                                    {isPlaying ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current ml-0.5" />}
-                                </button>
-
-                                {/* Mock Waveform */}
-                                <div className="flex-1 flex items-center gap-[1.5px] h-6 px-0.5">
-                                    {[0.4, 0.7, 0.5, 0.9, 0.6, 0.8, 0.4, 0.6, 0.7, 0.5, 0.9, 0.4].map((h, i) => (
-                                        <div
-                                            key={i}
-                                            className={cn(
-                                                "w-[2px] rounded-full transition-all duration-500",
-                                                isPlaying ? "animate-pulse bg-purple-600" : "bg-slate-300 group-hover/audio:bg-slate-400"
-                                            )}
-                                            style={{ height: `${h * 100}%` }}
-                                        />
-                                    ))}
-                                </div>
-
-                                <span className="text-[9px] font-bold text-slate-400 font-mono shrink-0">
-                                    0:0{voice.id.length + 2}
-                                </span>
-                            </div>
-                        </div>
-                    )
-                })}
+                <AudioList
+                    items={filteredVoices.map(voice => ({
+                        id: voice.id,
+                        title: voice.name,
+                        tags: [voice.gender === 'Woman' ? 'Women' : 'Man'],
+                        subtitle: voice.genre,
+                        rightElement: <span className="text-sm font-bold text-slate-400 font-mono">{voice.duration}</span>,
+                        previewUrl: voice.previewUrl,
+                    }))}
+                    selectedId={request.voiceId}
+                    playingId={playingVoice}
+                    onSelect={(id: string) => updateRequest({ voiceId: id })}
+                    onTogglePlay={(id: string) => {
+                        const voice = VOICES.find(v => v.id === id)
+                        if (voice) togglePlay(voice)
+                    }}
+                />
             </div>
 
             {/* Empty State for Search/Filter */}

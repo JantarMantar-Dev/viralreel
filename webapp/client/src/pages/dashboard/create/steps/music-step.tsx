@@ -12,8 +12,20 @@ import { cn } from "@/lib/utils"
 import { useCreation } from "../context/creation-context"
 import { Button } from "@/components/ui/button"
 import StepHeader from "../components/step-header"
-import MusicList, { Track } from "../components/music-list"
+import AudioList from "../components/audio-list"
 import UploadMusicDialog from "../components/upload-music-dialog"
+
+export interface Track {
+    id: string
+    name: string
+    duration: string
+    genre?: string
+    mood?: string
+    bpm?: number
+    badge?: string
+    uploadedAt?: string
+    size?: string
+}
 
 export const TRACKS: Track[] = [
     {
@@ -85,7 +97,7 @@ const CATEGORIES = [
 
 export default function MusicStep() {
     const { request, updateRequest } = useCreation()
-    const [activeSource, setActiveSource] = useState("library") // "library" | "upload"
+    const [activeSource, setActiveSource] = useState("upload") // "library" | "upload"
     const [activeMood, setActiveMood] = useState("all")
     const [playingTrack, setPlayingTrack] = useState<string | null>(null)
     const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
@@ -112,17 +124,6 @@ export default function MusicStep() {
             {/* Source Tabs */}
             <div className="flex items-center gap-8 border-b border-slate-200">
                 <button
-                    onClick={() => setActiveSource("library")}
-                    className={cn(
-                        "flex items-center gap-2 pb-4 text-sm font-bold transition-all relative",
-                        activeSource === "library" ? "text-purple-600" : "text-slate-400 hover:text-slate-600"
-                    )}
-                >
-                    <Music className="h-4 w-4" />
-                    Default Music Library
-                    {activeSource === "library" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-purple-600 rounded-full" />}
-                </button>
-                <button
                     onClick={() => setActiveSource("upload")}
                     className={cn(
                         "flex items-center gap-2 pb-4 text-sm font-bold transition-all relative",
@@ -133,6 +134,18 @@ export default function MusicStep() {
                     Your Uploaded Music
                     <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full ml-1">{USER_TRACKS.length}</span>
                     {activeSource === "upload" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-purple-600 rounded-full" />}
+                </button>
+                <button
+                    onClick={() => setActiveSource("library")}
+                    className={cn(
+                        "flex items-center gap-2 pb-4 text-sm font-bold transition-all relative",
+                        activeSource === "library" ? "text-purple-600" : "text-slate-400 hover:text-slate-600"
+                    )}
+                >
+                    <Music className="h-4 w-4" />
+                    Default Music Library
+                    <span className="text-[10px] bg-purple-100 text-purple-600 px-2 py-0.5 rounded-full font-black ml-1 tracking-tighter">COMING SOON</span>
+                    {activeSource === "library" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-purple-600 rounded-full" />}
                 </button>
             </div>
 
@@ -205,14 +218,32 @@ export default function MusicStep() {
                 )}
             </div>
 
-            {/* Music List */}
-            <MusicList
-                tracks={filteredTracks}
-                selectedId={request.musicId}
-                playingId={playingTrack}
-                onSelect={(id) => updateRequest({ musicId: id })}
-                onTogglePlay={togglePlay}
-            />
+            {/* Music List or Coming Soon State */}
+            {activeSource === "library" ? (
+                <div className="py-20 text-center bg-white rounded-[32px] border-2 border-dashed border-slate-200">
+                    <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <Music className="h-10 w-10 text-slate-300" />
+                    </div>
+                    <h3 className="text-2xl font-bold text-slate-900 mb-2">Library Coming Soon</h3>
+                    <p className="text-slate-500 font-medium">We're building a massive library of high-quality, royalty-free music for your videos.</p>
+                </div>
+            ) : (
+                <AudioList
+                    items={filteredTracks.map(track => ({
+                        id: track.id,
+                        title: track.name,
+                        subtitle: track.uploadedAt
+                            ? <>Uploaded {track.uploadedAt} • {track.size}</>
+                            : <>{track.genre} • {track.mood} • {track.bpm} BPM</>,
+                        tags: track.badge ? [track.badge] : [],
+                        rightElement: <span className="text-sm font-bold text-slate-400 font-mono">{track.duration}</span>
+                    }))}
+                    selectedId={request.musicId}
+                    playingId={playingTrack}
+                    onSelect={(id) => updateRequest({ musicId: id })}
+                    onTogglePlay={togglePlay}
+                />
+            )}
 
             {activeSource === "library" && (
                 <button className="w-full py-4 flex items-center justify-center gap-2 text-slate-400 font-bold text-sm hover:text-slate-600 transition-colors group">
