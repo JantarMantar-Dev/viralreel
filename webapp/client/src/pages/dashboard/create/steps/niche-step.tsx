@@ -40,14 +40,15 @@ export interface Niche {
 
 import StepHeader from "../components/step-header"
 
+import { API_BASE_URL } from "@/lib/config"
+// ...
 export default function NicheStep() {
     const { request, updateRequest } = useCreation()
 
     const { data: niches, isLoading, error } = useQuery<Niche[]>({
         queryKey: ["niches"],
         queryFn: async () => {
-            const apiBase = import.meta.env.VITE_API_URL || "http://localhost:3000"
-            const res = await fetch(`${apiBase}/api/niches`, {
+            const res = await fetch(`${API_BASE_URL}/api/niches`, {
                 credentials: "include"
             })
             if (!res.ok) throw new Error("Failed to fetch niches")

@@ -18,6 +18,29 @@ const musicResponseSchema = z.object({
     createdAt: z.date().nullable(),
 });
 
+// Helper to determine key and get signed URL
+async function getSignedUrlFromUrl(urlStr: string): Promise<string> {
+    try {
+        // If it's already a signed URL (unlikely to be stored this way, but strictly speaking), just return it? 
+        // No, signed URLs expire. We assume stored URL is the "permanent" public URL structure 
+        // (https://endpoint/bucket/key) from which we extract key.
+
+        const url = new URL(urlStr);
+        const pathParts = url.pathname.split('/').filter(p => p);
+
+        // Remove bucket name (first part) to get key
+        // NOTE: This assumes path-style URLs: /bucket/key/path...
+        pathParts.shift();
+        const key = pathParts.join('/');
+
+        if (!key) return urlStr; // Fallback to original if no key found
+
+        return await storageProvider.getSignedUrl(key);
+    } catch (e) {
+        return urlStr; // Fallback if parsing fails
+    }
+}
+
 export default async function musicRoutes(fastify: FastifyInstance) {
     // GET /api/music - Fetch all accessible music (admin + user's own)
     fastify.get("/", async (request, reply) => {
@@ -40,7 +63,14 @@ export default async function musicRoutes(fastify: FastifyInstance) {
                             : eq(musicTrack.userId, "admin")
                     )
                 );
-            return tracks;
+
+            // Sign URLs
+            const signedTracks = await Promise.all(tracks.map(async (t) => ({
+                ...t,
+                url: await getSignedUrlFromUrl(t.url)
+            })));
+
+            return signedTracks;
         } catch (error) {
             fastify.log.error(error);
             return reply.status(500).send({ error: "Failed to fetch music tracks" });
@@ -64,7 +94,14 @@ export default async function musicRoutes(fastify: FastifyInstance) {
                         eq(musicTrack.userId, "admin")
                     )
                 );
-            return tracks;
+
+            // Sign URLs
+            const signedTracks = await Promise.all(tracks.map(async (t) => ({
+                ...t,
+                url: await getSignedUrlFromUrl(t.url)
+            })));
+
+            return signedTracks;
         } catch (error) {
             fastify.log.error(error);
             return reply.status(500).send({ error: "Failed to fetch admin music tracks" });
@@ -89,7 +126,14 @@ export default async function musicRoutes(fastify: FastifyInstance) {
                         eq(musicTrack.userId, userId)
                     )
                 );
-            return tracks;
+
+            // Sign URLs
+            const signedTracks = await Promise.all(tracks.map(async (t) => ({
+                ...t,
+                url: await getSignedUrlFromUrl(t.url)
+            })));
+
+            return signedTracks;
         } catch (error) {
             fastify.log.error(error);
             return reply.status(500).send({ error: "Failed to fetch user music tracks" });
@@ -132,7 +176,14 @@ export default async function musicRoutes(fastify: FastifyInstance) {
             };
 
             await db.insert(musicTrack).values(newTrack);
-            return reply.status(201).send(newTrack);
+
+            // Return with signed URL
+            const signedUrl = await storageProvider.getSignedUrl(key);
+
+            return reply.status(201).send({
+                ...newTrack,
+                url: signedUrl
+            });
         } catch (error) {
             fastify.log.error(error);
             return reply.status(500).send({ error: "Failed to upload music track" });
@@ -178,8 +229,30 @@ export default async function musicRoutes(fastify: FastifyInstance) {
             if (existing.length === 0) {
                 return reply.status(404).send({ error: "Music track not found" });
             }
+            if (existing[0].userId === "admin") {
+                return reply.status(403).send({ error: "Forbidden: Cannot delete system tracks" });
+            }
             if (existing[0].userId !== userId) {
                 return reply.status(403).send({ error: "Forbidden: You do not own this track" });
+            }
+
+            try {
+                // Extract key from URL
+                // URL format: https://endpoint/bucket/users_music/userId/uuid-filename
+                // Key format: users_music/userId/uuid-filename
+                const url = new URL(existing[0].url);
+                // pathname will be /bucket/users_music/...
+                const pathParts = url.pathname.split('/').filter(p => p);
+                // Remove bucket name (first part)
+                pathParts.shift();
+                const key = pathParts.join('/');
+
+                if (key) {
+                    await storageProvider.deleteFile(key);
+                }
+            } catch (err) {
+                request.log.warn({ err, url: existing[0].url }, "Failed to delete file from S3");
+                // Continue with DB deletion even if S3 fails
             }
 
             await db.update(musicTrack)

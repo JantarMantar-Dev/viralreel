@@ -1,4 +1,4 @@
-import { Play, Pause, Check } from "lucide-react"
+import { Play, Pause, Check, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export interface AudioItemProps {
@@ -14,6 +14,7 @@ export interface AudioItemProps {
     isPlaying?: boolean
     onSelect: () => void
     onTogglePlay: (e: React.MouseEvent) => void
+    onDelete?: (e: React.MouseEvent) => void
 }
 
 export default function AudioListItem({
@@ -25,6 +26,7 @@ export default function AudioListItem({
     isPlaying,
     onSelect,
     onTogglePlay,
+    onDelete,
 }: AudioItemProps) {
     return (
         <div
@@ -98,6 +100,17 @@ export default function AudioListItem({
 
             <div className="flex items-center gap-4 shrink-0">
                 {rightElement}
+
+                {onDelete && (
+                    <button
+                        onClick={onDelete}
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-slate-300 hover:text-red-500 hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100"
+                        title="Delete track"
+                    >
+                        <Trash2 className="h-4 w-4" />
+                    </button>
+                )}
+
                 <div
                     className={cn(
                         "w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all",

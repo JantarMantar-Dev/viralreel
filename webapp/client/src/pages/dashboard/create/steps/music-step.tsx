@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { API_BASE_URL } from "@/lib/config"
 import {
     Search,
     Music,
@@ -15,6 +16,7 @@ import { Button } from "@/components/ui/button"
 import StepHeader from "../components/step-header"
 import AudioList from "../components/audio-list"
 import UploadMusicDialog from "../components/upload-music-dialog"
+import DeleteMusicDialog from "../components/delete-music-dialog"
 import { Loader2, AlertCircle } from "lucide-react"
 
 export interface Track {
@@ -35,9 +37,12 @@ const formatDuration = (seconds: number | null) => {
 
 export default function MusicStep() {
     const { request, updateRequest } = useCreation()
-    const [activeSource, setActiveSource] = useState("library") // "library" | "upload"
+    const queryClient = useQueryClient()
+    const [activeSource, setActiveSource] = useState("upload") // "library" | "upload"
     const [searchQuery, setSearchQuery] = useState("")
     const [playingTrack, setPlayingTrack] = useState<string | null>(null)
+    const [trackToDelete, setTrackToDelete] = useState<string | null>(null)
+    const [isDeleting, setIsDeleting] = useState(false)
     const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
     const audioRef = useRef<HTMLAudioElement | null>(null)
 
@@ -51,12 +56,13 @@ export default function MusicStep() {
         }
     }, [])
 
-    const apiBase = import.meta.env.VITE_API_URL || "http://localhost:3000"
+    // ...
+    // ...
 
     const { data: defaultTracks, isLoading: isLoadingDefault, error: errorDefault } = useQuery<Track[]>({
         queryKey: ["music", "default"],
         queryFn: async () => {
-            const res = await fetch(`${apiBase}/api/music/default`, {
+            const res = await fetch(`${API_BASE_URL}/api/music/default`, {
                 credentials: "include"
             })
             if (!res.ok) throw new Error("Failed to fetch default music")
@@ -67,7 +73,7 @@ export default function MusicStep() {
     const { data: userTracks, isLoading: isLoadingUser, error: errorUser } = useQuery<Track[]>({
         queryKey: ["music", "user"],
         queryFn: async () => {
-            const res = await fetch(`${apiBase}/api/music/user`, {
+            const res = await fetch(`${API_BASE_URL}/api/music/user`, {
                 credentials: "include"
             })
             if (!res.ok) throw new Error("Failed to fetch user music")
@@ -108,6 +114,37 @@ export default function MusicStep() {
             audioRef.current = audio
             audio.play().catch(e => console.error("Error playing audio:", e))
             setPlayingTrack(id)
+        }
+    }
+
+    const confirmDelete = async () => {
+        if (!trackToDelete) return
+
+        setIsDeleting(true)
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/music/${trackToDelete}`, {
+                method: 'DELETE',
+                credentials: 'include'
+            })
+
+            if (!res.ok) {
+                const data = await res.json()
+                throw new Error(data.error || "Failed to delete track")
+            }
+
+            // Refresh list
+            queryClient.invalidateQueries({ queryKey: ["music", "user"] })
+
+            // If deleted track was selected, clear selection
+            if (request.musicId === trackToDelete) {
+                updateRequest({ musicId: undefined, musicName: undefined, musicDetails: undefined })
+            }
+
+            setTrackToDelete(null)
+        } catch (err) {
+            console.error("Failed to delete track:", err)
+        } finally {
+            setIsDeleting(false)
         }
     }
 
@@ -262,12 +299,23 @@ export default function MusicStep() {
                         }
                     }}
                     onTogglePlay={togglePlay}
+                    onDelete={activeSource === "upload" ? (id) => setTrackToDelete(id) : undefined}
                 />
             )}
 
             <UploadMusicDialog
                 open={isUploadDialogOpen}
                 onOpenChange={setIsUploadDialogOpen}
+                onUploadSuccess={() => {
+                    queryClient.invalidateQueries({ queryKey: ["music", "user"] })
+                }}
+            />
+
+            <DeleteMusicDialog
+                open={!!trackToDelete}
+                onOpenChange={(open) => !open && setTrackToDelete(null)}
+                onConfirm={confirmDelete}
+                isDeleting={isDeleting}
             />
         </div>
     )

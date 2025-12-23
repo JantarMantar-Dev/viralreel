@@ -14,6 +14,7 @@ interface AudioListProps {
     playingId?: string | null
     onSelect: (id: string) => void
     onTogglePlay: (id: string) => void
+    onDelete?: (id: string) => void
 }
 
 export default function AudioList({
@@ -22,6 +23,7 @@ export default function AudioList({
     playingId,
     onSelect,
     onTogglePlay,
+    onDelete
 }: AudioListProps) {
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -47,6 +49,10 @@ export default function AudioList({
                             e.stopPropagation()
                             onTogglePlay(item.id)
                         }}
+                        onDelete={onDelete ? (e) => {
+                            e.stopPropagation()
+                            onDelete(item.id)
+                        } : undefined}
                     />
                 )
             })}
