@@ -1,4 +1,5 @@
 import { FastifyRequest, FastifyReply, FastifyInstance } from "fastify";
+import fp from "fastify-plugin";
 import { auth } from "../lib/auth.js";
 
 // Extend FastifyRequest type to include user and session
@@ -51,10 +52,13 @@ export async function requireAuth(request: FastifyRequest, reply: FastifyReply) 
 /**
  * Register auth decorators and hooks
  */
-export default async function authMiddleware(fastify: FastifyInstance) {
+// Register auth decorators and hooks
+const authMiddleware = async (fastify: FastifyInstance) => {
     fastify.decorateRequest('user', null);
     fastify.decorateRequest('session', null);
 
     // Add global hook to enrich all requests with session if available
     fastify.addHook('preHandler', authenticate);
-}
+};
+
+export default fp(authMiddleware);
