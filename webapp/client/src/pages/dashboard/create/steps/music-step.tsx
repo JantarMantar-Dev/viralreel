@@ -101,6 +101,7 @@ export default function MusicStep() {
     const [activeMood, setActiveMood] = useState("all")
     const [playingTrack, setPlayingTrack] = useState<string | null>(null)
     const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
+    const [isUploadEmpty, setIsUploadEmpty] = useState(false)
 
     const filteredTracks = activeSource === "library"
         ? (activeMood === "all" ? TRACKS : TRACKS.filter(t => t.mood?.toLowerCase() === activeMood.toLowerCase() || t.genre?.toLowerCase() === activeMood.toLowerCase()))
@@ -218,7 +219,7 @@ export default function MusicStep() {
                 )}
             </div>
 
-            {/* Music List or Coming Soon State */}
+            {/* Music List or Coming Soon / Empty State */}
             {activeSource === "library" ? (
                 <div className="py-20 text-center bg-white rounded-[32px] border-2 border-dashed border-slate-200">
                     <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -226,6 +227,14 @@ export default function MusicStep() {
                     </div>
                     <h3 className="text-2xl font-bold text-slate-900 mb-2">Library Coming Soon</h3>
                     <p className="text-slate-500 font-medium">We're building a massive library of high-quality, royalty-free music for your videos.</p>
+                </div>
+            ) : isUploadEmpty ? (
+                <div className="py-20 text-center bg-white rounded-[32px] border-2 border-dashed border-slate-200">
+                    <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <CloudUpload className="h-10 w-10 text-slate-300" />
+                    </div>
+                    <h3 className="text-2xl font-bold text-slate-900 mb-2">No uploaded music</h3>
+                    <p className="text-slate-500 font-medium mb-8">Upload your own tracks to use them in your videos.</p>
                 </div>
             ) : (
                 <AudioList
@@ -243,13 +252,6 @@ export default function MusicStep() {
                     onSelect={(id) => updateRequest({ musicId: id })}
                     onTogglePlay={togglePlay}
                 />
-            )}
-
-            {activeSource === "library" && (
-                <button className="w-full py-4 flex items-center justify-center gap-2 text-slate-400 font-bold text-sm hover:text-slate-600 transition-colors group">
-                    Show more tracks
-                    <ChevronDown className="h-4 w-4 group-hover:translate-y-0.5 transition-transform" />
-                </button>
             )}
 
             <UploadMusicDialog
