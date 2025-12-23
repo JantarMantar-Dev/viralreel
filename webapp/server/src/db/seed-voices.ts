@@ -22,7 +22,7 @@ async function seedVoices() {
 
         const voiceData = {
             id: slug,
-            provider: "VIBEVOICE",
+            provider: "VIBEVOICE-0.5B",
             providerVoiceId: voice.filename,
             name: name,
             gender: gender,
@@ -31,16 +31,14 @@ async function seedVoices() {
             isActive: true,
         };
 
-        const existing = await db.select().from(ttsVoice).where(eq(ttsVoice.id, slug));
+        await db.insert(ttsVoice)
+            .values(voiceData)
+            .onConflictDoUpdate({
+                target: ttsVoice.id,
+                set: voiceData
+            });
 
-        if (existing.length === 0) {
-            await db.insert(ttsVoice).values(voiceData);
-            console.log(`✅ Added voice: ${name} (${gender})`);
-        } else {
-            // Update existing
-            await db.update(ttsVoice).set(voiceData).where(eq(ttsVoice.id, slug));
-            console.log(`🔄 Updated voice: ${name} (${gender})`);
-        }
+        console.log(`✅ Seeded voice: ${name} (${gender})`);
     }
 
     console.log("✅ Seeding complete.");

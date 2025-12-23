@@ -12,6 +12,7 @@
     "db:migrate:prod": "node dist/db/migrate.js",
     "db:baseline": "tsx src/db/baseline.ts",
     "db:push": "drizzle-kit push",
+    "db:seed": "tsx src/db/seed-voices.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
