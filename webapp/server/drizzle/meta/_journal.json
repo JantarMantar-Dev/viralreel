@@ -36,6 +36,13 @@
       "when": 1766607221899,
       "tag": "0004_worthless_the_anarchist",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1766612988860,
+      "tag": "0005_hot_ezekiel_stane",
+      "breakpoints": true
     }
   ]
 }

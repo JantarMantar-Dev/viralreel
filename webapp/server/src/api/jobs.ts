@@ -135,15 +135,13 @@ export default async function jobRoutes(fastify: FastifyInstance) {
 
             createdVideos.push(videoId);
 
-            // 3. Create Render Job if NOT a draft
-            if (!isDraft) {
-                await db.insert(renderJob).values({
-                    id: nanoid(),
-                    videoId,
-                    status: "QUEUED",
-                    progress: 0
-                });
-            }
+            // 3. Create Render Job
+            await db.insert(renderJob).values({
+                id: nanoid(),
+                videoId,
+                status: isDraft ? "DRAFT" : "QUEUED",
+                progress: 0
+            });
 
             return {
                 success: true,

@@ -160,6 +160,7 @@ export const series = pgTable("series", {
 
     name: text("name").notNull(), // Series Title
     description: text("description"),
+    episodeCount: integer("episode_count").default(1),
 
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),

@@ -8,48 +8,42 @@ import { ZodTypeProvider } from "fastify-type-provider-zod";
 // --- Helper Functions ---
 
 async function fetchSeriesProjects(userId: string) {
-    // Fetch series with their episode counts and check if any episode is rendering
-    // This is a bit complex with pure Drizzle aggregation, so we'll fetch series first
-    // then efficiently query standard metadata.
-    // For scale, we'd use raw SQL or advanced aggregation, but for now:
-
+    // Fetch series with their episode counts and metadata
     const allSeries = await db.select({
         id: series.id,
         name: series.name,
         description: series.description,
         createdAt: series.createdAt,
-        nicheName: contentNiche.name // Optional: get nice info
+        episodeCount: series.episodeCount,
+        nicheName: contentNiche.name
     })
         .from(series)
         .leftJoin(contentNiche, eq(series.nicheId, contentNiche.id))
         .where(eq(series.userId, userId))
         .orderBy(desc(series.createdAt));
 
-    // For each series, we need:
-    // 1. Episode Count
-    // 2. "Status" - if any episode is active/rendering
-    // 3. Thumbnail - use the first episode's thumbnail
-
     const seriesProjects = await Promise.all(allSeries.map(async (s) => {
-        // Get episodes
+        // We still need to check rendering status, so we fetch status of associated videos
+        // Optimization: only fetch status columns
         const episodes = await db.select({
             id: video.id,
             status: video.status,
-            thumbnailUrl: video.thumbnailUrl,
-            metadata: video.metadata,
-            renderStatus: renderJob.status
+            renderStatus: renderJob.status,
+            thumbnailUrl: video.thumbnailUrl // Still need thumbnail from first episode
         })
             .from(video)
             .leftJoin(renderJob, eq(video.id, renderJob.videoId))
             .where(eq(video.seriesId, s.id))
             .orderBy(desc(video.createdAt)); // Newest first
 
-        const episodeCount = episodes.length;
+        const episodeCount = s.episodeCount;
         const thumbnail = episodes[0]?.thumbnailUrl || null;
-        const duration = episodes[0]?.metadata ? (episodes[0].metadata as any).duration : null;
+
+        // Duration: logic remains same, pick from latest episode if available or approximation
+        // For now, let's skip complex duration logic or pick from 1st episode if needed
+        // (Assuming duration isn't critical for series card view or is uniform)
 
         // Determine aggregated status
-        // If ANY episode is in a "working" state (rendering, scripting), the series is "Rendering"
         const isRendering = episodes.some(e =>
             e.renderStatus === "QUEUED" ||
             e.renderStatus === "PROCESSING" ||
@@ -57,10 +51,13 @@ async function fetchSeriesProjects(userId: string) {
             e.status === "GENERATING"
         );
 
-        // If NO episodes, it's a "Draft" / "Empty"
-        // If all completed, "Completed"
+        const isAnyDraft = episodes.some(e =>
+            e.renderStatus === "DRAFT" ||
+            e.status === "DRAFT"
+        );
+
         let status = "Completed";
-        if (episodeCount === 0) status = "Draft";
+        if (episodeCount === 0 || isAnyDraft) status = "Draft";
         else if (isRendering) status = "Rendering";
 
         return {
@@ -68,12 +65,12 @@ async function fetchSeriesProjects(userId: string) {
             title: s.name,
             description: s.description || "",
             thumbnailUrl: thumbnail,
-            type: "Series" as const, // Explicit type
+            type: "Series" as const,
             status,
             videoCount: episodeCount,
             date: s.createdAt,
-            duration: duration, // Showing duration of latest episode as proxy
-            isSd: false, // placeholders
+            duration: null,
+            isSd: false,
             isHd: true,
             is4k: false
         };
@@ -110,7 +107,7 @@ async function fetchVideoProjects(userId: string) {
         let status = "Completed";
         if (v.renderStatus === "QUEUED" || v.renderStatus === "PROCESSING") {
             status = "Rendering";
-        } else if (v.status === "DRAFT") {
+        } else if (v.status === "DRAFT" || v.renderStatus === "DRAFT") {
             status = "Draft";
         } else if (v.status === "SCRIPTING") {
             status = "Rendering"; // Grouping scripting into rendering for dashboard simplicity
@@ -146,7 +143,7 @@ const projectsRoutes: FastifyPluginAsync = async (fastify) => {
             })
         }
     }, async (request, reply) => {
-        const userId = (request as any).userId;
+        const userId = request.session?.userId;
         if (!userId) {
             return reply.status(401).send({ error: "Unauthorized" });
         }
