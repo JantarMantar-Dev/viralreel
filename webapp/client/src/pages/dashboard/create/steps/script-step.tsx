@@ -16,7 +16,8 @@ import {
     Aperture,
     PlayCircle,
     Clapperboard,
-    FileText
+    FileText,
+    Lock
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useCreation } from "../context/creation-context"
@@ -57,15 +58,26 @@ export default function ScriptStep() {
                             <Clapperboard className="h-4 w-4 text-purple-600" />
                             {request.jobType === "series" ? "Series Name" : "Video Name"}
                         </label>
-                        <input
-                            type="text"
-                            value={request.jobType === "series" ? request.seriesName : request.episodeTitle}
-                            onChange={(e) => updateRequest({
-                                [request.jobType === "series" ? "seriesName" : "episodeTitle"]: e.target.value
-                            })}
-                            placeholder={request.jobType === "series" ? "e.g. Unsolved Mysteries of the Deep" : "e.g. My Amazing Video"}
-                            className="w-full h-12 px-4 rounded-xl border border-slate-200 bg-slate-50/50 text-slate-900 placeholder:text-slate-400 focus:ring-4 focus:ring-purple-50 focus:border-purple-500 outline-none transition-all font-medium"
-                        />
+                        <div className="relative">
+                            <input
+                                type="text"
+                                value={request.jobType === "series" ? request.seriesName : request.episodeTitle}
+                                onChange={(e) => updateRequest({
+                                    [request.jobType === "series" ? "seriesName" : "episodeTitle"]: e.target.value
+                                })}
+                                placeholder={request.jobType === "series" ? "e.g. Unsolved Mysteries of the Deep" : "e.g. My Amazing Video"}
+                                disabled={request.jobType === "series" && !!request.seriesId}
+                                className={cn(
+                                    "w-full h-12 px-4 rounded-xl border border-slate-200 bg-slate-50/50 text-slate-900 placeholder:text-slate-400 focus:ring-4 focus:ring-purple-50 focus:border-purple-500 outline-none transition-all font-medium",
+                                    request.jobType === "series" && !!request.seriesId && "bg-slate-100 text-slate-500 cursor-not-allowed"
+                                )}
+                            />
+                            {request.jobType === "series" && !!request.seriesId && (
+                                <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">
+                                    <Lock className="h-4 w-4" />
+                                </div>
+                            )}
+                        </div>
                     </div>
                     {request.jobType === "series" && (
                         <div className="space-y-2">

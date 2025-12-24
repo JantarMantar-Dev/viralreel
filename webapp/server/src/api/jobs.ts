@@ -4,6 +4,7 @@ import { series, video, renderJob, contentNiche, script } from "../db/schema.js"
 import { eq, desc, and, isNull } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { z } from "zod";
+import { createVideoJob } from "../services/video-service.js";
 
 export const baseJobSchema = z.object({
     nicheId: z.string().nullable(),
@@ -87,72 +88,64 @@ export default async function jobRoutes(fastify: FastifyInstance) {
         const isDraft = body.isDraft || false;
 
         try {
-            // Common metadata for all videos in this request
-            const metadata = {
-                duration: body.duration,
-                segments: body.segments,
-                visualFormat: body.visualFormat,
-                visualStyle: body.visualStyle,
-                voiceId: body.voiceId,
-                subtitleTemplateId: body.subtitleTemplateId,
-                musicId: body.musicId,
-                scriptIdea: body.scriptIdea,
-                nicheId: body.nicheId ?? undefined,
-            };
-
-            let seriesId: string | null = null;
-            const createdVideos = [];
-
-            // 1. Create Series if requested
-            if (body.jobType === "series") {
-                seriesId = nanoid();
-                await db.insert(series).values({
-                    id: seriesId,
-                    userId,
-                    nicheId: body.nicheId || null,
-                    name: body.seriesName,
-                    description: body.scriptIdea
-                });
-            }
-
-            // 2. Create Video entry (1 video per request for now)
-            const videoId = nanoid();
-            const isSeries = body.jobType === "series";
-
-            // Determine title
-            const title = body.episodeTitle || (isSeries ? `${body.seriesName} - Episode 1` : "Untitled Video");
-
-            await db.insert(video).values({
-                id: videoId,
+            const result = await createVideoJob({
                 userId,
-                seriesId,
-                nicheId: body.nicheId || null,
-                title,
-                episodeNumber: 1, // Defaulting to 1 for new series/single videos
-                status: isDraft ? "DRAFT" : "SCRIPTING", // Initial status
-                metadata: metadata
+                body,
+                isDraft
             });
 
-            createdVideos.push(videoId);
-
-            // 3. Create Render Job
-            await db.insert(renderJob).values({
-                id: nanoid(),
-                videoId,
-                status: isDraft ? "DRAFT" : "QUEUED",
-                progress: 0
-            });
-
-            return {
-                success: true,
-                message: "Job created successfully",
-                seriesId,
-                videoIds: createdVideos
-            };
-
+            return result;
         } catch (error) {
             fastify.log.error(error);
             return reply.status(500).send({ error: "Failed to create job" });
+        }
+    });
+
+    // POST /api/jobs/series/:seriesId/episode - Add an episode to an existing series
+    fastify.post("/series/:seriesId/episode", async (request, reply) => {
+        const userId = request.session.userId;
+        if (!userId) {
+            return reply.status(401).send({ error: "Unauthorized" });
+        }
+
+        const { seriesId } = request.params as { seriesId: string };
+
+        // Validate that the series exists and belongs to the user
+        const existingSeries = await db.select()
+            .from(series)
+            .where(and(eq(series.id, seriesId), eq(series.userId, userId)))
+            .limit(1);
+
+        if (existingSeries.length === 0) {
+            return reply.status(404).send({ error: "Series not found" });
+        }
+
+        // We reuse the same schema validation, but we can relax seriesName since we have the ID
+        // However, for simplicity, frontend can just send the seriesName (it has it in context)
+        const validation = createJobSchema.safeParse(request.body);
+
+        if (!validation.success) {
+            return reply.status(400).send({
+                error: "Validation failed",
+                details: validation.error.format()
+            });
+        }
+
+        const body = validation.data;
+        const isDraft = body.isDraft || false;
+
+        try {
+            const result = await createVideoJob({
+                userId,
+                body,
+                existingSeriesId: seriesId,
+                isDraft
+            });
+
+            return result;
+        } catch (error) {
+            fastify.log.error(error);
+            return reply.status(500).send({ error: "Failed to add episode" });
         }
     });
 }

@@ -2,6 +2,7 @@ import { createContext, useContext, ReactNode } from "react"
 
 export interface VideoJobRequest {
     jobType: "video" | "series"
+    seriesId?: string // Optional: for adding episodes to existing series
     seriesName: string
     episodeTitle: string
     nicheId: string | null

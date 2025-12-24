@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 import { useNavigate, useLocation, Outlet, useSearchParams } from "react-router-dom"
-import { useMutation } from "@tanstack/react-query"
+import { useMutation, useQuery } from "@tanstack/react-query"
 import { toast } from "sonner"
 import {
     ChevronLeft,
@@ -34,7 +34,9 @@ export default function CreateVideoLayout() {
     // Initialize jobType from URL or default to "series"
     const [request, setRequest] = useState<VideoJobRequest>(() => ({
         ...INITIAL_REQUEST,
-        jobType: (searchParams.get("type") as "video" | "series") || "series"
+        jobType: (searchParams.get("type") as "video" | "series") || "series",
+        seriesId: searchParams.get("seriesId") || undefined,
+        nicheId: searchParams.get("nicheId") || null,
     }))
     const navigate = useNavigate()
     const location = useLocation()
@@ -42,6 +44,39 @@ export default function CreateVideoLayout() {
     const updateRequest = (data: Partial<VideoJobRequest>) => {
         setRequest(prev => ({ ...prev, ...data }))
     }
+
+    // --- Add Episode Logic ---
+    const seriesId = searchParams.get("seriesId")
+    const { data: seriesData } = useQuery({
+        queryKey: ["series", seriesId],
+        queryFn: async () => {
+            const res = await fetch(`${API_BASE_URL}/api/projects/series/${seriesId}`, {
+                credentials: "include"
+            })
+            if (!res.ok) throw new Error("Failed to fetch series")
+            return res.json()
+        },
+        enabled: !!seriesId
+    })
+
+    useEffect(() => {
+        if (seriesId && seriesData?.series) {
+            const series = seriesData.series;
+            updateRequest({
+                jobType: "series",
+                seriesId: series.id,
+                seriesName: series.name,
+                nicheId: series.nicheId,
+                nicheName: series.nicheName,
+                // We default to script step implicitly by redirect below if on niche step
+            })
+
+            // If we are on the first step (niche), skip to script step
+            if (location.pathname.endsWith("/niche") || location.pathname.endsWith("/create")) {
+                navigate("script");
+            }
+        }
+    }, [seriesId, seriesData, navigate, location.pathname])
 
     // Determine current step based on route path
     const path = location.pathname.split("/").pop()
@@ -54,7 +89,11 @@ export default function CreateVideoLayout() {
 
     const { mutate: createJob, isPending } = useMutation({
         mutationFn: async (data: VideoJobRequest) => {
-            const response = await fetch(`${API_BASE_URL}/api/jobs`, {
+            const url = data.seriesId
+                ? `${API_BASE_URL}/api/jobs/series/${data.seriesId}/episode`
+                : `${API_BASE_URL}/api/jobs`;
+
+            const response = await fetch(url, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -112,8 +151,8 @@ export default function CreateVideoLayout() {
                         <div className="hidden sm:flex text-sm text-slate-500 items-center gap-2">
                             <span>My Videos</span>
                             <ChevronLeft className="h-4 w-4 rotate-180" />
-                            <span className="text-slate-900 font-medium whitespace-nowrap">
-                                {request.jobType === "series" ? "Create Series" : "Create Video"}
+                            <span>
+                                {request.seriesId ? "Add Episode" : (request.jobType === "series" ? "Create Series" : "Create Video")}
                             </span>
                         </div>
                         {/* Mobile back button */}
@@ -256,7 +295,7 @@ export default function CreateVideoLayout() {
                                     ) : currentStep === 6 ? (
                                         <>
                                             <Wand2 className="mr-2 h-5 w-5" />
-                                            {request.jobType === "series" ? "Generate Series" : "Generate Video"}
+                                            {request.seriesId ? "Generate Episode" : (request.jobType === "series" ? "Generate Series" : "Generate Video")}
                                         </>
                                     ) : (
                                         `Continue to Step ${currentStep + 1}`

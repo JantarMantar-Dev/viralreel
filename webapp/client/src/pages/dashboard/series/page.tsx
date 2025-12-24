@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Separator } from "@/components/ui/separator"
 import { API_BASE_URL } from "@/lib/config"
+import { formatRelativeDate } from "@/lib/date-utils"
 
 // --- Types ---
 
@@ -46,24 +47,13 @@ interface SeriesDetails {
     description: string
     createdAt: string
     episodeCount: number
+    nicheId: string | null
     nicheName: string
     episodes: Episode[]
 }
 
 // --- Helpers ---
 
-function formatRelativeDate(dateString: string) {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-
-    if (diffInSeconds < 60) return 'Just now';
-    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} minutes ago`;
-    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hours ago`;
-    if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)} days ago`;
-
-    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-}
 
 // --- Components ---
 
@@ -167,7 +157,7 @@ export default function SeriesDetailsPage() {
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => navigate("/create")}>New Idea</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => navigate(`/create?type=series&seriesId=${series.id}&nicheId=${series.nicheId || ''}`)}>New Idea</DropdownMenuItem>
                             <DropdownMenuItem>Upload Script</DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
@@ -229,12 +219,6 @@ export default function SeriesDetailsPage() {
                             </div>
                         </div>
 
-                        {/* Top Right Settings Button */}
-                        <div className="absolute top-6 right-6 hidden md:block">
-                            <Button variant="outline" size="sm" className="text-slate-600 border-slate-200 hover:bg-slate-50">
-                                <Settings className="h-4 w-4 mr-2" /> Settings
-                            </Button>
-                        </div>
                     </div>
                 </Card>
 
@@ -304,7 +288,7 @@ export default function SeriesDetailsPage() {
                                 <div className="flex items-center justify-between pt-3 border-t border-slate-50">
                                     <div className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400 uppercase tracking-tight">
                                         <Calendar className="h-3 w-3" />
-                                        {new Date(ep.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                                        {formatRelativeDate(ep.date)}
                                     </div>
                                     <EpisodeStatusBadge status={ep.status} />
                                 </div>
@@ -314,7 +298,7 @@ export default function SeriesDetailsPage() {
 
                     {/* Create Next Card */}
                     <Card
-                        onClick={() => navigate("/create")}
+                        onClick={() => navigate(`/create?type=series&seriesId=${series.id}&nicheId=${series.nicheId || ''}`)}
                         className="flex flex-col items-center justify-center p-6 border-dashed border-2 border-slate-200 bg-slate-50/50 hover:bg-purple-50 hover:border-purple-300 hover:shadow-lg hover:shadow-purple-100/50 transition-all duration-300 group cursor-pointer aspect-[4/3] sm:aspect-auto"
                     >
                         <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-white border border-slate-200 text-slate-400 flex items-center justify-center mb-4 group-hover:bg-purple-600 group-hover:text-white group-hover:scale-110 transition-all duration-300">

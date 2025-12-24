@@ -15,6 +15,7 @@ async function fetchSeriesProjects(userId: string) {
         description: series.description,
         createdAt: series.createdAt,
         episodeCount: series.episodeCount,
+        nicheId: series.nicheId,
         nicheName: contentNiche.name
     })
         .from(series)
@@ -201,6 +202,7 @@ const projectsRoutes: FastifyPluginAsync = async (fastify) => {
                 description: series.description,
                 createdAt: series.createdAt,
                 episodeCount: series.episodeCount,
+                nicheId: series.nicheId,
                 nicheName: contentNiche.name
             })
                 .from(series)

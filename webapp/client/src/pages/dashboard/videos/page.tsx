@@ -26,6 +26,7 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { VideosEmptyState } from "./components/videos-empty-state"
 import { API_BASE_URL } from "@/lib/config"
+import { formatRelativeDate } from "@/lib/date-utils"
 
 // --- Types ---
 
@@ -341,7 +342,7 @@ export default function MyVideosPage() {
         thumbnailUrl: j.thumbnailUrl || "",
         type: j.type, // 'Series' or 'Single Video'
         status: j.status, // 'Rendering', 'Completed', 'Draft' from backend
-        date: new Date(j.date).toLocaleDateString(),
+        date: formatRelativeDate(j.date),
         duration: j.duration ? `${j.duration}:00` : undefined,
         isHd: true,
         videoCount: j.videoCount
