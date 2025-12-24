@@ -13,6 +13,7 @@ import authMiddleware from './middleware/auth.js';
 import nicheRoutes from './api/niches.js';
 import voicesRoutes from './api/voices.js';
 import musicRoutes from './api/music.js';
+import subtitleRoutes from "./api/subtitles.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -117,6 +118,7 @@ fastify.register(authMiddleware);
 fastify.register(nicheRoutes, { prefix: "/api/niches" });
 fastify.register(voicesRoutes, { prefix: "/api/voices" });
 fastify.register(musicRoutes, { prefix: "/api/music" });
+fastify.register(subtitleRoutes, { prefix: "/api/subtitles" });
 
 // Run the server
 const start = async () => {

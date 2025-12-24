@@ -95,7 +95,14 @@ export const imageStyle = pgTable("image_style", {
 export const subtitleStyle = pgTable("subtitle_style", {
     id: text("id").primaryKey(), // UUID
     name: text("name").notNull().unique(), // Display name of the style
+    description: text("description"), // Description of the subtitle style
+    previewText: text("preview_text"), // Text to display in the preview
+    // CSS styles will be used for UI preview
+    css: text("css"), // CSS styles for the subtitle
+    isActive: boolean("is_active").default(true), // Soft delete/enable flag
 
+    // These are the properties that will be used for subtitle generation
+    // using video generation API
     fontName: text("font_name"), // Font family name
     fontSize: integer("font_size"), // Font size in pixels
     fontColor: text("font_color").default("#FFFFFF"), // Hex color code

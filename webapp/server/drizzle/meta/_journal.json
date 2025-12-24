@@ -22,6 +22,13 @@
       "when": 1766527210117,
       "tag": "0002_light_catseye",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1766602153310,
+      "tag": "0003_rapid_skreet",
+      "breakpoints": true
     }
   ]
 }
