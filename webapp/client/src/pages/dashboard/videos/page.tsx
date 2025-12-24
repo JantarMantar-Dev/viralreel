@@ -87,9 +87,12 @@ function VideoTypeBadge({ type, count }: { type: Project["type"], count?: number
     return null
 }
 
-function VideoCard({ project }: { project: Project }) {
+function VideoCard({ project, onClick }: { project: Project, onClick: () => void }) {
     return (
-        <Card className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white transition-all duration-300 hover:shadow-xl hover:shadow-purple-100/50 hover:border-purple-200 cursor-pointer">
+        <Card
+            onClick={onClick}
+            className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white transition-all duration-300 hover:shadow-xl hover:shadow-purple-100/50 hover:border-purple-200 cursor-pointer"
+        >
             {/* Thumbnail Area */}
             <div className="aspect-[4/3] w-full bg-slate-100 relative overflow-hidden">
                 {project.thumbnailUrl ? (
@@ -139,15 +142,26 @@ function VideoCard({ project }: { project: Project }) {
                     </h3>
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-6 w-6 -mr-1 text-slate-400 hover:text-slate-600">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 -mr-1 text-slate-400 hover:text-slate-600"
+                                onClick={(e) => e.stopPropagation()}
+                            >
                                 <MoreVertical className="h-4 w-4" />
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                            <DropdownMenuItem>Edit</DropdownMenuItem>
-                            <DropdownMenuItem>Duplicate</DropdownMenuItem>
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onClick(); }}>
+                                {project.type === "Series" ? "Open" : "Edit"}
+                            </DropdownMenuItem>
                             <Separator className="my-1" />
-                            <DropdownMenuItem className="text-red-600">Delete</DropdownMenuItem>
+                            <DropdownMenuItem
+                                className="text-red-600"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                Delete
+                            </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </div>
@@ -276,7 +290,18 @@ function VideoListView({ filter, setFilter, navigate, projects, isLoading }: Vid
                                     return true
                                 })
                                 .map((project) => (
-                                    <VideoCard key={project.id} project={project} />
+                                    <VideoCard
+                                        key={project.id}
+                                        project={project}
+                                        onClick={() => {
+                                            if (project.type === "Series") {
+                                                navigate(`/dashboard/series/${project.id}`)
+                                            } else {
+                                                // For now, standalone videos might go to edit or review
+                                                console.log("Edit video", project.id)
+                                            }
+                                        }}
+                                    />
                                 ))}
                         </div>
                     )}

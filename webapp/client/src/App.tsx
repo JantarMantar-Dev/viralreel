@@ -18,6 +18,7 @@ import VoiceStep from "./pages/dashboard/create/steps/voice-step"
 import MusicStep from "./pages/dashboard/create/steps/music-step"
 import SubtitleStep from "./pages/dashboard/create/steps/subtitle-step"
 import ReviewStep from "./pages/dashboard/create/steps/review-step"
+import SeriesDetailsPage from "./pages/dashboard/series/page"
 import PlaceholderStep from "./pages/dashboard/create/steps/placeholder-step"
 import NotFoundPage from "./pages/dashboard/not-found"
 
@@ -39,6 +40,7 @@ function App() {
         <Route path="/dashboard" element={<DashboardLayout />}>
           <Route index element={<DashboardPage />} />
           <Route path="videos" element={<ProjectsPage />} />
+          <Route path="series/:id" element={<SeriesDetailsPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="create" element={<CreateLayout />}>
             <Route index element={<Navigate to="niche" replace />} />

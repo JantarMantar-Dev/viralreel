@@ -177,5 +177,96 @@ const projectsRoutes: FastifyPluginAsync = async (fastify) => {
             return reply.status(500).send({ error: "Failed to fetch projects" });
         }
     });
+
+    // GET /api/projects/series/:seriesId
+    fastify.withTypeProvider<ZodTypeProvider>().get("/series/:seriesId", {
+        schema: {
+            params: z.object({
+                seriesId: z.string()
+            })
+        }
+    }, async (request, reply) => {
+        const userId = request.session?.userId;
+        if (!userId) {
+            return reply.status(401).send({ error: "Unauthorized" });
+        }
+
+        const { seriesId } = request.params;
+
+        try {
+            // 1. Fetch Series Metadata
+            const seriesData = await db.select({
+                id: series.id,
+                name: series.name,
+                description: series.description,
+                createdAt: series.createdAt,
+                episodeCount: series.episodeCount,
+                nicheName: contentNiche.name
+            })
+                .from(series)
+                .leftJoin(contentNiche, eq(series.nicheId, contentNiche.id))
+                .where(and(eq(series.id, seriesId), eq(series.userId, userId)))
+                .limit(1);
+
+            if (seriesData.length === 0) {
+                return reply.status(404).send({ error: "Series not found" });
+            }
+
+            const activeSeries = seriesData[0];
+
+            // 2. Fetch Episodes
+            const episodes = await db.select({
+                id: video.id,
+                title: video.title,
+                description: video.description,
+                thumbnailUrl: video.thumbnailUrl,
+                createdAt: video.createdAt,
+                status: video.status,
+                metadata: video.metadata,
+                episodeNumber: video.episodeNumber,
+                renderStatus: renderJob.status
+            })
+                .from(video)
+                .leftJoin(renderJob, eq(video.id, renderJob.videoId))
+                .where(eq(video.seriesId, seriesId))
+                .orderBy(video.episodeNumber);
+
+            const formattedEpisodes = episodes.map(v => {
+                let status = "Completed";
+                if (v.renderStatus === "QUEUED" || v.renderStatus === "PROCESSING") {
+                    status = "Rendering";
+                } else if (v.status === "DRAFT" || v.renderStatus === "DRAFT") {
+                    status = "Draft";
+                } else if (v.status === "SCRIPTING") {
+                    status = "Rendering";
+                } else if (v.renderStatus === "FAILED" || v.status === "FAILED") {
+                    status = "Draft";
+                }
+
+                return {
+                    id: v.id,
+                    title: v.title,
+                    description: v.description || (v.metadata as any)?.scriptIdea || "",
+                    thumbnailUrl: v.thumbnailUrl,
+                    status,
+                    episodeNumber: v.episodeNumber,
+                    date: v.createdAt,
+                    duration: (v.metadata as any)?.duration
+                };
+            });
+
+            return {
+                success: true,
+                series: {
+                    ...activeSeries,
+                    episodes: formattedEpisodes
+                }
+            };
+
+        } catch (error) {
+            request.log.error(error);
+            return reply.status(500).send({ error: "Failed to fetch series details" });
+        }
+    });
 }
 export default projectsRoutes;
