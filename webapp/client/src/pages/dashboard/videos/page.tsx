@@ -304,29 +304,20 @@ export default function MyVideosPage() {
         }
     })
 
-    const projects: Project[] = [
-        ...(jobs?.series?.map((s: any) => ({
-            id: s.id,
-            title: s.name,
-            description: s.description || "",
-            thumbnailUrl: "",
-            type: "Series",
-            status: "Draft", // Placeholder as series doesn't have status yet
-            date: new Date(s.createdAt).toLocaleDateString(),
-            videoCount: 0 // Placeholder
-        })) || []),
-        ...(jobs?.videos?.map((v: any) => ({
-            id: v.id,
-            title: v.title,
-            description: v.metadata?.scriptIdea || "",
-            thumbnailUrl: "",
-            type: "Single Video",
-            status: v.status === "DRAFT" ? "Draft" : v.status === "COMPLETED" ? "Completed" : "Rendering",
-            date: new Date(v.createdAt).toLocaleDateString(),
-            duration: v.metadata?.duration ? `${v.metadata.duration}:00` : undefined,
-            isHd: true
-        })) || [])
-    ]
+    const projects: Project[] = (jobs?.jobs?.map((j: any) => ({
+        id: j.jobId,
+        title: j.title || "Untitled Video",
+        description: j.metadata?.scriptIdea || "",
+        thumbnailUrl: j.thumbnailUrl || "",
+        type: j.seriesId ? "Series" : "Single Video",
+        status: (j.status === "COMPLETED" ? "Completed" :
+            j.status === "FAILED" ? "Draft" : // Or a Failed status if we added one
+                "Rendering") as Project["status"],
+        date: new Date(j.createdAt).toLocaleDateString(),
+        duration: j.metadata?.duration ? `${j.metadata.duration}:00` : undefined,
+        isHd: true,
+        videoCount: j.seriesId ? 1 : undefined // Simplified for now as we get individual jobs
+    })) || [])
 
     // Sort by date (assuming id or createdAt is comparable, technically createdAt string needs parsing but fine for now)
     // Actually better to not sort on client unless we have raw dates. API said "orderBy(desc(series.createdAt))" so they come sorted.

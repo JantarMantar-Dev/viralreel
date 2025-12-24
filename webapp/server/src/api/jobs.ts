@@ -5,7 +5,7 @@ import { eq, desc, and, isNull } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 
-const baseJobSchema = z.object({
+export const baseJobSchema = z.object({
     nicheId: z.string().nullable(),
     scriptIdea: z.string().min(1, "Script idea is required"),
     duration: z.number().min(0.5, "Duration must be at least 30 seconds"),
@@ -18,7 +18,7 @@ const baseJobSchema = z.object({
     isDraft: z.boolean(),
 });
 
-const createJobSchema = z.discriminatedUnion("jobType", [
+export const createJobSchema = z.discriminatedUnion("jobType", [
     baseJobSchema.extend({
         jobType: z.literal("series"),
         seriesName: z.string().min(1, "Series name is required"),
@@ -31,10 +31,10 @@ const createJobSchema = z.discriminatedUnion("jobType", [
     }),
 ]);
 
-type CreateJobBody = z.infer<typeof createJobSchema>;
+export type CreateJobBody = z.infer<typeof createJobSchema>;
 
 export default async function jobRoutes(fastify: FastifyInstance) {
-    // GET /api/jobs - List all jobs (Series and Single Videos)
+    // GET /api/jobs - List all active render jobs
     fastify.get("/", async (request, reply) => {
         const userId = request.session.userId;
         if (!userId) {
@@ -42,25 +42,25 @@ export default async function jobRoutes(fastify: FastifyInstance) {
         }
 
         try {
-            // Fetch all series
-            const userSeries = await db.select()
-                .from(series)
-                .where(eq(series.userId, userId))
-                .orderBy(desc(series.createdAt));
+            // Query render_job joined with video and series
+            const jobs = await db.select({
+                jobId: renderJob.id,
+                status: renderJob.status,
+                progress: renderJob.progress,
+                createdAt: renderJob.createdAt,
+                videoId: video.id,
+                title: video.title,
+                metadata: video.metadata,
+                seriesId: series.id,
+                seriesName: series.name,
+            })
+                .from(renderJob)
+                .innerJoin(video, eq(renderJob.videoId, video.id))
+                .leftJoin(series, eq(video.seriesId, series.id))
+                .where(eq(video.userId, userId))
+                .orderBy(desc(renderJob.createdAt));
 
-            // Fetch all standalone videos (not part of a series)
-            const singleVideos = await db.select()
-                .from(video)
-                .where(and(
-                    eq(video.userId, userId),
-                    isNull(video.seriesId)
-                ))
-                .orderBy(desc(video.createdAt));
-
-            return {
-                series: userSeries,
-                videos: singleVideos
-            };
+            return { jobs };
         } catch (error) {
             fastify.log.error(error);
             return reply.status(500).send({ error: "Failed to fetch jobs" });
@@ -115,47 +115,34 @@ export default async function jobRoutes(fastify: FastifyInstance) {
                 });
             }
 
-            // 2. Determine number of episodes
-            const episodeCount = body.jobType === "series" ? (body.segments || 3) : 1;
+            // 2. Create Video entry (1 video per request for now)
+            const videoId = nanoid();
+            const isSeries = body.jobType === "series";
 
-            // 3. Create Video entries
-            for (let i = 1; i <= episodeCount; i++) {
-                const videoId = nanoid();
+            // Determine title
+            const title = body.episodeTitle || (isSeries ? `${body.seriesName} - Episode 1` : "Untitled Video");
 
-                // Determine title
-                let title = "Untitled Video";
-                if (body.jobType === "series") {
-                    if (i === 1) {
-                        title = body.episodeTitle;
-                    } else {
-                        title = `${body.seriesName} - Episode ${i}`;
-                    }
-                } else {
-                    title = body.episodeTitle;
-                }
+            await db.insert(video).values({
+                id: videoId,
+                userId,
+                seriesId,
+                nicheId: body.nicheId || null,
+                title,
+                episodeNumber: 1, // Defaulting to 1 for new series/single videos
+                status: isDraft ? "DRAFT" : "SCRIPTING", // Initial status
+                metadata: metadata
+            });
 
-                await db.insert(video).values({
-                    id: videoId,
-                    userId,
-                    seriesId,
-                    nicheId: body.nicheId || null,
-                    title,
-                    episodeNumber: i,
-                    status: isDraft ? "DRAFT" : "SCRIPTING", // Initial status
-                    metadata: metadata
+            createdVideos.push(videoId);
+
+            // 3. Create Render Job if NOT a draft
+            if (!isDraft) {
+                await db.insert(renderJob).values({
+                    id: nanoid(),
+                    videoId,
+                    status: "QUEUED",
+                    progress: 0
                 });
-
-                createdVideos.push(videoId);
-
-                // 4. Create Render Job if NOT a draft
-                if (!isDraft) {
-                    await db.insert(renderJob).values({
-                        id: nanoid(),
-                        videoId,
-                        status: "QUEUED",
-                        progress: 0
-                    });
-                }
             }
 
             return {
