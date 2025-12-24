@@ -36,11 +36,12 @@ function App() {
           <Route path="verify-email" element={<VerifyEmailPage />} />
         </Route>
 
-        {/* Dashboard Routes */}
-        <Route path="/dashboard" element={<DashboardLayout />}>
-          <Route index element={<DashboardPage />} />
+        {/* Dashboard Routes - No Prefix */}
+        <Route path="/" element={<DashboardLayout />}>
+          <Route index element={<Navigate to="/dashboard" replace />} />
+          <Route path="dashboard" element={<DashboardPage />} />
           <Route path="videos" element={<ProjectsPage />} />
-          <Route path="series/:id" element={<SeriesDetailsPage />} />
+          <Route path="videos/series/:id" element={<SeriesDetailsPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="create" element={<CreateLayout />}>
             <Route index element={<Navigate to="niche" replace />} />
@@ -50,9 +51,9 @@ function App() {
             {/* Removed Visuals Route */}
             <Route path="subtitles" element={<SubtitleStep />} />
             <Route path="music" element={<MusicStep />} />
-            <Route path="review" element={<ReviewStep />} /> {/* Mapped 'review' to ReviewStep */}
+            <Route path="review" element={<ReviewStep />} />
           </Route>
-          <Route path="*" element={<NotFoundPage />} />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Route>
       </Routes>
       <Toaster />

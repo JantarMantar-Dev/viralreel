@@ -49,7 +49,7 @@ export default function CreateVideoLayout() {
     const currentStep = currentStepIndex !== -1 ? currentStepIndex + 1 : 1
 
     const handleExit = () => {
-        navigate("/dashboard")
+        navigate("/videos")
     }
 
     const { mutate: createJob, isPending } = useMutation({
@@ -72,7 +72,7 @@ export default function CreateVideoLayout() {
         },
         onSuccess: () => {
             toast.success("Job created successfully!")
-            navigate("/dashboard")
+            navigate("/videos")
         },
         onError: (error) => {
             toast.error(error.message)
@@ -118,7 +118,7 @@ export default function CreateVideoLayout() {
                         </div>
                         {/* Mobile back button */}
                         <div className="flex sm:hidden">
-                            <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")} className="text-slate-500">
+                            <Button variant="ghost" size="icon" onClick={() => navigate("/videos")} className="text-slate-500">
                                 <ChevronLeft className="h-5 w-5" />
                             </Button>
                         </div>

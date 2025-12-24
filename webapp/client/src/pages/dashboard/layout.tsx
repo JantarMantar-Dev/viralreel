@@ -119,10 +119,10 @@ export default function DashboardLayout() {
                                     <SidebarMenuButton
                                         asChild
                                         tooltip="My Videos"
-                                        isActive={location.pathname === "/dashboard/videos" || location.pathname === "/dashboard/create"}
+                                        isActive={location.pathname.startsWith("/videos") || location.pathname.startsWith("/create")}
                                         className="data-[active=true]:bg-purple-50 data-[active=true]:text-purple-600 hover:bg-slate-50 text-slate-600 font-medium"
                                     >
-                                        <NavLink to="/dashboard/videos">
+                                        <NavLink to="/videos">
                                             <FolderOpen className="h-4 w-4" />
                                             <span>My Videos</span>
                                         </NavLink>
@@ -132,10 +132,10 @@ export default function DashboardLayout() {
                                     <SidebarMenuButton
                                         asChild
                                         tooltip="Settings"
-                                        isActive={location.pathname === "/dashboard/settings"}
+                                        isActive={location.pathname === "/settings"}
                                         className="data-[active=true]:bg-purple-50 data-[active=true]:text-purple-600 hover:bg-slate-50 text-slate-600 font-medium"
                                     >
-                                        <NavLink to="/dashboard/settings">
+                                        <NavLink to="/settings">
                                             <Settings className="h-4 w-4" />
                                             <span>Settings</span>
                                         </NavLink>
@@ -190,7 +190,7 @@ export default function DashboardLayout() {
                                         </div>
                                     </DropdownMenuLabel>
                                     <DropdownMenuSeparator />
-                                    <DropdownMenuItem onClick={() => navigate("/dashboard/settings")}>
+                                    <DropdownMenuItem onClick={() => navigate("/settings")}>
                                         <Settings className="mr-2 h-4 w-4" />
                                         Settings
                                     </DropdownMenuItem>

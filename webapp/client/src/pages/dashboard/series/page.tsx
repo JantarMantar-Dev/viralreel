@@ -130,7 +130,7 @@ export default function SeriesDetailsPage() {
                 <p className="text-slate-500 mt-2 max-w-md">
                     We couldn't find the series you're looking for. It might have been deleted or you may not have access.
                 </p>
-                <Button onClick={() => navigate("/dashboard/videos")} className="mt-6 bg-purple-600 hover:bg-purple-700">
+                <Button onClick={() => navigate("/videos")} className="mt-6 bg-purple-600 hover:bg-purple-700">
                     Back to Dashboard
                 </Button>
             </div>
@@ -167,7 +167,7 @@ export default function SeriesDetailsPage() {
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => navigate("/dashboard/create")}>New Idea</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => navigate("/create")}>New Idea</DropdownMenuItem>
                             <DropdownMenuItem>Upload Script</DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
@@ -177,7 +177,7 @@ export default function SeriesDetailsPage() {
             <div className="max-w-[1600px] mx-auto w-full p-6 animate-in fade-in duration-500">
                 {/* Breadcrumbs */}
                 <nav className="flex items-center gap-2 text-sm font-medium text-slate-400 mb-6">
-                    <Link to="/dashboard/videos" className="hover:text-purple-600 transition-colors">Back to Dashboard</Link>
+                    <Link to="/videos" className="hover:text-purple-600 transition-colors">Back to Dashboard</Link>
                     <ChevronRight className="h-4 w-4" />
                     <span className="text-slate-900">Series Details</span>
                 </nav>
@@ -314,7 +314,7 @@ export default function SeriesDetailsPage() {
 
                     {/* Create Next Card */}
                     <Card
-                        onClick={() => navigate("/dashboard/create")}
+                        onClick={() => navigate("/create")}
                         className="flex flex-col items-center justify-center p-6 border-dashed border-2 border-slate-200 bg-slate-50/50 hover:bg-purple-50 hover:border-purple-300 hover:shadow-lg hover:shadow-purple-100/50 transition-all duration-300 group cursor-pointer aspect-[4/3] sm:aspect-auto"
                     >
                         <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-white border border-slate-200 text-slate-400 flex items-center justify-center mb-4 group-hover:bg-purple-600 group-hover:text-white group-hover:scale-110 transition-all duration-300">

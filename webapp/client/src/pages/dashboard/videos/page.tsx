@@ -227,7 +227,7 @@ function VideoListView({ filter, setFilter, navigate, projects, isLoading }: Vid
                         </DropdownMenuContent>
                     </DropdownMenu>
                     <Button
-                        onClick={() => navigate("/dashboard/create")}
+                        onClick={() => navigate("/create")}
                         className="bg-purple-600 hover:bg-purple-700 text-white shadow-sm shadow-purple-200"
                     >
                         <Plus className="mr-2 h-4 w-4" /> Create New
@@ -295,7 +295,7 @@ function VideoListView({ filter, setFilter, navigate, projects, isLoading }: Vid
                                         project={project}
                                         onClick={() => {
                                             if (project.type === "Series") {
-                                                navigate(`/dashboard/series/${project.id}`)
+                                                navigate(`/videos/series/${project.id}`)
                                             } else {
                                                 // For now, standalone videos might go to edit or review
                                                 console.log("Edit video", project.id)
@@ -353,7 +353,7 @@ export default function MyVideosPage() {
     // Let's just concat for now.
 
     if (!isLoading && projects.length === 0) {
-        return <VideosEmptyState onCreateNew={() => navigate("/dashboard/create")} />
+        return <VideosEmptyState onCreateNew={() => navigate("/create")} />
     }
 
     return <VideoListView
