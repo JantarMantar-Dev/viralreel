@@ -18,7 +18,7 @@ export interface VideoJobRequest {
     musicId?: string
     musicName?: string
     musicDetails?: string
-    isDraft?: boolean
+    isDraft: boolean
 }
 
 export interface CreationContextType {
@@ -49,5 +49,6 @@ export const INITIAL_REQUEST: VideoJobRequest = {
     visualStyle: "comic",
     voiceId: undefined,
     musicId: undefined,
-    subtitleTemplateId: undefined
+    subtitleTemplateId: undefined,
+    isDraft: false
 }

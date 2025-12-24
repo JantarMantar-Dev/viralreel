@@ -15,7 +15,7 @@ export const baseJobSchema = z.object({
     visualStyle: z.string().optional(),
     subtitleTemplateId: z.string().optional(),
     musicId: z.string().optional(),
-    isDraft: z.boolean(),
+    isDraft: z.boolean().default(false),
 });
 
 export const createJobSchema = z.discriminatedUnion("jobType", [
