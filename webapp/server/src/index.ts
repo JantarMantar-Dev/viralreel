@@ -20,7 +20,13 @@ const __dirname = path.dirname(__filename);
 
 dotenv.config();
 
+import { serializerCompiler, validatorCompiler } from "fastify-type-provider-zod";
+
 const fastify = Fastify({ logger: true });
+
+// Add Zod validator and serializer
+fastify.setValidatorCompiler(validatorCompiler);
+fastify.setSerializerCompiler(serializerCompiler);
 
 // Parse trusted origins
 const trustedOrigins = (process.env.TRUSTED_ORIGINS || "")
@@ -121,6 +127,8 @@ fastify.register(musicRoutes, { prefix: "/api/music" });
 fastify.register(subtitleRoutes, { prefix: "/api/subtitles" });
 import jobRoutes from "./api/jobs.js";
 fastify.register(jobRoutes, { prefix: "/api/jobs" });
+import projectsRoutes from "./api/projects.js";
+fastify.register(projectsRoutes, { prefix: "/api/projects" });
 
 // Run the server
 const start = async () => {

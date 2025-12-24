@@ -290,34 +290,37 @@ export default function MyVideosPage() {
     const navigate = useNavigate()
     const [filter, setFilter] = useState<"All" | "Single" | "Series">("All")
 
-    const { data: jobs, isLoading } = useQuery({
-        queryKey: ['jobs'],
+    const { data: response, isLoading } = useQuery({
+        queryKey: ['projects', filter], // Refetch when filter changes
         queryFn: async () => {
-            const res = await fetch(`${API_BASE_URL}/api/jobs`, {
+            // Map filter to API type
+            let typeParam = "all";
+            if (filter === "Series") typeParam = "series";
+            if (filter === "Single") typeParam = "video";
+
+            const res = await fetch(`${API_BASE_URL}/api/projects?type=${typeParam}`, {
                 headers: {
                     'Content-Type': 'application/json'
                 },
                 credentials: 'include'
             })
-            if (!res.ok) throw new Error('Failed to fetch jobs')
+            if (!res.ok) throw new Error('Failed to fetch projects')
             return res.json()
         }
     })
 
-    const projects: Project[] = (jobs?.jobs?.map((j: any) => ({
-        id: j.jobId,
+    const projects: Project[] = (response?.projects || []).map((j: any) => ({
+        id: j.id,
         title: j.title || "Untitled Video",
-        description: j.metadata?.scriptIdea || "",
+        description: j.description || "",
         thumbnailUrl: j.thumbnailUrl || "",
-        type: j.seriesId ? "Series" : "Single Video",
-        status: (j.status === "COMPLETED" ? "Completed" :
-            j.status === "FAILED" ? "Draft" : // Or a Failed status if we added one
-                "Rendering") as Project["status"],
-        date: new Date(j.createdAt).toLocaleDateString(),
-        duration: j.metadata?.duration ? `${j.metadata.duration}:00` : undefined,
+        type: j.type, // 'Series' or 'Single Video'
+        status: j.status, // 'Rendering', 'Completed', 'Draft' from backend
+        date: new Date(j.date).toLocaleDateString(),
+        duration: j.duration ? `${j.duration}:00` : undefined,
         isHd: true,
-        videoCount: j.seriesId ? 1 : undefined // Simplified for now as we get individual jobs
-    })) || [])
+        videoCount: j.videoCount
+    }))
 
     // Sort by date (assuming id or createdAt is comparable, technically createdAt string needs parsing but fine for now)
     // Actually better to not sort on client unless we have raw dates. API said "orderBy(desc(series.createdAt))" so they come sorted.
