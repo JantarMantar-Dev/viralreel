@@ -3,7 +3,7 @@ import { createContext, useContext, ReactNode } from "react"
 export interface VideoJobRequest {
     jobType: "video" | "series"
     seriesName: string
-    episode1Title: string
+    episodeTitle: string
     nicheId: string | null
     nicheName?: string
     scriptIdea: string
@@ -18,6 +18,7 @@ export interface VideoJobRequest {
     musicId?: string
     musicName?: string
     musicDetails?: string
+    isDraft?: boolean
 }
 
 export interface CreationContextType {
@@ -39,7 +40,7 @@ export function useCreation() {
 export const INITIAL_REQUEST: VideoJobRequest = {
     jobType: "series",
     seriesName: "",
-    episode1Title: "",
+    episodeTitle: "",
     nicheId: null,
     scriptIdea: "",
     duration: 1,

@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
+import { useQuery } from "@tanstack/react-query"
 import {
     Search,
     MoreVertical,
@@ -10,7 +11,8 @@ import {
     LayoutGrid,
     Filter,
     Plus,
-    Bell
+    Bell,
+    Loader2
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -23,8 +25,9 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Separator } from "@/components/ui/separator"
 import { VideosEmptyState } from "./components/videos-empty-state"
+import { API_BASE_URL } from "@/lib/config"
 
-// --- Mock Data ---
+// --- Types ---
 
 interface Project {
     id: string
@@ -32,7 +35,7 @@ interface Project {
     description: string
     thumbnailUrl: string
     type: "Single Video" | "Series"
-    status: "Draft" | "Rendering" | "Completed"
+    status: "Draft" | "Rendering" | "Completed" | "Scripting"
     videoCount?: number
     date: string
     duration?: string
@@ -40,82 +43,17 @@ interface Project {
     is4k?: boolean
 }
 
-const mockProjects: Project[] = [
-    {
-        id: "1",
-        title: "Cyberpunk City Intro",
-        description: "Futuristic opening sequence for tech channel",
-        thumbnailUrl: "https://images.unsplash.com/photo-1542382257-80dedb725088?q=80&w=800&auto=format&fit=crop",
-        type: "Single Video",
-        status: "Rendering",
-        date: "2 mins ago",
-        duration: "00:15",
-    },
-    {
-        id: "2",
-        title: "Product Explainer Series",
-        description: "Marketing campaign for Q4 launch",
-        thumbnailUrl: "https://images.unsplash.com/photo-1635070041078-e363dbe005cb?q=80&w=800&auto=format&fit=crop",
-        type: "Series",
-        status: "Completed",
-        videoCount: 4,
-        date: "Oct 24, 2023",
-        duration: "02:45",
-        isHd: true
-    },
-    {
-        id: "3",
-        title: "Weekly Tech News",
-        description: "Social media shorts series.",
-        thumbnailUrl: "", // No preview
-        type: "Series",
-        status: "Draft",
-        date: "Updated 1d ago",
-    },
-    {
-        id: "4",
-        title: "Untitled Project 12",
-        description: "",
-        thumbnailUrl: "", // No preview
-        type: "Single Video",
-        status: "Draft",
-        date: "3 days ago",
-    },
-    {
-        id: "5",
-        title: "IG Reel - Product Showcase",
-        description: "Vertical format for Instagram",
-        thumbnailUrl: "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?q=80&w=800&auto=format&fit=crop",
-        type: "Single Video",
-        status: "Completed",
-        date: "Yesterday",
-        duration: "00:58",
-        is4k: true
-    },
-    {
-        id: "6",
-        title: "Cybersecurity Training",
-        description: "Internal corporate training module",
-        thumbnailUrl: "https://images.unsplash.com/photo-1563206767-5b1d97299337?q=80&w=800&auto=format&fit=crop",
-        type: "Single Video",
-        status: "Completed",
-        date: "Oct 15, 2023",
-        duration: "05:12",
-        isHd: true
-    }
-]
-
 // --- Components ---
 
 function ProjectStatusBadge({ status }: { status: Project["status"] }) {
-    if (status === "Rendering") {
+    if (status === "Rendering" || status === "Scripting") {
         return (
             <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-white/90 backdrop-blur-sm px-2.5 py-1 rounded-full text-xs font-medium text-slate-800 shadow-sm border border-slate-100">
                 <span className="relative flex h-2 w-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-500"></span>
                 </span>
-                Rendering
+                {status}
             </div>
         )
     }
@@ -123,6 +61,13 @@ function ProjectStatusBadge({ status }: { status: Project["status"] }) {
         return (
             <div className="absolute top-3 left-3 bg-slate-100/90 backdrop-blur-sm px-2.5 py-1 rounded-full text-xs font-medium text-slate-600 shadow-sm border border-slate-200">
                 Draft
+            </div>
+        )
+    }
+    if (status === "Completed") {
+        return (
+            <div className="absolute top-3 left-3 bg-green-100/90 backdrop-blur-sm px-2.5 py-1 rounded-full text-xs font-medium text-green-700 shadow-sm border border-green-200">
+                Completed
             </div>
         )
     }
@@ -144,7 +89,7 @@ function VideoTypeBadge({ type, count }: { type: Project["type"], count?: number
 
 function VideoCard({ project }: { project: Project }) {
     return (
-        <Card className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white transition-all duration-300 hover:shadow-xl hover:shadow-purple-100/50 hover:border-purple-200">
+        <Card className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white transition-all duration-300 hover:shadow-xl hover:shadow-purple-100/50 hover:border-purple-200 cursor-pointer">
             {/* Thumbnail Area */}
             <div className="aspect-[4/3] w-full bg-slate-100 relative overflow-hidden">
                 {project.thumbnailUrl ? (
@@ -235,9 +180,11 @@ interface VideoListViewProps {
     filter: "All" | "Single" | "Series"
     setFilter: (f: "All" | "Single" | "Series") => void
     navigate: ReturnType<typeof useNavigate>
+    projects: Project[]
+    isLoading: boolean
 }
 
-function VideoListView({ filter, setFilter, navigate }: VideoListViewProps) {
+function VideoListView({ filter, setFilter, navigate, projects, isLoading }: VideoListViewProps) {
     return (
         <div className="flex flex-col w-full h-full">
             {/* Top Bar (Search & Actions) - Full Width Header */}
@@ -315,18 +262,24 @@ function VideoListView({ filter, setFilter, navigate }: VideoListViewProps) {
                 {/* Filters & Content */}
                 <div className="space-y-6">
                     {/* Grid */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                        {mockProjects
-                            .filter(p => {
-                                if (filter === "All") return true
-                                if (filter === "Single") return p.type === "Single Video"
-                                if (filter === "Series") return p.type === "Series"
-                                return true
-                            })
-                            .map((project) => (
-                                <VideoCard key={project.id} project={project} />
-                            ))}
-                    </div>
+                    {isLoading ? (
+                        <div className="flex items-center justify-center p-20">
+                            <Loader2 className="h-8 w-8 text-purple-600 animate-spin" />
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                            {projects
+                                .filter(p => {
+                                    if (filter === "All") return true
+                                    if (filter === "Single") return p.type === "Single Video"
+                                    if (filter === "Series") return p.type === "Series"
+                                    return true
+                                })
+                                .map((project) => (
+                                    <VideoCard key={project.id} project={project} />
+                                ))}
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
@@ -336,11 +289,59 @@ function VideoListView({ filter, setFilter, navigate }: VideoListViewProps) {
 export default function MyVideosPage() {
     const navigate = useNavigate()
     const [filter, setFilter] = useState<"All" | "Single" | "Series">("All")
-    const [hasVideos, setHasVideos] = useState(false)
 
-    if (!hasVideos) {
+    const { data: jobs, isLoading } = useQuery({
+        queryKey: ['jobs'],
+        queryFn: async () => {
+            const res = await fetch(`${API_BASE_URL}/api/jobs`, {
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'include'
+            })
+            if (!res.ok) throw new Error('Failed to fetch jobs')
+            return res.json()
+        }
+    })
+
+    const projects: Project[] = [
+        ...(jobs?.series?.map((s: any) => ({
+            id: s.id,
+            title: s.name,
+            description: s.description || "",
+            thumbnailUrl: "",
+            type: "Series",
+            status: "Draft", // Placeholder as series doesn't have status yet
+            date: new Date(s.createdAt).toLocaleDateString(),
+            videoCount: 0 // Placeholder
+        })) || []),
+        ...(jobs?.videos?.map((v: any) => ({
+            id: v.id,
+            title: v.title,
+            description: v.metadata?.scriptIdea || "",
+            thumbnailUrl: "",
+            type: "Single Video",
+            status: v.status === "DRAFT" ? "Draft" : v.status === "COMPLETED" ? "Completed" : "Rendering",
+            date: new Date(v.createdAt).toLocaleDateString(),
+            duration: v.metadata?.duration ? `${v.metadata.duration}:00` : undefined,
+            isHd: true
+        })) || [])
+    ]
+
+    // Sort by date (assuming id or createdAt is comparable, technically createdAt string needs parsing but fine for now)
+    // Actually better to not sort on client unless we have raw dates. API said "orderBy(desc(series.createdAt))" so they come sorted.
+    // But we are merging two lists.
+    // Let's just concat for now.
+
+    if (!isLoading && projects.length === 0) {
         return <VideosEmptyState onCreateNew={() => navigate("/dashboard/create")} />
     }
 
-    return <VideoListView filter={filter} setFilter={setFilter} navigate={navigate} />
+    return <VideoListView
+        filter={filter}
+        setFilter={setFilter}
+        navigate={navigate}
+        projects={projects}
+        isLoading={isLoading}
+    />
 }

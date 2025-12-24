@@ -195,11 +195,21 @@ export default async function musicRoutes(fastify: FastifyInstance) {
         try {
             const { id } = request.params as { id: string };
             const userId = request.user.id;
-            const { name } = request.body as { name?: string };
 
-            if (!name) {
-                return reply.status(400).send({ error: "Name is required" });
+            const updateMusicSchema = z.object({
+                name: z.string().min(1, "Name is required"),
+            });
+
+            const validation = updateMusicSchema.safeParse(request.body);
+
+            if (!validation.success) {
+                return reply.status(400).send({
+                    error: "Validation failed",
+                    details: validation.error.format()
+                });
             }
+
+            const { name } = validation.data;
 
             // Check ownership
             const existing = await db.select().from(musicTrack).where(and(eq(musicTrack.id, id), eq(musicTrack.userId, userId))).limit(1);

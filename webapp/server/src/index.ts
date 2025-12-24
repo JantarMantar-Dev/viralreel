@@ -119,6 +119,8 @@ fastify.register(nicheRoutes, { prefix: "/api/niches" });
 fastify.register(voicesRoutes, { prefix: "/api/voices" });
 fastify.register(musicRoutes, { prefix: "/api/music" });
 fastify.register(subtitleRoutes, { prefix: "/api/subtitles" });
+import jobRoutes from "./api/jobs.js";
+fastify.register(jobRoutes, { prefix: "/api/jobs" });
 
 // Run the server
 const start = async () => {

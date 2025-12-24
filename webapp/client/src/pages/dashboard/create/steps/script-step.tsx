@@ -59,8 +59,10 @@ export default function ScriptStep() {
                         </label>
                         <input
                             type="text"
-                            value={request.seriesName}
-                            onChange={(e) => updateRequest({ seriesName: e.target.value })}
+                            value={request.jobType === "series" ? request.seriesName : request.episodeTitle}
+                            onChange={(e) => updateRequest({
+                                [request.jobType === "series" ? "seriesName" : "episodeTitle"]: e.target.value
+                            })}
                             placeholder={request.jobType === "series" ? "e.g. Unsolved Mysteries of the Deep" : "e.g. My Amazing Video"}
                             className="w-full h-12 px-4 rounded-xl border border-slate-200 bg-slate-50/50 text-slate-900 placeholder:text-slate-400 focus:ring-4 focus:ring-purple-50 focus:border-purple-500 outline-none transition-all font-medium"
                         />
@@ -73,8 +75,8 @@ export default function ScriptStep() {
                             </label>
                             <input
                                 type="text"
-                                value={request.episode1Title}
-                                onChange={(e) => updateRequest({ episode1Title: e.target.value })}
+                                value={request.episodeTitle}
+                                onChange={(e) => updateRequest({ episodeTitle: e.target.value })}
                                 placeholder="e.g. The Bermuda Triangle Secret"
                                 className="w-full h-12 px-4 rounded-xl border border-slate-200 bg-slate-50/50 text-slate-900 placeholder:text-slate-400 focus:ring-4 focus:ring-purple-50 focus:border-purple-500 outline-none transition-all font-medium"
                             />

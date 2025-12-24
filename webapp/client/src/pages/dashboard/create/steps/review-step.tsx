@@ -39,8 +39,10 @@ export default function ReviewStep() {
                         <div className="relative group">
                             <input
                                 type="text"
-                                value={request.seriesName}
-                                onChange={(e) => updateRequest({ seriesName: e.target.value })}
+                                value={request.jobType === "series" ? request.seriesName : request.episodeTitle}
+                                onChange={(e) => updateRequest({
+                                    [request.jobType === "series" ? "seriesName" : "episodeTitle"]: e.target.value
+                                })}
                                 className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-3 text-lg font-bold text-slate-900 outline-none focus:border-purple-200 focus:bg-white transition-all group-hover:bg-slate-50/80"
                                 placeholder={request.jobType === "series" ? "Enter Series Name" : "Enter Video Name"}
                             />
@@ -60,8 +62,8 @@ export default function ReviewStep() {
                             <div className="relative group">
                                 <input
                                     type="text"
-                                    value={request.episode1Title}
-                                    onChange={(e) => updateRequest({ episode1Title: e.target.value })}
+                                    value={request.episodeTitle}
+                                    onChange={(e) => updateRequest({ episodeTitle: e.target.value })}
                                     className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-3 text-lg font-bold text-slate-900 outline-none focus:border-purple-200 focus:bg-white transition-all group-hover:bg-slate-50/80"
                                     placeholder="Enter Episode Title"
                                 />

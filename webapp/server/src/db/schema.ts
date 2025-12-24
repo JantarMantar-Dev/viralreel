@@ -147,96 +147,87 @@ export const ttsVoice = pgTable("tts_voice", {
     createdAt: timestamp("created_at").defaultNow(),
 });
 
-// --- Core Video Models ---
+// --- Video Generation Models ---
 
 /**
- * VideoGroup
- * Represents a collection of videos, either a single video project or a series.
+ * Series
+ * Represents a collection of videos. Even a single video project can be a series of 1.
  */
-export const videoGroup = pgTable("video_group", {
+export const series = pgTable("series", {
     id: text("id").primaryKey(), // UUID
     userId: text("user_id").notNull().references(() => user.id), // Owner
-    nicheId: text("niche_id").references(() => contentNiche.id), // Configured niche
+    nicheId: text("niche_id").references(() => contentNiche.id), // Default niche for the series
 
-    name: text("name").notNull(), // Project title
-    description: text("description"), // Project description
-    groupType: text("group_type").notNull(), // Enum: 'SINGLE' or 'SERIES'
-
-    createdAt: timestamp("created_at").defaultNow(),
-    updatedAt: timestamp("updated_at").defaultNow(),
-});
-
-/**
- * VideoItem
- * An individual video episode or unit within a group.
- */
-export const videoItem = pgTable("video_item", {
-    id: text("id").primaryKey(), // UUID
-    groupId: text("group_id").notNull().references(() => videoGroup.id), // Parent group
-    nicheId: text("niche_id").references(() => contentNiche.id), // Override niche (optional)
-
-    episodeNumber: integer("episode_number").default(1), // Sequencing
-    title: text("title").notNull(), // Episode title
+    name: text("name").notNull(), // Series Title
+    description: text("description"),
 
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 /**
- * VideoItemMetadata
- * Detailed configuration and generated parameters for a specific VideoItem.
- * Stores style selections, prompts, and output specifications.
+ * Video
+ * The primary unit of content. Can exist standalone (series_id=null or 1-video series)
+ * or as part of a larger series.
  */
-export const videoItemMetadata = pgTable("video_item_metadata", {
+export const video = pgTable("video", {
     id: text("id").primaryKey(), // UUID
-    itemId: text("item_id").notNull().unique().references(() => videoItem.id), // One-to-one with VideoItem
+    userId: text("user_id").notNull().references(() => user.id),
+    seriesId: text("series_id").references(() => series.id), // Optional parent series
+    nicheId: text("niche_id").references(() => contentNiche.id), // Specific niche (overrides series)
 
-    // Style Links
-    imageStyleId: text("image_style_id").references(() => imageStyle.id),
-    subtitleStyleId: text("subtitle_style_id").references(() => subtitleStyle.id),
-    backgroundMusicId: text("background_music_id").references(() => musicTrack.id),
-    voiceId: text("voice_id").references(() => ttsVoice.id),
+    title: text("title").notNull(),
+    description: text("description"),
+    episodeNumber: integer("episode_number").default(1), // Order in series
 
-    // Content Content
-    masterPrompt: text("master_prompt"), // The core idea user provided
-    scriptPayload: json("script_payload"), // The generated script structure
+    // Lifecycle Status
+    status: text("status").notNull().default("DRAFT"), // DRAFT, SCRIPTING, SCRIPT_READY, GENERATING, COMPLETED, FAILED
 
-    // Tech Specs
-    platform: text("platform"), // Enum: 'YOUTUBE', 'TIKTOK', etc.
-    aspectRatio: text("aspect_ratio").default("9:16"),
-    durationCategory: text("duration_category"),
-
-    // Pacing
-    subtitleWordsPerLine: integer("subtitle_words_per_line"),
+    // Configuration / Metadata (Voice, Style, Music, etc.)
+    metadata: json("metadata"),
 
     // Output
-    outputUrl: text("output_url"), // Final video URL
-
-    // internal config
-    extraParameters: json("extra_parameters"),
+    outputUrl: text("output_url"), // Final S3 URL
+    thumbnailUrl: text("thumbnail_url"),
 
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 /**
- * VideoJob
- * Tracks the async processing state of video generation.
+ * Script
+ * The textual and visual blueprint for a video.
+ * distinct from the video to allow for multiple iterations/drafts if needed.
  */
-export const videoJob = pgTable("video_job", {
+export const script = pgTable("script", {
     id: text("id").primaryKey(), // UUID
-    itemId: text("item_id").references(() => videoItem.id), // Target video
-    userId: text("user_id").notNull(), // Triggered by
+    videoId: text("video_id").notNull().references(() => video.id),
 
-    status: text("status").notNull(), // Enum: 'QUEUED', 'PROCESSING', 'COMPLETED', 'FAILED'
-    priority: integer("priority").default(0),
+    content: json("content"), // Structured script (segments, dialogue, visual prompts)
+    rawText: text("raw_text"), // Flat text representation if needed
 
-    workerId: text("worker_id"), // ID of worker processing this
+    isApproved: boolean("is_approved").default(false), // User approval flag
+
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+/**
+ * RenderJob
+ * Tracks the async GPU/Cloud generation process.
+ */
+export const renderJob = pgTable("render_job", {
+    id: text("id").primaryKey(), // UUID
+    videoId: text("video_id").notNull().references(() => video.id),
+
+    status: text("status").notNull().default("QUEUED"), // QUEUED, PROCESSING, COMPLETED, FAILED
+    workerId: text("worker_id"), // ID of the worker picking up the job
+
+    progress: integer("progress").default(0), // 0-100
+    error: text("error"), // Error message if failed
+
     startedAt: timestamp("started_at"),
     completedAt: timestamp("completed_at"),
-
-    outputUrl: text("output_url"), // Redundant but convenient ref
-    errorMessage: text("error_message"),
 
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),

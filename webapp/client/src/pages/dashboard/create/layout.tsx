@@ -1,14 +1,18 @@
 import { useState, useEffect } from "react"
 import { useNavigate, useLocation, Outlet, useSearchParams } from "react-router-dom"
+import { useMutation } from "@tanstack/react-query"
+import { toast } from "sonner"
 import {
     ChevronLeft,
     X,
     Check,
-    Wand2
+    Wand2,
+    Loader2
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { API_BASE_URL } from "@/lib/config"
 import {
     CreationContext,
     VideoJobRequest,
@@ -48,12 +52,38 @@ export default function CreateVideoLayout() {
         navigate("/dashboard")
     }
 
+    const { mutate: createJob, isPending } = useMutation({
+        mutationFn: async (data: VideoJobRequest) => {
+            const response = await fetch(`${API_BASE_URL}/api/jobs`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                credentials: "include",
+                body: JSON.stringify(data),
+            })
+
+            if (!response.ok) {
+                const error = await response.json()
+                throw new Error(error.message || "Failed to create job")
+            }
+
+            return response.json()
+        },
+        onSuccess: () => {
+            toast.success("Job created successfully!")
+            navigate("/dashboard")
+        },
+        onError: (error) => {
+            toast.error(error.message)
+        }
+    })
+
     const nextStep = () => {
         if (currentStep < STEPS.length) {
             navigate(STEPS[currentStep].path)
         } else if (currentStep === STEPS.length) {
-            // Handle generation here
-            console.log("Generating series...", request)
+            createJob(request)
         }
     }
 
@@ -61,6 +91,10 @@ export default function CreateVideoLayout() {
         if (currentStep > 1) {
             navigate(STEPS[currentStep - 2].path)
         }
+    }
+
+    const handleSaveDraft = () => {
+        createJob({ ...request, isDraft: true })
     }
 
     return (
@@ -164,6 +198,7 @@ export default function CreateVideoLayout() {
                                     <Button
                                         variant="outline"
                                         onClick={prevStep}
+                                        disabled={isPending}
                                         className="h-12 px-6 rounded-xl border-2 border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-600 font-bold text-lg transition-all"
                                     >
                                         Back
@@ -196,15 +231,18 @@ export default function CreateVideoLayout() {
                                 {currentStep === 6 && (
                                     <Button
                                         variant="outline"
+                                        onClick={handleSaveDraft}
+                                        disabled={isPending}
                                         className="flex-1 md:w-40 h-12 rounded-xl font-bold border-2 border-slate-200 text-slate-600 hover:text-slate-900 transition-all"
                                     >
-                                        Save Draft
+                                        {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Draft"}
                                     </Button>
                                 )}
                                 <Button
                                     onClick={nextStep}
                                     disabled={
-                                        (currentStep === 2 && (!request.scriptIdea.trim() || !request.seriesName.trim() || (request.jobType === 'series' && !request.episode1Title.trim())))
+                                        (currentStep === 2 && (!request.scriptIdea.trim() || (request.jobType === 'series' && !request.seriesName.trim()) || !request.episodeTitle.trim())) ||
+                                        isPending
                                     }
                                     className={cn(
                                         "w-full h-12 rounded-xl transition-all font-bold text-lg shadow-xl",
@@ -213,7 +251,9 @@ export default function CreateVideoLayout() {
                                             : "bg-purple-600 hover:bg-purple-700 text-white max-w-xs shadow-purple-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:shadow-none"
                                     )}
                                 >
-                                    {currentStep === 6 ? (
+                                    {isPending ? (
+                                        <Loader2 className="h-5 w-5 animate-spin" />
+                                    ) : currentStep === 6 ? (
                                         <>
                                             <Wand2 className="mr-2 h-5 w-5" />
                                             {request.jobType === "series" ? "Generate Series" : "Generate Video"}
