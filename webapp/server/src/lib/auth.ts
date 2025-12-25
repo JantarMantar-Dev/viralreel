@@ -3,10 +3,6 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { db } from "../db/index.js";
 import * as schema from "../db/schema.js";
 
-console.log("BETTER_AUTH_URL:", process.env.BETTER_AUTH_URL);
-console.log("GOOGLE_CLIENT_ID:", process.env.GOOGLE_CLIENT_ID);
-console.log("GOOGLE_CLIENT_SECRET:", process.env.GOOGLE_CLIENT_SECRET);
-
 export const auth = betterAuth({
     database: drizzleAdapter(db, {
         provider: "pg",
@@ -32,10 +28,16 @@ export const auth = betterAuth({
                     {
                         matcher: (context) => context.path?.includes("/change-password") && context.method === "POST",
                         handler: async (ctx: any) => {
-                            const user = ctx.context?.user || ctx.user;
+                            console.log("Hook Context Keys:", Object.keys(ctx));
+                            if (ctx.context) console.log("Hook AuthContext Keys:", Object.keys(ctx.context));
+
+                            const user = ctx.context?.user || ctx.user || ctx.context?.session?.user;
+                            console.log("Resolved user in hook:", user ? user.email : "still undefined");
+
                             if (user && user.email) {
                                 const { sendPasswordChangedEmail } = await import("./email.js");
                                 await sendPasswordChangedEmail(user.email, user.name);
+                                console.log("Password changed email sent to:", user.email);
                             }
                             return ctx;
                         }
