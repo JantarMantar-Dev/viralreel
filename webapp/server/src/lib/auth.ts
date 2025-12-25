@@ -20,8 +20,12 @@ export const auth = betterAuth({
         sendOnSignUp: true,
         autoSignInAfterVerification: true,
         sendVerificationEmail: async ({ user, url }) => {
-            const { sendVerifyEmail } = await import("./email.js");
-            await sendVerifyEmail(user.email, url, user.name);
+            const { sendVerifyEmail, sendWelcomeEmail } = await import("./email.js");
+            // Send both verification and welcome emails
+            await Promise.all([
+                sendVerifyEmail(user.email, url, user.name),
+                sendWelcomeEmail(user.email, user.name || "there")
+            ]);
         },
     },
     plugins: [
