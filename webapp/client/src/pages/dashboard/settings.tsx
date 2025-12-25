@@ -8,12 +8,17 @@ import {
     ChevronLeft,
     Check,
     AlertCircle,
-    Loader2
+    Loader2,
+    DollarSign,
+    History,
+    FileText,
+    Download
 } from "lucide-react"
 import { toast } from "sonner"
 
 import { authClient } from "@/lib/auth-client"
 import { useAuth } from "@/context/auth-context"
+import { API_BASE_URL } from "@/lib/config"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { PasswordInput } from "@/components/ui/password-input"
@@ -33,6 +38,23 @@ import {
 } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
+
+interface SubscriptionData {
+    subscription: any | null;
+    plan: any | null;
+    creditBalance: any | null;
+}
+
+interface Invoice {
+    id: string;
+    number: string;
+    amount_paid: number;
+    currency: string;
+    status: string;
+    created: number;
+    invoice_pdf: string;
+}
+
 
 export default function SettingsPage() {
     const navigate = useNavigate()
@@ -96,24 +118,7 @@ export default function SettingsPage() {
 
     return (
         <div className="flex-1 w-full max-w-5xl mx-auto p-4 md:p-8 space-y-8 animate-in fade-in duration-500">
-            {/* Header */}
-            <div className="space-y-4">
-                <Button
-                    variant="outline"
-                    size="icon"
-                    className="rounded-full h-10 w-10 border-slate-200 text-slate-500 hover:text-slate-900"
-                    onClick={() => navigate(-1)}
-                >
-                    <ChevronLeft className="h-5 w-5" />
-                </Button>
-                <div>
-                    <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Settings</h1>
-                    <p className="text-slate-500 font-medium mt-1">
-                        Manage your profile, preferences, and account security.
-                    </p>
-                </div>
-            </div>
-
+            {/* Tabs */}
             <Tabs defaultValue="account" className="w-full space-y-8">
                 <TabsList className="bg-transparent border-b border-slate-200 rounded-none h-auto p-0 gap-8 w-full justify-start">
                     <TabsTrigger
@@ -286,14 +291,8 @@ export default function SettingsPage() {
                     </Card>
                 </TabsContent>
 
-                <TabsContent value="billing">
-                    <Card className="rounded-3xl border-dashed border-2 border-slate-100 bg-slate-50/30">
-                        <CardContent className="h-64 flex flex-col items-center justify-center text-center space-y-2">
-                            <CreditCard className="h-12 w-12 text-slate-200" />
-                            <p className="font-bold text-slate-400">Billing details coming soon</p>
-                            <p className="text-xs font-medium text-slate-300">Manage your subscriptions and payments</p>
-                        </CardContent>
-                    </Card>
+                <TabsContent value="billing" className="space-y-8 mt-0 focus-visible:ring-0">
+                    <BillingTab />
                 </TabsContent>
 
                 <TabsContent value="social">
@@ -306,6 +305,173 @@ export default function SettingsPage() {
                     </Card>
                 </TabsContent>
             </Tabs>
+        </div>
+    )
+}
+
+function BillingTab() {
+    const [subData, setSubData] = useState<SubscriptionData | null>(null)
+    const [invoices, setInvoices] = useState<Invoice[]>([])
+    const [isLoading, setIsLoading] = useState(true)
+
+    useEffect(() => {
+        const fetchBillingData = async () => {
+            try {
+                const [subRes, invRes] = await Promise.all([
+                    fetch(`${API_BASE_URL}/api/payments/subscription`, { credentials: 'include' }),
+                    fetch(`${API_BASE_URL}/api/payments/invoices`, { credentials: 'include' })
+                ])
+
+                if (subRes.ok) {
+                    const data = await subRes.json()
+                    setSubData(data)
+                }
+
+                if (invRes.ok) {
+                    const data = await invRes.json()
+                    setInvoices(data)
+                }
+            } catch (error) {
+                console.error("Failed to fetch billing data:", error)
+                toast.error("Failed to load billing information")
+            } finally {
+                setIsLoading(false)
+            }
+        }
+
+        fetchBillingData()
+    }, [])
+
+    if (isLoading) {
+        return (
+            <div className="flex flex-col items-center justify-center h-64 space-y-4">
+                <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+                <p className="text-slate-500 font-medium">Loading billing details...</p>
+            </div>
+        )
+    }
+
+    const hasActiveSubscription = subData?.subscription?.status === 'active'
+
+    return (
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+            {/* Billing & Subscription Section */}
+            <Card className="rounded-3xl border-slate-100 shadow-sm overflow-hidden">
+                <CardHeader className="p-8 pb-4">
+                    <CardTitle className="text-xl font-bold">Billing & Subscription</CardTitle>
+                </CardHeader>
+                <CardContent className="p-8 pt-0">
+                    {!hasActiveSubscription ? (
+                        <div className="bg-slate-50/50 rounded-2xl p-8 border border-slate-100 flex items-start gap-6">
+                            <div className="h-12 w-12 rounded-xl bg-white border border-slate-100 flex items-center justify-center shadow-sm shrink-0">
+                                <DollarSign className="h-6 w-6 text-purple-600" />
+                            </div>
+                            <div className="space-y-4">
+                                <div className="space-y-1">
+                                    <h3 className="font-bold text-slate-800 text-lg leading-none">No Active Subscription</h3>
+                                    <p className="text-slate-500 font-medium text-sm max-w-lg">
+                                        Subscribe to a plan to start creating unlimited AI videos with Viral Reel.
+                                        Unlock premium features and priority rendering.
+                                    </p>
+                                </div>
+                                <Button className="bg-purple-600 hover:bg-purple-700 text-white font-bold h-11 px-6 rounded-xl shadow-lg shadow-purple-100">
+                                    Choose a Plan
+                                </Button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="bg-purple-50/30 rounded-2xl p-8 border border-purple-100 flex items-start gap-6">
+                            <div className="h-12 w-12 rounded-xl bg-white border border-purple-100 flex items-center justify-center shadow-sm shrink-0">
+                                <CreditCard className="h-6 w-6 text-purple-600" />
+                            </div>
+                            <div className="space-y-4 flex-1">
+                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                    <div className="space-y-1">
+                                        <div className="flex items-center gap-2">
+                                            <h3 className="font-bold text-slate-800 text-lg leading-none">{subData?.plan?.name} Plan</h3>
+                                            <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-600 text-[10px] font-bold uppercase tracking-wider">
+                                                Active
+                                            </span>
+                                        </div>
+                                        <p className="text-slate-500 font-medium text-sm">
+                                            Your next billing date is {subData?.subscription?.current_period_end ? new Date(subData.subscription.current_period_end).toLocaleDateString() : 'N/A'}.
+                                        </p>
+                                    </div>
+                                    <Button variant="outline" className="border-slate-200 h-10 px-4 rounded-xl font-bold text-slate-700 bg-white">
+                                        Manage Subscription
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+
+            {/* Billing History Section */}
+            <Card className="rounded-3xl border-slate-100 shadow-sm overflow-hidden">
+                <CardHeader className="p-8 pb-4 flex flex-row items-center justify-between space-y-0">
+                    <CardTitle className="text-xl font-bold">Billing History</CardTitle>
+                    {invoices.length > 0 && (
+                        <Button variant="ghost" className="text-purple-600 hover:text-purple-700 hover:bg-purple-50 font-bold text-sm h-auto p-0 flex items-center gap-1.5">
+                            Download All
+                        </Button>
+                    )}
+                </CardHeader>
+                <CardContent className="p-0">
+                    {invoices.length === 0 ? (
+                        <div className="p-12 flex flex-col items-center justify-center text-center space-y-4">
+                            <div className="h-16 w-16 rounded-2xl bg-slate-50 flex items-center justify-center border border-slate-100/50">
+                                <FileText className="h-8 w-8 text-slate-200" />
+                            </div>
+                            <div className="space-y-1">
+                                <p className="font-bold text-slate-400">No invoices available yet.</p>
+                                <p className="text-xs font-medium text-slate-300">Your transaction history will appear here.</p>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left">
+                                <thead>
+                                    <tr className="border-y border-slate-100 bg-slate-50/50">
+                                        <th className="px-8 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Invoice</th>
+                                        <th className="px-8 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Date</th>
+                                        <th className="px-8 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Amount</th>
+                                        <th className="px-8 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {invoices.map((invoice: Invoice) => (
+                                        <tr key={invoice.id} className="hover:bg-slate-50/30 transition-colors">
+                                            <td className="px-8 py-6">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="h-10 w-10 rounded-lg bg-slate-50 flex items-center justify-center border border-slate-100">
+                                                        <FileText className="h-5 w-5 text-slate-400" />
+                                                    </div>
+                                                    <span className="font-bold text-slate-700">{invoice.number}</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-8 py-6 font-medium text-slate-500">
+                                                {new Date(invoice.created * 1000).toLocaleDateString()}
+                                            </td>
+                                            <td className="px-8 py-6 font-bold text-slate-700">
+                                                {(invoice.amount_paid / 100).toFixed(2)} {invoice.currency.toUpperCase()}
+                                            </td>
+                                            <td className="px-8 py-6 text-right">
+                                                <span className={cn(
+                                                    "px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider",
+                                                    invoice.status === 'paid' ? "bg-emerald-100 text-emerald-600" : "bg-orange-100 text-orange-600"
+                                                )}>
+                                                    {invoice.status}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
         </div>
     )
 }
