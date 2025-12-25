@@ -124,7 +124,7 @@ export default function CreateVideoLayout() {
     }, [editVideoId, editVideoResponse, navigate, location.pathname])
 
     // Determine current step based on route path
-    const path = location.pathname.split("/").pop()
+    const path = location.pathname.split("/").filter(Boolean).pop()
     const currentStepIndex = STEPS.findIndex(s => s.path === path)
     const currentStep = currentStepIndex !== -1 ? currentStepIndex + 1 : 1
 
@@ -176,7 +176,8 @@ export default function CreateVideoLayout() {
         }
 
         if (currentStep < STEPS.length) {
-            navigate(STEPS[currentStep].path)
+            const nextPath = `/create/${STEPS[currentStep].path}`
+            navigate(nextPath)
         } else if (currentStep === STEPS.length) {
             createJob(request)
         }
@@ -189,7 +190,8 @@ export default function CreateVideoLayout() {
         }
 
         if (currentStep > 1) {
-            navigate(STEPS[currentStep - 2].path)
+            const prevPath = `/create/${STEPS[currentStep - 2].path}`
+            navigate(prevPath)
         }
     }
 

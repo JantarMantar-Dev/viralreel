@@ -45,6 +45,8 @@ export default function CustomNicheForm({ onBack }: CustomNicheFormProps) {
                 nicheId: newNiche.id,
                 nicheName: newNiche.name
             })
+            // Reset local state in NicheStep
+            onBack()
             // Reset custom actions before proceeding
             setCustomNext(undefined)
             setCustomPrev(undefined)
