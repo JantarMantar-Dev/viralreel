@@ -92,7 +92,6 @@ export default function ContactSalesPage() {
                                 <div className="space-y-3">
                                     <Label className="text-sm font-bold text-slate-700 ml-1">Company Name</Label>
                                     <Input
-                                        required
                                         placeholder="e.g. Acme Corp"
                                         className="h-14 rounded-2xl bg-slate-50 border-slate-100 focus:bg-white focus:ring-purple-50 transition-all font-medium px-6"
                                         value={formData.companyName}
