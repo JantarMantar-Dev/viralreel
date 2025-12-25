@@ -3,6 +3,7 @@ import { render } from "@react-email/render";
 import WelcomeEmail from "../emails/welcome.js";
 import VerifyEmail from "../emails/verify.js";
 import PasswordChangedEmail from "../emails/password-changed.js";
+import ResetPasswordEmail from "../emails/reset-password.js";
 import * as React from "react";
 
 // Create a transporter using SMTP credentials from environment variables
@@ -88,5 +89,13 @@ export const sendPasswordChangedEmail = async (email: string, name?: string) => 
         email,
         "Your password has been changed",
         React.createElement(PasswordChangedEmail, { userName: name })
+    );
+};
+
+export const sendResetPasswordEmail = async (email: string, url: string, name?: string) => {
+    return sendEmail(
+        email,
+        "Reset your password",
+        React.createElement(ResetPasswordEmail, { url, name })
     );
 };

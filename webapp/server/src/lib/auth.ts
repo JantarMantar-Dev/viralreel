@@ -11,6 +11,10 @@ export const auth = betterAuth({
     baseURL: process.env.BETTER_AUTH_URL,
     emailAndPassword: {
         enabled: true,
+        sendResetPassword: async ({ user, url }) => {
+            const { sendResetPasswordEmail } = await import("./email.js");
+            await sendResetPasswordEmail(user.email, url, user.name);
+        },
     },
     emailVerification: {
         sendOnSignUp: true,
