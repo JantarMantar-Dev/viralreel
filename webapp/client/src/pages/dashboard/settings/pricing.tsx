@@ -222,7 +222,7 @@ export default function PricingPage() {
 
                 <div className="mt-24 text-center">
                     <p className="text-slate-500 font-bold text-sm">
-                        Need a custom enterprise solution? <button className="text-purple-600 hover:underline">Contact Sales</button>
+                        Need a custom enterprise solution? <button onClick={() => navigate("/settings/pricing/contact")} className="text-purple-600 hover:underline">Contact Sales</button>
                     </p>
                 </div>
             </div>

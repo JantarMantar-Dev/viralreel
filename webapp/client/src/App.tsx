@@ -22,6 +22,7 @@ import SeriesDetailsPage from "./pages/dashboard/series/page"
 import PlaceholderStep from "./pages/dashboard/create/steps/placeholder-step"
 import NotFoundPage from "./pages/dashboard/not-found"
 import PricingPage from "./pages/dashboard/settings/pricing"
+import ContactSalesPage from "./pages/dashboard/settings/contact-sales"
 
 function App() {
   return (
@@ -48,6 +49,7 @@ function App() {
           <Route path="settings/billing" element={<SettingsPage />} />
           <Route path="settings/social" element={<SettingsPage />} />
           <Route path="settings/pricing" element={<PricingPage />} />
+          <Route path="settings/pricing/contact" element={<ContactSalesPage />} />
           <Route path="create" element={<CreateLayout />}>
             <Route index element={<Navigate to="niche" replace />} />
             <Route path="niche" element={<NicheStep />} />
