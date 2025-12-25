@@ -75,11 +75,11 @@ export const sendWelcomeEmail = async (email: string, name: string) => {
     );
 };
 
-export const sendVerifyEmail = async (email: string, url: string) => {
+export const sendVerifyEmail = async (email: string, url: string, name?: string) => {
     return sendEmail(
         email,
         "Verify your email",
-        React.createElement(VerifyEmail, { url })
+        React.createElement(VerifyEmail, { url, name })
     );
 };
 
