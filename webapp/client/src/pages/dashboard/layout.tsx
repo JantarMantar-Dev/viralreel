@@ -12,7 +12,8 @@ import {
     GraduationCap,
     Video,
     Search,
-    Bell
+    Bell,
+    MessageSquarePlus
 } from "lucide-react"
 
 import { authClient } from "@/lib/auth-client"
@@ -125,6 +126,19 @@ export default function DashboardLayout() {
                                         <NavLink to="/videos">
                                             <FolderOpen className="h-4 w-4" />
                                             <span>My Videos</span>
+                                        </NavLink>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+                                <SidebarMenuItem>
+                                    <SidebarMenuButton
+                                        asChild
+                                        tooltip="Feedback"
+                                        isActive={location.pathname === "/feedback"}
+                                        className="data-[active=true]:bg-purple-50 data-[active=true]:text-purple-600 hover:bg-slate-50 text-slate-600 font-medium"
+                                    >
+                                        <NavLink to="/feedback">
+                                            <MessageSquarePlus className="h-4 w-4" />
+                                            <span>Feedback</span>
                                         </NavLink>
                                     </SidebarMenuButton>
                                 </SidebarMenuItem>
