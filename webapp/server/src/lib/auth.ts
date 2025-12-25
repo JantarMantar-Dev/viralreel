@@ -25,7 +25,24 @@ export const auth = betterAuth({
         },
     },
     plugins: [
-        // Add any other plugins here 
+        {
+            id: "password-change-notifier",
+            hooks: {
+                after: [
+                    {
+                        matcher: (context) => context.path?.includes("/change-password") && context.method === "POST",
+                        handler: async (ctx: any) => {
+                            const user = ctx.context?.user || ctx.user;
+                            if (user && user.email) {
+                                const { sendPasswordChangedEmail } = await import("./email.js");
+                                await sendPasswordChangedEmail(user.email, user.name);
+                            }
+                            return ctx;
+                        }
+                    }
+                ]
+            }
+        }
     ],
     socialProviders: {
         google: {

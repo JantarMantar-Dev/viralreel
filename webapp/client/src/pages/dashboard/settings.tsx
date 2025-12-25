@@ -16,8 +16,8 @@ import { authClient } from "@/lib/auth-client"
 import { useAuth } from "@/context/auth-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { PasswordInput } from "@/components/ui/password-input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import {
     Card,
     CardContent,
@@ -41,10 +41,8 @@ export default function SettingsPage() {
     const [isUpdatingPassword, setIsUpdatingPassword] = useState(false)
 
     // Profile State
-    const [firstName, setFirstName] = useState("")
-    const [lastName, setLastName] = useState("")
+    const [fullName, setFullName] = useState("")
     const [email, setEmail] = useState("")
-    const [bio, setBio] = useState("")
 
     // Password State
     const [currentPassword, setCurrentPassword] = useState("")
@@ -53,12 +51,8 @@ export default function SettingsPage() {
 
     useEffect(() => {
         if (session?.user) {
-            const names = session.user.name.split(" ")
-            setFirstName(names[0] || "")
-            setLastName(names.slice(1).join(" ") || "")
+            setFullName(session.user.name || "")
             setEmail(session.user.email || "")
-            // Bio isn't in default schema, placeholder for now
-            setBio("Digital content creator specializing in AI-driven storytelling and visual effects.")
         }
     }, [session])
 
@@ -66,7 +60,7 @@ export default function SettingsPage() {
         setIsSavingProfile(true)
         try {
             const { error } = await authClient.updateUser({
-                name: `${firstName} ${lastName}`.trim(),
+                name: fullName.trim(),
             })
             if (error) throw error
             toast.success("Profile updated successfully")
@@ -179,21 +173,12 @@ export default function SettingsPage() {
 
                                 {/* Form Fields */}
                                 <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div className="space-y-2">
-                                        <Label className="text-sm font-bold text-slate-700 ml-1">First Name</Label>
+                                    <div className="space-y-2 md:col-span-2">
+                                        <Label className="text-sm font-bold text-slate-700 ml-1">Full Name</Label>
                                         <Input
-                                            value={firstName}
-                                            onChange={(e) => setFirstName(e.target.value)}
-                                            placeholder="First Name"
-                                            className="h-12 rounded-xl bg-slate-50/50 border-slate-100 focus:bg-white focus:ring-purple-50 transition-all font-medium"
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label className="text-sm font-bold text-slate-700 ml-1">Last Name</Label>
-                                        <Input
-                                            value={lastName}
-                                            onChange={(e) => setLastName(e.target.value)}
-                                            placeholder="Last Name"
+                                            value={fullName}
+                                            onChange={(e) => setFullName(e.target.value)}
+                                            placeholder="Full Name"
                                             className="h-12 rounded-xl bg-slate-50/50 border-slate-100 focus:bg-white focus:ring-purple-50 transition-all font-medium"
                                         />
                                     </div>
@@ -209,18 +194,6 @@ export default function SettingsPage() {
                                                 className="h-12 pl-11 rounded-xl bg-slate-100 border-slate-100 text-slate-500 font-medium cursor-not-allowed"
                                             />
                                         </div>
-                                    </div>
-                                    <div className="space-y-2 md:col-span-2">
-                                        <Label className="text-sm font-bold text-slate-700 ml-1">Bio</Label>
-                                        <Textarea
-                                            value={bio}
-                                            onChange={(e) => setBio(e.target.value)}
-                                            placeholder="Tell us about yourself..."
-                                            className="min-h-[100px] rounded-xl bg-slate-50/50 border-slate-100 focus:bg-white focus:ring-purple-50 transition-all font-medium resize-none leading-relaxed"
-                                        />
-                                        <p className="text-xs font-semibold text-slate-400 ml-1 mt-1">
-                                            Brief description for your public profile.
-                                        </p>
                                     </div>
                                 </div>
                             </div>
@@ -250,8 +223,7 @@ export default function SettingsPage() {
                             <div className="space-y-6">
                                 <div className="space-y-2">
                                     <Label className="text-sm font-bold text-slate-700 ml-1">Current Password</Label>
-                                    <Input
-                                        type="password"
+                                    <PasswordInput
                                         value={currentPassword}
                                         onChange={(e) => setCurrentPassword(e.target.value)}
                                         placeholder="Enter current password"
@@ -261,8 +233,7 @@ export default function SettingsPage() {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="space-y-2">
                                         <Label className="text-sm font-bold text-slate-700 ml-1">New Password</Label>
-                                        <Input
-                                            type="password"
+                                        <PasswordInput
                                             value={newPassword}
                                             onChange={(e) => setNewPassword(e.target.value)}
                                             placeholder="Enter new password"
@@ -271,8 +242,7 @@ export default function SettingsPage() {
                                     </div>
                                     <div className="space-y-2">
                                         <Label className="text-sm font-bold text-slate-700 ml-1">Confirm New Password</Label>
-                                        <Input
-                                            type="password"
+                                        <PasswordInput
                                             value={confirmPassword}
                                             onChange={(e) => setConfirmPassword(e.target.value)}
                                             placeholder="Confirm new password"

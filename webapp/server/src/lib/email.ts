@@ -2,6 +2,7 @@ import nodemailer from "nodemailer";
 import { render } from "@react-email/render";
 import WelcomeEmail from "../emails/welcome.js";
 import VerifyEmail from "../emails/verify.js";
+import PasswordChangedEmail from "../emails/password-changed.js";
 import * as React from "react";
 
 // Create a transporter using SMTP credentials from environment variables
@@ -16,6 +17,8 @@ const transporter = nodemailer.createTransport({
 });
 
 const FROM_EMAIL = process.env.SMTP_EMAIL_USER || "noreply@getviralreel.com";
+const DEV_EMAIL = "test@getviralreel.com";
+const IS_DEV = process.env.NODE_ENV === "development" || process.env.MOCK_EMAIL === "true";
 
 interface EmailResult {
     success: boolean;
@@ -34,22 +37,28 @@ export const sendEmail = async (
     try {
         const emailHtml = await render(component);
 
+        const recipient = IS_DEV ? DEV_EMAIL : to;
+        const finalSubject = IS_DEV ? `[DEV to: ${to}] ${subject}` : subject;
+
         if (process.env.MOCK_EMAIL === "true") {
             console.log("================ MOCK EMAIL ================");
-            console.log(`To: ${to}`);
-            console.log(`Subject: ${subject}`);
+            console.log(`To: ${recipient} (Original: ${to})`);
+            console.log(`Subject: ${finalSubject}`);
             console.log("--------------------------------------------");
             console.log(emailHtml);
             console.log("============================================");
+            // In mock mode we just log, but we've applied the redirection logic to logs
             return { success: true };
         }
 
         const info = await transporter.sendMail({
             from: FROM_EMAIL,
-            to,
-            subject,
+            to: recipient,
+            subject: finalSubject,
             html: emailHtml,
         });
+
+        console.log(`Email sent to ${recipient} with subject: ${finalSubject}`);
 
         return { success: true, data: info };
     } catch (error) {
@@ -71,5 +80,13 @@ export const sendVerifyEmail = async (email: string, url: string) => {
         email,
         "Verify your email",
         React.createElement(VerifyEmail, { url })
+    );
+};
+
+export const sendPasswordChangedEmail = async (email: string, name?: string) => {
+    return sendEmail(
+        email,
+        "Your password has been changed",
+        React.createElement(PasswordChangedEmail, { userName: name })
     );
 };
