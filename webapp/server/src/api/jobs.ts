@@ -4,7 +4,7 @@ import { series, video, renderJob, contentNiche, script } from "../db/schema.js"
 import { eq, desc, and, isNull } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { z } from "zod";
-import { createVideoJob } from "../services/video-service.js";
+import { createVideoJob, deleteVideo, queueVideoRender, updateVideoMetadata } from "../services/video-service.js";
 
 export const baseJobSchema = z.object({
     nicheId: z.string().nullable(),
@@ -68,6 +68,43 @@ export default async function jobRoutes(fastify: FastifyInstance) {
         }
     });
 
+    // GET /api/jobs/:videoId - Get details for a specific video
+    fastify.get("/:videoId", async (request, reply) => {
+        const userId = request.session.userId;
+        if (!userId) {
+            return reply.status(401).send({ error: "Unauthorized" });
+        }
+
+        const { videoId } = request.params as { videoId: string };
+
+        try {
+            const videoData = await db.select({
+                id: video.id,
+                title: video.title,
+                status: video.status,
+                metadata: video.metadata,
+                seriesId: video.seriesId,
+                seriesName: series.name,
+                nicheId: video.nicheId,
+                renderStatus: renderJob.status,
+            })
+                .from(video)
+                .leftJoin(renderJob, eq(video.id, renderJob.videoId))
+                .leftJoin(series, eq(video.seriesId, series.id))
+                .where(and(eq(video.id, videoId), eq(video.userId, userId)))
+                .limit(1);
+
+            if (videoData.length === 0) {
+                return reply.status(404).send({ error: "Video not found" });
+            }
+
+            return { success: true, video: videoData[0] };
+        } catch (error) {
+            fastify.log.error(error);
+            return reply.status(500).send({ error: "Failed to fetch video details" });
+        }
+    });
+
     // POST /api/jobs - Create a new video job
     fastify.post("/", async (request, reply) => {
         const userId = request.session.userId;
@@ -101,6 +138,68 @@ export default async function jobRoutes(fastify: FastifyInstance) {
         }
     });
 
+    // POST /api/jobs/:videoId/render - Trigger rendering for a draft video
+    fastify.post("/:videoId/render", async (request, reply) => {
+        const userId = request.session.userId;
+        if (!userId) {
+            return reply.status(401).send({ error: "Unauthorized" });
+        }
+
+        const { videoId } = request.params as { videoId: string };
+
+        try {
+            const result = await queueVideoRender(videoId, userId);
+            return result;
+        } catch (error: any) {
+            fastify.log.error(error);
+            return reply.status(error.message.includes("not found") ? 404 : 500).send({ error: error.message });
+        }
+    });
+
+    // PATCH /api/jobs/:videoId - Update metadata (Edit)
+    fastify.patch("/:videoId", async (request, reply) => {
+        const userId = request.session.userId;
+        if (!userId) {
+            return reply.status(401).send({ error: "Unauthorized" });
+        }
+
+        const { videoId } = request.params as { videoId: string };
+        const validation = createJobSchema.safeParse(request.body);
+
+        if (!validation.success) {
+            return reply.status(400).send({
+                error: "Validation failed",
+                details: validation.error.format()
+            });
+        }
+
+        try {
+            const result = await updateVideoMetadata(videoId, userId, validation.data);
+            return result;
+        } catch (error: any) {
+            fastify.log.error(error);
+            return reply.status(error.message.includes("not found") ? 404 : 500).send({ error: error.message });
+        }
+    });
+
+    // DELETE /api/jobs/:videoId - Delete a video
+    fastify.delete("/:videoId", async (request, reply) => {
+        const userId = request.session.userId;
+        if (!userId) {
+            return reply.status(401).send({ error: "Unauthorized" });
+        }
+
+        const { videoId } = request.params as { videoId: string };
+
+        try {
+            const result = await deleteVideo(videoId, userId);
+            return result;
+        } catch (error: any) {
+            fastify.log.error(error);
+            return reply.status(error.message.includes("not found") ? 404 : 500).send({ error: error.message });
+        }
+    });
+
     // POST /api/jobs/series/:seriesId/episode - Add an episode to an existing series
     fastify.post("/series/:seriesId/episode", async (request, reply) => {
         const userId = request.session.userId;
@@ -120,8 +219,6 @@ export default async function jobRoutes(fastify: FastifyInstance) {
             return reply.status(404).send({ error: "Series not found" });
         }
 
-        // We reuse the same schema validation, but we can relax seriesName since we have the ID
-        // However, for simplicity, frontend can just send the seriesName (it has it in context)
         const validation = createJobSchema.safeParse(request.body);
 
         if (!validation.success) {

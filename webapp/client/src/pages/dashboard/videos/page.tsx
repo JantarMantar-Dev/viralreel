@@ -12,8 +12,11 @@ import {
     Filter,
     Plus,
     Bell,
-    Loader2
+    Loader2,
+    Trash2
 } from "lucide-react"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -23,6 +26,14 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator"
 import { VideosEmptyState } from "./components/videos-empty-state"
 import { API_BASE_URL } from "@/lib/config"
@@ -88,7 +99,7 @@ function VideoTypeBadge({ type, count }: { type: Project["type"], count?: number
     return null
 }
 
-function VideoCard({ project, onClick }: { project: Project, onClick: () => void }) {
+function VideoCard({ project, onClick, onDelete }: { project: Project, onClick: () => void, onDelete: () => void }) {
     return (
         <Card
             onClick={onClick}
@@ -159,8 +170,12 @@ function VideoCard({ project, onClick }: { project: Project, onClick: () => void
                             <Separator className="my-1" />
                             <DropdownMenuItem
                                 className="text-red-600"
-                                onClick={(e) => e.stopPropagation()}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onDelete();
+                                }}
                             >
+                                <Trash2 className="mr-2 h-4 w-4" />
                                 Delete
                             </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -197,9 +212,10 @@ interface VideoListViewProps {
     navigate: ReturnType<typeof useNavigate>
     projects: Project[]
     isLoading: boolean
+    onDelete: (project: Project) => void
 }
 
-function VideoListView({ filter, setFilter, navigate, projects, isLoading }: VideoListViewProps) {
+function VideoListView({ filter, setFilter, navigate, projects, isLoading, onDelete }: VideoListViewProps) {
     return (
         <div className="flex flex-col w-full h-full">
             {/* Top Bar (Search & Actions) - Full Width Header */}
@@ -227,12 +243,23 @@ function VideoListView({ filter, setFilter, navigate, projects, isLoading }: Vid
                             </div>
                         </DropdownMenuContent>
                     </DropdownMenu>
-                    <Button
-                        onClick={() => navigate("/create")}
-                        className="bg-purple-600 hover:bg-purple-700 text-white shadow-sm shadow-purple-200"
-                    >
-                        <Plus className="mr-2 h-4 w-4" /> Create New
-                    </Button>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button
+                                className="bg-purple-600 hover:bg-purple-700 text-white shadow-sm shadow-purple-200"
+                            >
+                                <Plus className="mr-2 h-4 w-4" /> Create New
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => navigate("/create?type=series")}>
+                                <Layers className="mr-2 h-4 w-4" /> Create Series
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => navigate("/create?type=video")}>
+                                <Play className="mr-2 h-4 w-4" /> Create Single Video
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
             </div>
 
@@ -302,6 +329,7 @@ function VideoListView({ filter, setFilter, navigate, projects, isLoading }: Vid
                                                 console.log("Edit video", project.id)
                                             }
                                         }}
+                                        onDelete={() => onDelete(project)}
                                     />
                                 ))}
                         </div>
@@ -315,6 +343,8 @@ function VideoListView({ filter, setFilter, navigate, projects, isLoading }: Vid
 export default function MyVideosPage() {
     const navigate = useNavigate()
     const [filter, setFilter] = useState<"All" | "Single" | "Series">("All")
+    const [deleteTarget, setDeleteTarget] = useState<Project | null>(null)
+    const queryClient = useQueryClient()
 
     const { data: response, isLoading } = useQuery({
         queryKey: ['projects', filter], // Refetch when filter changes
@@ -353,15 +383,81 @@ export default function MyVideosPage() {
     // But we are merging two lists.
     // Let's just concat for now.
 
+    const { mutate: deleteProject } = useMutation({
+        mutationFn: async (project: Project) => {
+            const url = project.type === "Series"
+                ? `${API_BASE_URL}/api/projects/series/${project.id}`
+                : `${API_BASE_URL}/api/jobs/${project.id}`;
+
+            const response = await fetch(url, {
+                method: 'DELETE',
+                credentials: 'include'
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.message || 'Failed to delete project');
+            }
+
+            return response.json();
+        },
+        onSuccess: () => {
+            toast.success("Project deleted successfully");
+            queryClient.invalidateQueries({ queryKey: ['projects'] });
+            setDeleteTarget(null);
+        },
+        onError: (error: any) => {
+            toast.error(error.message);
+        }
+    });
+
     if (!isLoading && projects.length === 0) {
-        return <VideosEmptyState onCreateNew={() => navigate("/create")} />
+        return <VideosEmptyState onTypeSelect={(type) => navigate(`/create?type=${type}`)} />
     }
 
-    return <VideoListView
-        filter={filter}
-        setFilter={setFilter}
-        navigate={navigate}
-        projects={projects}
-        isLoading={isLoading}
-    />
+    return (
+        <>
+            <VideoListView
+                filter={filter}
+                setFilter={setFilter}
+                navigate={navigate}
+                projects={projects}
+                isLoading={isLoading}
+                onDelete={(p) => setDeleteTarget(p)}
+            />
+
+            {/* Delete Confirmation Dialog */}
+            <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-red-600">
+                            <Trash2 className="h-5 w-5" />
+                            Delete {deleteTarget?.type === "Series" ? "Series" : "Video"}
+                        </DialogTitle>
+                        <DialogDescription className="py-2">
+                            {deleteTarget?.type === "Series"
+                                ? "Are you sure you want to delete this entire series? This will permanently remove all episodes and associated data."
+                                : "Are you sure you want to delete this video? This action cannot be undone."}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="gap-2 sm:gap-0">
+                        <Button
+                            variant="ghost"
+                            onClick={() => setDeleteTarget(null)}
+                            className="font-semibold"
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            onClick={() => deleteTarget && deleteProject(deleteTarget)}
+                            className="bg-red-600 hover:bg-red-700 font-bold"
+                        >
+                            Delete {deleteTarget?.type === "Series" ? "Series" : "Video"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </>
+    )
 }

@@ -45,8 +45,10 @@ export default function CreateVideoLayout() {
         setRequest(prev => ({ ...prev, ...data }))
     }
 
-    // --- Add Episode Logic ---
+    // --- Add Episode & Edit Logic ---
     const seriesId = searchParams.get("seriesId")
+    const editVideoId = searchParams.get("editVideoId")
+
     const { data: seriesData } = useQuery({
         queryKey: ["series", seriesId],
         queryFn: async () => {
@@ -59,6 +61,18 @@ export default function CreateVideoLayout() {
         enabled: !!seriesId
     })
 
+    const { data: editVideoResponse } = useQuery({
+        queryKey: ["editVideo", editVideoId],
+        queryFn: async () => {
+            const res = await fetch(`${API_BASE_URL}/api/jobs/${editVideoId}`, {
+                credentials: "include"
+            })
+            if (!res.ok) throw new Error("Failed to fetch video details")
+            return res.json()
+        },
+        enabled: !!editVideoId
+    })
+
     useEffect(() => {
         if (seriesId && seriesData?.series) {
             const series = seriesData.series;
@@ -68,7 +82,6 @@ export default function CreateVideoLayout() {
                 seriesName: series.name,
                 nicheId: series.nicheId,
                 nicheName: series.nicheName,
-                // We default to script step implicitly by redirect below if on niche step
             })
 
             // If we are on the first step (niche), skip to script step
@@ -77,6 +90,33 @@ export default function CreateVideoLayout() {
             }
         }
     }, [seriesId, seriesData, navigate, location.pathname])
+
+    useEffect(() => {
+        if (editVideoId && editVideoResponse?.video) {
+            const v = editVideoResponse.video;
+            const meta = v.metadata || {};
+            updateRequest({
+                jobType: v.seriesId ? "series" : "video",
+                seriesId: v.seriesId,
+                seriesName: v.seriesName || "",
+                nicheId: v.nicheId,
+                scriptIdea: meta.scriptIdea || "",
+                episodeTitle: v.title,
+                duration: meta.duration || 1,
+                segments: meta.segments || 3,
+                visualFormat: meta.visualFormat || "image",
+                visualStyle: meta.visualStyle || undefined,
+                voiceId: meta.voiceId || undefined,
+                subtitleTemplateId: meta.subtitleTemplateId || undefined,
+                musicId: meta.musicId || undefined,
+            })
+
+            // If we are on the first step (niche), skip to script step
+            if (location.pathname.endsWith("/niche") || location.pathname.endsWith("/create")) {
+                navigate("script");
+            }
+        }
+    }, [editVideoId, editVideoResponse, navigate, location.pathname])
 
     // Determine current step based on route path
     const path = location.pathname.split("/").pop()
@@ -89,12 +129,18 @@ export default function CreateVideoLayout() {
 
     const { mutate: createJob, isPending } = useMutation({
         mutationFn: async (data: VideoJobRequest) => {
-            const url = data.seriesId
+            let url = data.seriesId
                 ? `${API_BASE_URL}/api/jobs/series/${data.seriesId}/episode`
                 : `${API_BASE_URL}/api/jobs`;
+            let method = "POST";
+
+            if (editVideoId) {
+                url = `${API_BASE_URL}/api/jobs/${editVideoId}`;
+                method = "PATCH";
+            }
 
             const response = await fetch(url, {
-                method: "POST",
+                method,
                 headers: {
                     "Content-Type": "application/json",
                 },
@@ -104,13 +150,13 @@ export default function CreateVideoLayout() {
 
             if (!response.ok) {
                 const error = await response.json()
-                throw new Error(error.message || "Failed to create job")
+                throw new Error(error.message || "Failed to process job")
             }
 
             return response.json()
         },
         onSuccess: () => {
-            toast.success("Job created successfully!")
+            toast.success(editVideoId ? "Job updated successfully!" : "Job created successfully!")
             navigate("/videos")
         },
         onError: (error) => {
@@ -229,7 +275,7 @@ export default function CreateVideoLayout() {
                 </main>
 
                 {/* Sticky Footer Navigation */}
-                {request.nicheId && (
+                {(request.nicheId || editVideoId) && (
                     <footer className="sticky bottom-0 z-30 w-full bg-white/80 backdrop-blur-md border-t border-slate-200 px-4 md:px-6 py-4 mt-auto">
                         <div className="max-w-6xl mx-auto w-full flex items-center justify-between gap-4">
                             <div className="flex items-center gap-6">
@@ -295,7 +341,7 @@ export default function CreateVideoLayout() {
                                     ) : currentStep === 6 ? (
                                         <>
                                             <Wand2 className="mr-2 h-5 w-5" />
-                                            {request.seriesId ? "Generate Episode" : (request.jobType === "series" ? "Generate Series" : "Generate Video")}
+                                            {editVideoId ? "Update Episode" : (request.seriesId ? "Generate Episode" : (request.jobType === "series" ? "Generate Series" : "Generate Video"))}
                                         </>
                                     ) : (
                                         `Continue to Step ${currentStep + 1}`

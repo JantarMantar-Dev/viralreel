@@ -1,8 +1,8 @@
 import { db } from "../db/index.js";
-import { series, video, renderJob } from "../db/schema.js";
+import { series, video, renderJob, script } from "../db/schema.js";
 import { nanoid } from "nanoid";
 import { CreateJobBody } from "../api/jobs.js";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and, sql, inArray } from "drizzle-orm";
 
 interface CreateVideoJobParams {
     userId: string;
@@ -59,6 +59,14 @@ export async function createVideoJob({ userId, body, existingSeriesId, isDraft =
             if (lastVideo.length > 0) {
                 episodeNumber = (lastVideo[0].episodeNumber || 0) + 1;
             }
+
+            // Increment episode count for existing series
+            await db.update(series)
+                .set({
+                    episodeCount: sql`${series.episodeCount} + 1`,
+                    updatedAt: new Date()
+                })
+                .where(eq(series.id, existingSeriesId));
         }
     }
 
@@ -109,4 +117,136 @@ export async function createVideoJob({ userId, body, existingSeriesId, isDraft =
         seriesId,
         videoIds: createdVideos
     };
+}
+
+export async function deleteVideo(videoId: string, userId: string) {
+    // Ensure the video belongs to the user
+    const existingVideo = await db.select()
+        .from(video)
+        .where(and(eq(video.id, videoId), eq(video.userId, userId)))
+        .limit(1);
+
+    if (existingVideo.length === 0) {
+        throw new Error("Video not found or access denied");
+    }
+
+    const v = existingVideo[0];
+
+    // If part of a series, decrement episode count
+    if (v.seriesId) {
+        await db.update(series)
+            .set({
+                episodeCount: sql`${series.episodeCount} - 1`,
+                updatedAt: new Date()
+            })
+            .where(eq(series.id, v.seriesId));
+    }
+
+    // Delete related records first
+    await db.delete(renderJob).where(eq(renderJob.videoId, videoId));
+    await db.delete(script).where(eq(script.videoId, videoId));
+    await db.delete(video).where(eq(video.id, videoId));
+
+    return { success: true, message: "Video deleted successfully" };
+}
+
+export async function queueVideoRender(videoId: string, userId: string) {
+    // Ensure the video belongs to the user and is in DRAFT
+    const existingVideo = await db.select()
+        .from(video)
+        .where(and(eq(video.id, videoId), eq(video.userId, userId)))
+        .limit(1);
+
+    if (existingVideo.length === 0) {
+        throw new Error("Video not found or access denied");
+    }
+
+    // Update video status to SCRIPTING (start of pipeline)
+    await db.update(video)
+        .set({ status: "SCRIPTING", updatedAt: new Date() })
+        .where(eq(video.id, videoId));
+
+    // Update render_job status to QUEUED
+    await db.update(renderJob)
+        .set({ status: "QUEUED", updatedAt: new Date() })
+        .where(eq(renderJob.videoId, videoId));
+
+    return { success: true, message: "Rendering queued successfully" };
+}
+
+export async function updateVideoMetadata(videoId: string, userId: string, body: CreateJobBody) {
+    // Ensure the video belongs to the user
+    const existingVideo = await db.select()
+        .from(video)
+        .where(and(eq(video.id, videoId), eq(video.userId, userId)))
+        .limit(1);
+
+    if (existingVideo.length === 0) {
+        throw new Error("Video not found or access denied");
+    }
+
+    const isDraft = body.isDraft || false;
+
+    // Update metadata from the same body structure as creation
+    const metadata = {
+        duration: body.duration,
+        segments: body.segments,
+        visualFormat: body.visualFormat,
+        visualStyle: body.visualStyle,
+        voiceId: body.voiceId,
+        subtitleTemplateId: body.subtitleTemplateId,
+        musicId: body.musicId,
+        scriptIdea: body.scriptIdea,
+        nicheId: body.nicheId ?? undefined,
+    };
+
+    await db.update(video)
+        .set({
+            title: body.episodeTitle || existingVideo[0].title,
+            status: isDraft ? "DRAFT" : "SCRIPTING",
+            metadata,
+            updatedAt: new Date()
+        })
+        .where(eq(video.id, videoId));
+
+    // Update render_job status as well
+    await db.update(renderJob)
+        .set({
+            status: isDraft ? "DRAFT" : "QUEUED",
+            updatedAt: new Date()
+        })
+        .where(eq(renderJob.videoId, videoId));
+
+    return { success: true, message: "Video updated successfully" };
+}
+
+export async function deleteSeries(seriesId: string, userId: string) {
+    // 1. Ensure the series belongs to the user
+    const existingSeries = await db.select()
+        .from(series)
+        .where(and(eq(series.id, seriesId), eq(series.userId, userId)))
+        .limit(1);
+
+    if (existingSeries.length === 0) {
+        throw new Error("Series not found or access denied");
+    }
+
+    // 2. Find all video IDs in this series
+    const seriesVideos = await db.select({ id: video.id })
+        .from(video)
+        .where(eq(video.seriesId, seriesId));
+
+    const videoIds = seriesVideos.map(v => v.id);
+
+    if (videoIds.length > 0) {
+        // 3. Delete related records for all videos in the series
+        await db.delete(renderJob).where(inArray(renderJob.videoId, videoIds));
+        await db.delete(script).where(inArray(script.videoId, videoIds));
+        await db.delete(video).where(inArray(video.id, videoIds));
+    }
+
+    // 4. Delete the series itself
+    await db.delete(series).where(eq(series.id, seriesId));
+
+    return { success: true, message: "Series and all associated videos deleted successfully" };
 }

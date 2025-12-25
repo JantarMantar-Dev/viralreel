@@ -4,6 +4,7 @@ import { video, series, renderJob, contentNiche } from "../db/schema.js";
 import { eq, desc, and, isNull, sql, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
+import { deleteSeries } from "../services/video-service.js";
 
 // --- Helper Functions ---
 
@@ -268,6 +269,30 @@ const projectsRoutes: FastifyPluginAsync = async (fastify) => {
         } catch (error) {
             request.log.error(error);
             return reply.status(500).send({ error: "Failed to fetch series details" });
+        }
+    });
+
+    // DELETE /api/projects/series/:seriesId
+    fastify.withTypeProvider<ZodTypeProvider>().delete("/series/:seriesId", {
+        schema: {
+            params: z.object({
+                seriesId: z.string()
+            })
+        }
+    }, async (request, reply) => {
+        const userId = request.session?.userId;
+        if (!userId) {
+            return reply.status(401).send({ error: "Unauthorized" });
+        }
+
+        const { seriesId } = request.params;
+
+        try {
+            const result = await deleteSeries(seriesId, userId);
+            return result;
+        } catch (error: any) {
+            request.log.error(error);
+            return reply.status(400).send({ error: error.message || "Failed to delete series" });
         }
     });
 }

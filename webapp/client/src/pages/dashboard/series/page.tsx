@@ -13,8 +13,13 @@ import {
     ArrowLeft,
     Loader2,
     LayoutGrid,
-    List
+    List,
+    Trash2,
+    Edit,
+    Zap
 } from "lucide-react"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -24,6 +29,14 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator"
 import { API_BASE_URL } from "@/lib/config"
 import { formatRelativeDate } from "@/lib/date-utils"
@@ -87,6 +100,9 @@ export default function SeriesDetailsPage() {
     const { id } = useParams()
     const navigate = useNavigate()
     const [searchQuery, setSearchQuery] = useState("")
+    const [deleteId, setDeleteId] = useState<string | null>(null)
+
+    const queryClient = useQueryClient()
 
     const { data: response, isLoading, error } = useQuery({
         queryKey: ['series', id],
@@ -98,6 +114,41 @@ export default function SeriesDetailsPage() {
             return res.json()
         }
     })
+
+    const { mutate: deleteEpisode } = useMutation({
+        mutationFn: async (videoId: string) => {
+            const res = await fetch(`${API_BASE_URL}/api/jobs/${videoId}`, {
+                method: 'DELETE',
+                credentials: 'include'
+            })
+            if (!res.ok) throw new Error('Failed to delete episode')
+            return res.json()
+        },
+        onSuccess: () => {
+            toast.success("Episode deleted successfully")
+            queryClient.invalidateQueries({ queryKey: ['series', id] })
+            setDeleteId(null)
+        }
+    })
+
+    const { mutate: renderEpisode } = useMutation({
+        mutationFn: async (videoId: string) => {
+            const res = await fetch(`${API_BASE_URL}/api/jobs/${videoId}/render`, {
+                method: 'POST',
+                credentials: 'include'
+            })
+            if (!res.ok) throw new Error('Failed to start rendering')
+            return res.json()
+        },
+        onSuccess: () => {
+            toast.success("Rendering queued!")
+            queryClient.invalidateQueries({ queryKey: ['series', id] })
+        }
+    })
+
+    const handleDelete = (videoId: string) => {
+        setDeleteId(videoId)
+    }
 
     const series: SeriesDetails | null = response?.series || null
 
@@ -277,9 +328,29 @@ export default function SeriesDetailsPage() {
                                     <h3 className="font-semibold text-slate-900 group-hover:text-purple-600 transition-colors line-clamp-1 py-1">
                                         {ep.title}
                                     </h3>
-                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-slate-600 -mr-1">
-                                        <MoreVertical className="h-4 w-4" />
-                                    </Button>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-slate-600 -mr-1" onClick={(e) => e.stopPropagation()}>
+                                                <MoreVertical className="h-4 w-4" />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                            {ep.status === "Draft" && (
+                                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); renderEpisode(ep.id); }}>
+                                                    <Zap className="h-4 w-4 mr-2 text-yellow-500" />
+                                                    Render Now
+                                                </DropdownMenuItem>
+                                            )}
+                                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); navigate(`/create?editVideoId=${ep.id}`); }}>
+                                                <Edit className="h-4 w-4 mr-2" />
+                                                Edit Detail
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleDelete(ep.id); }} className="text-red-600 focus:text-red-600">
+                                                <Trash2 className="h-4 w-4 mr-2" />
+                                                Delete
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
                                 </div>
                                 <p className="text-xs text-slate-500 line-clamp-2 h-8 mb-4">
                                     {ep.description || "No episode summary available."}
@@ -311,6 +382,37 @@ export default function SeriesDetailsPage() {
                     </Card>
                 </div>
             </div>
+
+            {/* Delete Confirmation Dialog */}
+            <Dialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-red-600">
+                            <Trash2 className="h-5 w-5" />
+                            Delete Episode
+                        </DialogTitle>
+                        <DialogDescription className="py-2">
+                            Are you sure you want to delete this episode? This action cannot be undone and will permanently remove the video and its associated data.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="gap-2 sm:gap-0">
+                        <Button
+                            variant="ghost"
+                            onClick={() => setDeleteId(null)}
+                            className="font-semibold"
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            onClick={() => deleteId && deleteEpisode(deleteId)}
+                            className="bg-red-600 hover:bg-red-700 font-bold"
+                        >
+                            Delete Episode
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }
