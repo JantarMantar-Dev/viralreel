@@ -1,9 +1,16 @@
 import { useState, useEffect, useCallback, useRef } from "react"
+import {
+    Loader2,
+    Sparkles,
+    ChevronLeft,
+    AlertCircle
+} from "lucide-react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { API_BASE_URL } from "@/lib/config"
+import { cn } from "@/lib/utils"
 import StepHeader from "./step-header"
 import { useCreation } from "../context/creation-context"
 
@@ -18,6 +25,35 @@ export default function CustomNicheForm({ onBack }: CustomNicheFormProps) {
     const [name, setName] = useState("")
     const [description, setDescription] = useState("")
     const [tags, setTags] = useState("")
+    const [isNameChecking, setIsNameChecking] = useState(false)
+    const [isNameDuplicate, setIsNameDuplicate] = useState(false)
+
+    // Debounced name duplicate check
+    useEffect(() => {
+        if (!name.trim()) {
+            setIsNameDuplicate(false)
+            return
+        }
+
+        const timer = setTimeout(async () => {
+            setIsNameChecking(true)
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/niches/check-name?name=${encodeURIComponent(name.trim())}`, {
+                    credentials: "include"
+                })
+                if (res.ok) {
+                    const data = await res.json()
+                    setIsNameDuplicate(!data.isAvailable)
+                }
+            } catch (err) {
+                console.error("Failed to check niche name", err)
+            } finally {
+                setIsNameChecking(false)
+            }
+        }, 500)
+
+        return () => clearTimeout(timer)
+    }, [name])
 
     const { mutate: createNiche, isPending: isCreating } = useMutation({
         mutationFn: async (data: { name: string; description: string; tags: string }) => {
@@ -66,7 +102,7 @@ export default function CustomNicheForm({ onBack }: CustomNicheFormProps) {
         createNiche({ name, description, tags })
     }, [name, description, tags, createNiche])
 
-    const isValid = name.trim().length > 0 && description.trim().length > 0
+    const isValid = name.trim().length > 0 && description.trim().length > 0 && !isNameDuplicate && !isNameChecking
 
     // Use Refs to keep the handle functions stable for the context overrides
     // This prevents the global layout from re-rendering on every keystroke
@@ -95,7 +131,8 @@ export default function CustomNicheForm({ onBack }: CustomNicheFormProps) {
 
     useEffect(() => {
         setCanContinue(isValid && !isCreating)
-    }, [isValid, isCreating, setCanContinue])
+        setIsStepLoading(isNameChecking || isCreating)
+    }, [isValid, isCreating, isNameChecking, setCanContinue, setIsStepLoading])
 
     return (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-2xl mx-auto">
@@ -111,15 +148,31 @@ export default function CustomNicheForm({ onBack }: CustomNicheFormProps) {
                 <div className="space-y-6">
                     <div className="space-y-2">
                         <Label htmlFor="name" className="text-base font-bold text-slate-900">Niche Name</Label>
-                        <Input
-                            id="name"
-                            name="name"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            placeholder="e.g. Daily Tech Facts, Stoic Wisdom, Funny Dog Stories"
-                            className="h-12 rounded-xl border-slate-200 focus:ring-purple-500"
-                            required
-                        />
+                        <div className="relative">
+                            <Input
+                                id="name"
+                                name="name"
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                placeholder="e.g. Daily Tech Facts, Stoic Wisdom, Funny Dog Stories"
+                                className={cn(
+                                    "h-12 rounded-xl border-slate-200 focus:ring-purple-500 pr-10",
+                                    isNameDuplicate && "border-red-500 focus:ring-red-500"
+                                )}
+                                required
+                            />
+                            {isNameChecking && (
+                                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                    <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
+                                </div>
+                            )}
+                        </div>
+                        {isNameDuplicate && (
+                            <p className="text-sm font-medium text-red-500 flex items-center gap-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                                <AlertCircle className="h-4 w-4" />
+                                This name is already used in your account
+                            </p>
+                        )}
                     </div>
 
                     <div className="space-y-2">

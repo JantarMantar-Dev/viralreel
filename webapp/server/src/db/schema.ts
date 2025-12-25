@@ -59,7 +59,7 @@ export const verification = pgTable("verification", {
  */
 export const contentNiche = pgTable("content_niche", {
     id: text("id").primaryKey(), // UUID
-    name: text("name").notNull().unique(), // Unique identifier name for the niche
+    name: text("name").notNull(), // identifier name for the niche
     description: text("description"), // Human-readable description
     iconUrl: text("icon_url"), // URL to an icon representing this niche
     iconName: text("icon_name"), // Lucide icon name for frontend mapping
