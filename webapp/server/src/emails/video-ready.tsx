@@ -19,29 +19,6 @@ export const VideoReadyEmail = ({
 }: VideoReadyEmailProps) => {
     return (
         <EmailLayout preview="Your video is ready!">
-            <Section style={videoSection}>
-                <div style={thumbnailContainer}>
-                    <Img
-                        src={thumbnailUrl}
-                        width="100%"
-                        alt="Video Thumbnail"
-                        style={thumbnail}
-                    />
-                    <div style={playButtonOverlay}>
-                        <Img
-                            src="https://cdn-icons-png.flaticon.com/512/0/375.png"
-                            width="48"
-                            height="48"
-                            alt="Play"
-                            style={playIcon}
-                        />
-                    </div>
-                    <div style={durationBadge}>
-                        {videoDuration}
-                    </div>
-                </div>
-            </Section>
-
             <Heading style={heading}>Your video is ready!</Heading>
 
             <Text style={paragraph}>

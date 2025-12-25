@@ -9,10 +9,6 @@ interface WelcomeEmailProps {
 export const WelcomeEmail = ({ userFirstname = "there" }: WelcomeEmailProps) => {
     return (
         <EmailLayout preview="Welcome to ViralReel!">
-            <Section style={heroSection}>
-                <Heading style={heroText}>ViralReel</Heading>
-            </Section>
-
             <Heading style={heading}>Welcome Aboard, {userFirstname}!</Heading>
 
             <Text style={paragraph}>
