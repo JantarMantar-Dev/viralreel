@@ -21,8 +21,17 @@ const __dirname = path.dirname(__filename);
 dotenv.config();
 
 import { serializerCompiler, validatorCompiler } from "fastify-type-provider-zod";
+import fastifyRawBody from 'fastify-raw-body';
 
 const fastify = Fastify({ logger: true });
+
+// Register raw body for Stripe webhooks
+fastify.register(fastifyRawBody, {
+    field: 'rawBody', // field name to store the raw body
+    global: false,    // only active on routes that have it enabled
+    encoding: false,  // get raw buffer
+    runFirst: true,   // run before other hooks
+});
 
 // Add Zod validator and serializer
 fastify.setValidatorCompiler(validatorCompiler);
@@ -129,6 +138,8 @@ import jobRoutes from "./api/jobs.js";
 fastify.register(jobRoutes, { prefix: "/api/jobs" });
 import projectsRoutes from "./api/projects.js";
 fastify.register(projectsRoutes, { prefix: "/api/projects" });
+import paymentsRoutes from "./api/payments.js";
+fastify.register(paymentsRoutes, { prefix: "/api/payments" });
 
 // Run the server
 const start = async () => {
