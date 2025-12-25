@@ -233,3 +233,85 @@ export const renderJob = pgTable("render_job", {
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
 });
+
+// --- Payment & Credit System ---
+
+/**
+ * SubscriptionPlan
+ * Defines available subscription tiers and credit packs.
+ */
+export const subscriptionPlan = pgTable("subscription_plan", {
+    id: text("id").primaryKey(), // UUID
+    name: text("name").notNull(), // e.g. "Pro Monthly", "Starter Pack"
+    description: text("description"),
+    price: integer("price").notNull(), // Price in cents
+    currency: text("currency").default("usd").notNull(),
+    interval: text("interval"), // 'month', 'year', or null for one-time
+    credits: integer("credits").notNull(), // Number of credits granted
+    stripePriceId: text("stripe_price_id").unique(), // Stripe Price ID
+    isActive: boolean("is_active").default(true),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+/**
+ * UserSubscription
+ * Tracks the user's active recurring subscription.
+ */
+export const userSubscription = pgTable("user_subscription", {
+    id: text("id").primaryKey(), // UUID
+    userId: text("user_id").notNull().references(() => user.id),
+    planId: text("plan_id").notNull().references(() => subscriptionPlan.id),
+    stripeSubscriptionId: text("stripe_subscription_id").unique(),
+    status: text("status").notNull(), // active, canceled, past_due, trialing
+    currentPeriodEnd: timestamp("current_period_end"),
+    cancelAtPeriodEnd: boolean("cancel_at_period_end").default(false),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+/**
+ * PaymentHistory
+ * Log of all charges (subscriptions and one-time purchases).
+ */
+export const paymentHistory = pgTable("payment_history", {
+    id: text("id").primaryKey(), // UUID
+    userId: text("user_id").notNull().references(() => user.id),
+    amount: integer("amount").notNull(), // Amount in cents
+    currency: text("currency").default("usd").notNull(),
+    status: text("status").notNull(), // succeeded, failed, pending
+    stripePaymentId: text("stripe_payment_id"), // PaymentIntent ID or Invoice ID
+    metadata: json("metadata"), // Arbitrary metadata from Stripe
+    createdAt: timestamp("created_at").defaultNow(),
+});
+
+/**
+ * CreditBalance (Credit Grants)
+ * Tracks available credits separated by their source (Plan vs Top-up).
+ * Allows users to know "credits against the plan".
+ */
+export const creditBalance = pgTable("credit_balance", {
+    id: text("id").primaryKey(), // UUID
+    userId: text("user_id").notNull().references(() => user.id),
+    planId: text("plan_id").references(() => subscriptionPlan.id), // Nullable if manual grant
+    amountTotal: integer("amount_total").notNull(), // Initial amount granted
+    amountUsed: integer("amount_used").default(0).notNull(), // Amount consumed
+    expiresAt: timestamp("expires_at"), // Nullable (e.g. monthly credits expire, packs don't)
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+/**
+ * CreditTransaction
+ * Log of every credit usage, linked to specific content.
+ */
+export const creditTransaction = pgTable("credit_transaction", {
+    id: text("id").primaryKey(), // UUID
+    userId: text("user_id").notNull().references(() => user.id),
+    creditBalanceId: text("credit_balance_id").references(() => creditBalance.id), // Which grant was used
+    amount: integer("amount").notNull(), // Negative for usage, positive for refunds
+    videoId: text("video_id").references(() => video.id), // Linked content
+    seriesId: text("series_id").references(() => series.id), // Linked content
+    description: text("description"), // Audit log description
+    createdAt: timestamp("created_at").defaultNow(),
+});
