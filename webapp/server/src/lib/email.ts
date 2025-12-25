@@ -5,6 +5,8 @@ import VerifyEmail from "../emails/verify.js";
 import PasswordChangedEmail from "../emails/password-changed.js";
 import ResetPasswordEmail from "../emails/reset-password.js";
 import SubscriptionConfirmedEmail from "../emails/subscription-confirmed.js";
+import VideoReadyEmail from "../emails/video-ready.js";
+import SubscriptionCancelledEmail from "../emails/subscription-cancelled.js";
 import * as React from "react";
 
 // Create a transporter using SMTP credentials from environment variables
@@ -116,6 +118,46 @@ export const sendSubscriptionEmail = async (
             planName,
             cost,
             nextBillingDate,
+        })
+    );
+};
+
+export const sendVideoReadyEmail = async (
+    email: string,
+    name: string,
+    videoTitle: string,
+    thumbnailUrl: string,
+    videoUrl: string,
+    videoDuration: string
+) => {
+    return sendEmail(
+        email,
+        "Your video is ready!",
+        React.createElement(VideoReadyEmail, {
+            name,
+            videoTitle,
+            thumbnailUrl,
+            videoUrl,
+            videoDuration,
+        })
+    );
+};
+
+export const sendSubscriptionCancelledEmail = async (
+    email: string,
+    name: string,
+    planName: string,
+    effectiveDate: string,
+    accessEndsOn: string
+) => {
+    return sendEmail(
+        email,
+        "Subscription Canceled",
+        React.createElement(SubscriptionCancelledEmail, {
+            name,
+            planName,
+            effectiveDate,
+            accessEndsOn,
         })
     );
 };
