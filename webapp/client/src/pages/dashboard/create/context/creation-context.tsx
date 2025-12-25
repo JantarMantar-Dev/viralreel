@@ -19,6 +19,7 @@ export interface VideoJobRequest {
     musicId?: string
     musicName?: string
     musicDetails?: string
+    aspectRatio: "portrait" | "landscape"
     isDraft: boolean
 }
 
@@ -60,5 +61,6 @@ export const INITIAL_REQUEST: VideoJobRequest = {
     voiceId: undefined,
     musicId: undefined,
     subtitleTemplateId: undefined,
+    aspectRatio: "portrait",
     isDraft: false
 }

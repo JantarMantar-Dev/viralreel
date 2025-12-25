@@ -6,7 +6,7 @@ import { useCreation } from "../context/creation-context"
 import { VOICES, Voice } from "./voice-step"
 import { IMAGE_STYLES } from "./script-step"
 import { Button } from "@/components/ui/button"
-import { Palette, VolumeX, Music, Ban, Clapperboard, FileText } from "lucide-react"
+import { Palette, VolumeX, Music, Ban, Clapperboard, FileText, Smartphone, Monitor } from "lucide-react"
 import StepHeader from "../components/step-header"
 
 export default function ReviewStep() {
@@ -109,10 +109,26 @@ export default function ReviewStep() {
                     </div>
 
                     {/* Row 2: Style and Metadata */}
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Image Style</span>
                             <p className="text-sm font-bold text-slate-900 truncate">{selectedImageStyle?.name || "Comic"}</p>
+                        </div>
+                        <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Aspect Ratio</span>
+                            <div className="flex items-center gap-1.5 text-sm font-bold text-slate-900">
+                                {request.aspectRatio === 'portrait' ? (
+                                    <>
+                                        <Smartphone className="h-3 w-3 text-purple-600" />
+                                        <span>Portrait</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Monitor className="h-3 w-3 text-purple-600" />
+                                        <span>Landscape</span>
+                                    </>
+                                )}
+                            </div>
                         </div>
                         <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Duration</span>

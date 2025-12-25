@@ -16,6 +16,7 @@ export const baseJobSchema = z.object({
     visualStyle: z.string().optional(),
     subtitleTemplateId: z.string().optional(),
     musicId: z.string().optional(),
+    aspectRatio: z.enum(["portrait", "landscape"]).default("portrait"),
     isDraft: z.boolean().default(false),
 });
 
