@@ -132,7 +132,7 @@ export default function DashboardLayout() {
                                     <SidebarMenuButton
                                         asChild
                                         tooltip="Settings"
-                                        isActive={location.pathname === "/settings"}
+                                        isActive={location.pathname.startsWith("/settings")}
                                         className="data-[active=true]:bg-purple-50 data-[active=true]:text-purple-600 hover:bg-slate-50 text-slate-600 font-medium"
                                     >
                                         <NavLink to="/settings">

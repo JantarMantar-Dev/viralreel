@@ -21,6 +21,7 @@ import ReviewStep from "./pages/dashboard/create/steps/review-step"
 import SeriesDetailsPage from "./pages/dashboard/series/page"
 import PlaceholderStep from "./pages/dashboard/create/steps/placeholder-step"
 import NotFoundPage from "./pages/dashboard/not-found"
+import PricingPage from "./pages/dashboard/settings/pricing"
 
 function App() {
   return (
@@ -43,6 +44,10 @@ function App() {
           <Route path="videos" element={<ProjectsPage />} />
           <Route path="videos/series/:id" element={<SeriesDetailsPage />} />
           <Route path="settings" element={<SettingsPage />} />
+          <Route path="settings/account" element={<SettingsPage />} />
+          <Route path="settings/billing" element={<SettingsPage />} />
+          <Route path="settings/social" element={<SettingsPage />} />
+          <Route path="settings/pricing" element={<PricingPage />} />
           <Route path="create" element={<CreateLayout />}>
             <Route index element={<Navigate to="niche" replace />} />
             <Route path="niche" element={<NicheStep />} />

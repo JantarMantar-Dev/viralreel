@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useLocation } from "react-router-dom"
 import {
     User,
     CreditCard,
@@ -58,7 +58,15 @@ interface Invoice {
 
 export default function SettingsPage() {
     const navigate = useNavigate()
+    const location = useLocation()
     const { session } = useAuth()
+
+    // Determine active tab from the URL path
+    const pathParts = location.pathname.split("/").filter(Boolean)
+    const activeTab = pathParts.includes("settings") && pathParts[pathParts.length - 1] !== "settings"
+        ? pathParts[pathParts.length - 1]
+        : "account"
+
     const [isSavingProfile, setIsSavingProfile] = useState(false)
     const [isUpdatingPassword, setIsUpdatingPassword] = useState(false)
 
@@ -116,10 +124,14 @@ export default function SettingsPage() {
         }
     }
 
+    const handleTabChange = (value: string) => {
+        navigate(`/settings/${value}`)
+    }
+
     return (
         <div className="flex-1 w-full max-w-5xl mx-auto p-4 md:p-8 space-y-8 animate-in fade-in duration-500">
             {/* Tabs */}
-            <Tabs defaultValue="account" className="w-full space-y-8">
+            <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full space-y-8">
                 <TabsList className="bg-transparent border-b border-slate-200 rounded-none h-auto p-0 gap-8 w-full justify-start">
                     <TabsTrigger
                         value="account"
@@ -310,6 +322,7 @@ export default function SettingsPage() {
 }
 
 function BillingTab() {
+    const navigate = useNavigate()
     const [subData, setSubData] = useState<SubscriptionData | null>(null)
     const [invoices, setInvoices] = useState<Invoice[]>([])
     const [isLoading, setIsLoading] = useState(true)
@@ -374,7 +387,10 @@ function BillingTab() {
                                         Unlock premium features and priority rendering.
                                     </p>
                                 </div>
-                                <Button className="bg-purple-600 hover:bg-purple-700 text-white font-bold h-11 px-6 rounded-xl shadow-lg shadow-purple-100">
+                                <Button
+                                    onClick={() => navigate("/settings/pricing")}
+                                    className="bg-purple-600 hover:bg-purple-700 text-white font-bold h-11 px-6 rounded-xl shadow-lg shadow-purple-100"
+                                >
                                     Choose a Plan
                                 </Button>
                             </div>
