@@ -28,16 +28,11 @@ export const auth = betterAuth({
                     {
                         matcher: (context) => context.path?.includes("/change-password") && context.method === "POST",
                         handler: async (ctx: any) => {
-                            console.log("Hook Context Keys:", Object.keys(ctx));
-                            if (ctx.context) console.log("Hook AuthContext Keys:", Object.keys(ctx.context));
-
-                            const user = ctx.context?.user || ctx.user || ctx.context?.session?.user;
-                            console.log("Resolved user in hook:", user ? user.email : "still undefined");
+                            const user = ctx.context?.user || ctx.user || ctx.context?.session?.user || ctx.context?.newSession?.user;
 
                             if (user && user.email) {
                                 const { sendPasswordChangedEmail } = await import("./email.js");
                                 await sendPasswordChangedEmail(user.email, user.name);
-                                console.log("Password changed email sent to:", user.email);
                             }
                             return ctx;
                         }
