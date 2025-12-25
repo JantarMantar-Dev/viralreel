@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { Input } from "@/components/ui/input"
@@ -66,17 +66,34 @@ export default function CustomNicheForm({ onBack }: CustomNicheFormProps) {
 
     const isValid = name.trim().length > 0 && description.trim().length > 0
 
+    // Use Refs to keep the handle functions stable for the context overrides
+    // This prevents the global layout from re-rendering on every keystroke
+    const handleSubmitRef = useRef(handleSubmit)
+    const handleBackRef = useRef(onBack)
+
     useEffect(() => {
-        setCustomNext(() => handleSubmit)
-        setCustomPrev(() => onBack)
-        setCanContinue(isValid && !isCreating)
+        handleSubmitRef.current = handleSubmit
+        handleBackRef.current = onBack
+    }, [handleSubmit, onBack])
+
+    useEffect(() => {
+        const stableNext = () => handleSubmitRef.current()
+        const stableBack = () => handleBackRef.current()
+
+        setCustomNext(() => stableNext)
+        setCustomPrev(() => stableBack)
 
         return () => {
             setCustomNext(undefined)
             setCustomPrev(undefined)
-            setCanContinue(true)
+            // Note: We don't reset setCanContinue here to avoid another render loop
+            // The layout's setCanContinue is already managed by the other effect
         }
-    }, [handleSubmit, onBack, isValid, isCreating, setCustomNext, setCustomPrev, setCanContinue])
+    }, [setCustomNext, setCustomPrev])
+
+    useEffect(() => {
+        setCanContinue(isValid && !isCreating)
+    }, [isValid, isCreating, setCanContinue])
 
     return (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-2xl mx-auto">
