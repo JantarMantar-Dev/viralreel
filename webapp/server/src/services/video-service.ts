@@ -2,7 +2,7 @@ import { db } from "../db/index.js";
 import { series, video, renderJob, script } from "../db/schema.js";
 import { nanoid } from "nanoid";
 import { CreateJobBody } from "../api/jobs.js";
-import { eq, desc, and, sql, inArray } from "drizzle-orm";
+import { eq, desc, and, sql, inArray, or } from "drizzle-orm";
 
 interface CreateVideoJobParams {
     userId: string;
@@ -132,6 +132,21 @@ export async function deleteVideo(videoId: string, userId: string) {
 
     const v = existingVideo[0];
 
+    // Check for active render jobs
+    const activeJobs = await db.select()
+        .from(renderJob)
+        .where(
+            and(
+                eq(renderJob.videoId, videoId),
+                or(eq(renderJob.status, "QUEUED"), eq(renderJob.status, "PROCESSING"))
+            )
+        )
+        .limit(1);
+
+    if (activeJobs.length > 0) {
+        throw new Error("Cannot delete this video until the active generation job is finished.");
+    }
+
     // If part of a series, decrement episode count
     if (v.seriesId) {
         await db.update(series)
@@ -239,7 +254,22 @@ export async function deleteSeries(seriesId: string, userId: string) {
     const videoIds = seriesVideos.map(v => v.id);
 
     if (videoIds.length > 0) {
-        // 3. Delete related records for all videos in the series
+        // 3. Check for any active render jobs in this series
+        const activeJobs = await db.select()
+            .from(renderJob)
+            .where(
+                and(
+                    inArray(renderJob.videoId, videoIds),
+                    or(eq(renderJob.status, "QUEUED"), eq(renderJob.status, "PROCESSING"))
+                )
+            )
+            .limit(1);
+
+        if (activeJobs.length > 0) {
+            throw new Error("Cannot delete this series while one or more videos have active generation jobs.");
+        }
+
+        // 4. Delete related records for all videos in the series
         await db.delete(renderJob).where(inArray(renderJob.videoId, videoIds));
         await db.delete(script).where(inArray(script.videoId, videoIds));
         await db.delete(video).where(inArray(video.id, videoIds));

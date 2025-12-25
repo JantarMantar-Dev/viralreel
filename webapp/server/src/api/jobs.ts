@@ -196,7 +196,8 @@ export default async function jobRoutes(fastify: FastifyInstance) {
             return result;
         } catch (error: any) {
             fastify.log.error(error);
-            return reply.status(error.message.includes("not found") ? 404 : 500).send({ error: error.message });
+            const status = error.message.includes("not found") ? 404 : 400;
+            return reply.status(status).send({ error: error.message });
         }
     });
 
