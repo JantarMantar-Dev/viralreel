@@ -421,8 +421,8 @@ export default function MyVideosPage() {
             });
 
             if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.message || 'Failed to delete project');
+                const errorData = await response.json();
+                throw new Error(errorData.error || errorData.message || 'Failed to delete project');
             }
 
             return response.json();
@@ -431,9 +431,6 @@ export default function MyVideosPage() {
             toast.success("Project deleted successfully");
             queryClient.invalidateQueries({ queryKey: ['projects'] });
             setDeleteTarget(null);
-        },
-        onError: (error: any) => {
-            toast.error(error.message);
         }
     });
 
@@ -445,8 +442,8 @@ export default function MyVideosPage() {
             });
 
             if (!res.ok) {
-                const error = await res.json();
-                throw new Error(error.message || 'Failed to trigger render');
+                const errorData = await res.json();
+                throw new Error(errorData.error || errorData.message || 'Failed to trigger render');
             }
 
             return res.json();
@@ -454,9 +451,6 @@ export default function MyVideosPage() {
         onSuccess: () => {
             toast.success("Rendering process started!");
             queryClient.invalidateQueries({ queryKey: ['projects'] });
-        },
-        onError: (error: any) => {
-            toast.error(error.message);
         }
     });
 

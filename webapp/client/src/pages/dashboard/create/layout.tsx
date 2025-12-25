@@ -154,8 +154,8 @@ export default function CreateVideoLayout() {
             })
 
             if (!response.ok) {
-                const error = await response.json()
-                throw new Error(error.message || "Failed to process job")
+                const errorData = await response.json()
+                throw new Error(errorData.error || errorData.message || "Failed to process job")
             }
 
             return response.json()
@@ -163,9 +163,6 @@ export default function CreateVideoLayout() {
         onSuccess: () => {
             toast.success(editVideoId ? "Job updated successfully!" : "Job created successfully!")
             navigate("/videos")
-        },
-        onError: (error) => {
-            toast.error(error.message)
         }
     })
 

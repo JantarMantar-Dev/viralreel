@@ -74,7 +74,6 @@ export default function CustomNicheForm({ onBack }: CustomNicheFormProps) {
             return res.json()
         },
         onSuccess: (newNiche) => {
-            setIsStepLoading(false)
             toast.success("Niche created successfully!")
             queryClient.invalidateQueries({ queryKey: ["niches"] })
             updateRequest({
@@ -87,10 +86,6 @@ export default function CustomNicheForm({ onBack }: CustomNicheFormProps) {
             setCustomNext(undefined)
             setCustomPrev(undefined)
             nextStep(true)
-        },
-        onError: (err: Error) => {
-            setIsStepLoading(false)
-            toast.error(err.message)
         }
     })
 
