@@ -14,6 +14,7 @@
     "db:push": "drizzle-kit push",
     "db:seed:voices": "tsx src/db/seed-voices.ts",
     "db:seed:subtitles": "tsx src/db/seed-subtitles.ts",
+    "test:emails": "tsx src/scripts/test-emails.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

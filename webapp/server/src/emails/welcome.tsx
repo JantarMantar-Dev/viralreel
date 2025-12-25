@@ -9,13 +9,8 @@ interface WelcomeEmailProps {
 export const WelcomeEmail = ({ userFirstname = "there" }: WelcomeEmailProps) => {
     return (
         <EmailLayout preview="Welcome to ViralReel!">
-            <Section style={imageSection}>
-                <Img
-                    src="https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?q=80&w=600&auto=format&fit=crop"
-                    width="100%"
-                    alt="Welcome to ViralReel"
-                    style={heroImage}
-                />
+            <Section style={heroSection}>
+                <Heading style={heroText}>ViralReel</Heading>
             </Section>
 
             <Heading style={heading}>Welcome Aboard, {userFirstname}!</Heading>
@@ -58,14 +53,23 @@ export const WelcomeEmail = ({ userFirstname = "there" }: WelcomeEmailProps) => 
 
 export default WelcomeEmail;
 
-const imageSection = {
-    padding: "0",
+const heroSection = {
+    height: "200px",
+    background: "linear-gradient(135deg, #FF0000 0%, #0000FF 100%, #00FFFF 100%)", // Matching the image gradient roughly
+    borderRadius: "8px",
+    textAlign: "center" as const,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: "32px",
 };
 
-const heroImage = {
-    borderRadius: "8px",
-    margin: "0 auto",
-    display: "block",
+const heroText = {
+    color: "#ffffff",
+    fontSize: "32px",
+    fontWeight: "800",
+    margin: "0",
+    paddingTop: "80px", // Align text somewhat centered vertically
 };
 
 const heading = {

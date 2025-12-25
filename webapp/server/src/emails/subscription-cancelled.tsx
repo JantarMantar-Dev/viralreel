@@ -17,14 +17,7 @@ export const SubscriptionCancelledEmail = ({
 }: SubscriptionCancelledEmailProps) => {
     return (
         <EmailLayout preview="Subscription Cancellation">
-            <Section style={imageSection}>
-                <Img
-                    src="https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?q=80&w=600&auto=format&fit=crop"
-                    width="100%"
-                    alt="Subscription Cancellation"
-                    style={heroImage}
-                />
-            </Section>
+            <Hr style={topDivider} />
 
             <Heading style={heading}>Subscription Canceled</Heading>
 
@@ -76,14 +69,12 @@ export const SubscriptionCancelledEmail = ({
 
 export default SubscriptionCancelledEmail;
 
-const imageSection = {
-    padding: "0",
-};
-
-const heroImage = {
-    borderRadius: "8px",
-    margin: "0 auto",
-    display: "block",
+const topDivider = {
+    borderColor: "#e5e7eb",
+    margin: "0 0 32px",
+    borderTopWidth: "4px",
+    borderTopStyle: "solid" as const,
+    width: "100%",
 };
 
 const heading = {

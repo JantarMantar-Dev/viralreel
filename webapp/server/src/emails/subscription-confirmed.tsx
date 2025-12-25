@@ -17,13 +17,16 @@ export const SubscriptionConfirmedEmail = ({
 }: SubscriptionConfirmedEmailProps) => {
     return (
         <EmailLayout preview="Subscription Confirmed!">
-            <Section style={imageSection}>
-                <Img
-                    src="https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?q=80&w=600&auto=format&fit=crop"
-                    width="100%"
-                    alt="Subscription Confirmed"
-                    style={heroImage}
-                />
+            <Section style={heroSection}>
+                <div style={iconCircle}>
+                    <Img
+                        src="https://cdn-icons-png.flaticon.com/512/5610/5610944.png"
+                        width="48"
+                        height="48"
+                        alt="Success"
+                        style={icon}
+                    />
+                </div>
             </Section>
 
             <Heading style={heading}>Subscription Confirmed!</Heading>
@@ -64,12 +67,26 @@ export const SubscriptionConfirmedEmail = ({
 
 export default SubscriptionConfirmedEmail;
 
-const imageSection = {
-    padding: "0",
+const heroSection = {
+    backgroundColor: "#F0FDF4", // Light green background
+    borderRadius: "8px",
+    padding: "40px 0",
+    marginBottom: "32px",
+    textAlign: "center" as const,
 };
 
-const heroImage = {
-    borderRadius: "8px",
+const iconCircle = {
+    backgroundColor: "#DCFCE7", // Slightly darker green circle
+    borderRadius: "50%",
+    width: "80px",
+    height: "80px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    margin: "0 auto",
+};
+
+const icon = {
     margin: "0 auto",
     display: "block",
 };
