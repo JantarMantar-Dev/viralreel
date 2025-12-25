@@ -16,9 +16,11 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent } from "@/components/ui/card"
 import { toast } from "sonner"
 import { submitOpnForm, CONTACT_SALES_FORM } from "@/lib/opnform"
+import { useAuth } from "@/context/auth-context"
 
 export default function ContactSalesPage() {
     const navigate = useNavigate()
+    const { session } = useAuth()
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [formData, setFormData] = useState({
         fullName: "",
@@ -38,6 +40,7 @@ export default function ContactSalesPage() {
                     [CONTACT_SALES_FORM.FIELDS.FULL_NAME]: formData.fullName,
                     [CONTACT_SALES_FORM.FIELDS.COMPANY_NAME]: formData.companyName,
                     [CONTACT_SALES_FORM.FIELDS.APP_NAME]: CONTACT_SALES_FORM.APP_NAME_VALUE,
+                    [CONTACT_SALES_FORM.FIELDS.APP_USER_ID]: session?.user?.email || "anonymous",
                     [CONTACT_SALES_FORM.FIELDS.WORK_EMAIL]: formData.email,
                     [CONTACT_SALES_FORM.FIELDS.MESSAGE]: formData.message,
                 }
