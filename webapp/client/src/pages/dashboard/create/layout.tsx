@@ -38,6 +38,11 @@ export default function CreateVideoLayout() {
         seriesId: searchParams.get("seriesId") || undefined,
         nicheId: searchParams.get("nicheId") || null,
     }))
+    const [customNext, setCustomNext] = useState<(() => void) | undefined>()
+    const [customPrev, setCustomPrev] = useState<(() => void) | undefined>()
+    const [canContinue, setCanContinue] = useState(true)
+    const [isStepLoading, setIsStepLoading] = useState(false)
+
     const navigate = useNavigate()
     const location = useLocation()
 
@@ -164,7 +169,12 @@ export default function CreateVideoLayout() {
         }
     })
 
-    const nextStep = () => {
+    const nextStep = (bypassOverride = false) => {
+        if (customNext && !bypassOverride) {
+            customNext()
+            return
+        }
+
         if (currentStep < STEPS.length) {
             navigate(STEPS[currentStep].path)
         } else if (currentStep === STEPS.length) {
@@ -173,6 +183,11 @@ export default function CreateVideoLayout() {
     }
 
     const prevStep = () => {
+        if (customPrev) {
+            customPrev()
+            return
+        }
+
         if (currentStep > 1) {
             navigate(STEPS[currentStep - 2].path)
         }
@@ -188,7 +203,15 @@ export default function CreateVideoLayout() {
             updateRequest,
             nextStep,
             prevStep,
-            currentStep
+            currentStep,
+            customNext,
+            setCustomNext,
+            customPrev,
+            setCustomPrev,
+            canContinue,
+            setCanContinue,
+            isStepLoading,
+            setIsStepLoading
         }}>
             <div className="flex flex-col min-h-full bg-slate-50/50">
                 {/* Workflow Header */}
@@ -275,11 +298,11 @@ export default function CreateVideoLayout() {
                 </main>
 
                 {/* Sticky Footer Navigation */}
-                {(request.nicheId || editVideoId) && (
+                {(request.nicheId || editVideoId || customNext) && (
                     <footer className="sticky bottom-0 z-30 w-full bg-white/80 backdrop-blur-md border-t border-slate-200 px-4 md:px-6 py-4 mt-auto">
                         <div className="max-w-6xl mx-auto w-full flex items-center justify-between gap-4">
                             <div className="flex items-center gap-6">
-                                {currentStep > 1 && (
+                                {(currentStep > 1 || !!customPrev) && (
                                     <Button
                                         variant="outline"
                                         onClick={prevStep}
@@ -324,10 +347,12 @@ export default function CreateVideoLayout() {
                                     </Button>
                                 )}
                                 <Button
-                                    onClick={nextStep}
+                                    onClick={() => nextStep()}
                                     disabled={
+                                        (currentStep === 1 && !canContinue) ||
                                         (currentStep === 2 && (!request.scriptIdea.trim() || (request.jobType === 'series' && !request.seriesName.trim()) || !request.episodeTitle.trim())) ||
-                                        isPending
+                                        isPending ||
+                                        !!isStepLoading
                                     }
                                     className={cn(
                                         "w-full h-12 rounded-xl transition-all font-bold text-lg shadow-xl",
@@ -336,7 +361,7 @@ export default function CreateVideoLayout() {
                                             : "bg-purple-600 hover:bg-purple-700 text-white max-w-xs shadow-purple-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:shadow-none"
                                     )}
                                 >
-                                    {isPending ? (
+                                    {isPending || isStepLoading ? (
                                         <Loader2 className="h-5 w-5 animate-spin" />
                                     ) : currentStep === 6 ? (
                                         <>
@@ -344,7 +369,7 @@ export default function CreateVideoLayout() {
                                             {editVideoId ? "Update Episode" : (request.seriesId ? "Generate Episode" : (request.jobType === "series" ? "Generate Series" : "Generate Video"))}
                                         </>
                                     ) : (
-                                        `Continue to Step ${currentStep + 1}`
+                                        currentStep === 1 && customNext ? "Create & Continue" : `Continue to Step ${currentStep + 1}`
                                     )}
                                 </Button>
                             </div>

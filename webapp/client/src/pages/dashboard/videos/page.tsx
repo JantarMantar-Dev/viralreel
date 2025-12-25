@@ -13,7 +13,9 @@ import {
     Plus,
     Bell,
     Loader2,
-    Trash2
+    Trash2,
+    Zap,
+    Edit
 } from "lucide-react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
@@ -99,7 +101,7 @@ function VideoTypeBadge({ type, count }: { type: Project["type"], count?: number
     return null
 }
 
-function VideoCard({ project, onClick, onDelete }: { project: Project, onClick: () => void, onDelete: () => void }) {
+function VideoCard({ project, onClick, onDelete, onRender }: { project: Project, onClick: () => void, onDelete: () => void, onRender?: () => void }) {
     return (
         <Card
             onClick={onClick}
@@ -165,17 +167,39 @@ function VideoCard({ project, onClick, onDelete }: { project: Project, onClick: 
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onClick(); }}>
-                                {project.type === "Series" ? "Open" : "Edit"}
+                                {project.type === "Series" ? (
+                                    <>
+                                        <Layers className="h-4 w-4 mr-2" />
+                                        Open
+                                    </>
+                                ) : (
+                                    <>
+                                        <Edit className="h-4 w-4 mr-2" />
+                                        Edit Detail
+                                    </>
+                                )}
                             </DropdownMenuItem>
+                            {project.type === "Single Video" && project.status === "Draft" && onRender && (
+                                <DropdownMenuItem
+                                    className="text-purple-600 font-medium"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onRender();
+                                    }}
+                                >
+                                    <Zap className="h-4 w-4 mr-2 text-yellow-500" />
+                                    Render Now
+                                </DropdownMenuItem>
+                            )}
                             <Separator className="my-1" />
                             <DropdownMenuItem
-                                className="text-red-600"
+                                className="text-red-600 focus:text-red-600"
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     onDelete();
                                 }}
                             >
-                                <Trash2 className="mr-2 h-4 w-4" />
+                                <Trash2 className="h-4 w-4 mr-2" />
                                 Delete
                             </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -213,9 +237,10 @@ interface VideoListViewProps {
     projects: Project[]
     isLoading: boolean
     onDelete: (project: Project) => void
+    onRender: (project: Project) => void
 }
 
-function VideoListView({ filter, setFilter, navigate, projects, isLoading, onDelete }: VideoListViewProps) {
+function VideoListView({ filter, setFilter, navigate, projects, isLoading, onDelete, onRender }: VideoListViewProps) {
     return (
         <div className="flex flex-col w-full h-full">
             {/* Top Bar (Search & Actions) - Full Width Header */}
@@ -330,6 +355,7 @@ function VideoListView({ filter, setFilter, navigate, projects, isLoading, onDel
                                             }
                                         }}
                                         onDelete={() => onDelete(project)}
+                                        onRender={() => onRender(project)}
                                     />
                                 ))}
                         </div>
@@ -411,6 +437,29 @@ export default function MyVideosPage() {
         }
     });
 
+    const { mutate: renderProject } = useMutation({
+        mutationFn: async (project: Project) => {
+            const res = await fetch(`${API_BASE_URL}/api/jobs/${project.id}/render`, {
+                method: 'POST',
+                credentials: 'include'
+            });
+
+            if (!res.ok) {
+                const error = await res.json();
+                throw new Error(error.message || 'Failed to trigger render');
+            }
+
+            return res.json();
+        },
+        onSuccess: () => {
+            toast.success("Rendering process started!");
+            queryClient.invalidateQueries({ queryKey: ['projects'] });
+        },
+        onError: (error: any) => {
+            toast.error(error.message);
+        }
+    });
+
     if (!isLoading && projects.length === 0) {
         return <VideosEmptyState onTypeSelect={(type) => navigate(`/create?type=${type}`)} />
     }
@@ -424,6 +473,7 @@ export default function MyVideosPage() {
                 projects={projects}
                 isLoading={isLoading}
                 onDelete={(p) => setDeleteTarget(p)}
+                onRender={(p) => renderProject(p)}
             />
 
             {/* Delete Confirmation Dialog */}

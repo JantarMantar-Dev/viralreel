@@ -25,9 +25,18 @@ export interface VideoJobRequest {
 export interface CreationContextType {
     request: VideoJobRequest
     updateRequest: (data: Partial<VideoJobRequest>) => void
-    nextStep: () => void
+    nextStep: (bypassOverride?: boolean) => void
     prevStep: () => void
     currentStep: number
+    // Custom overrides for footer buttons
+    customNext?: () => void
+    setCustomNext: (action: (() => void) | undefined) => void
+    customPrev?: () => void
+    setCustomPrev: (action: (() => void) | undefined) => void
+    canContinue: boolean
+    setCanContinue: (value: boolean) => void
+    isStepLoading?: boolean
+    setIsStepLoading: (value: boolean) => void
 }
 
 export const CreationContext = createContext<CreationContextType | null>(null)
