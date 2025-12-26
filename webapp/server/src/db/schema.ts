@@ -267,6 +267,7 @@ export const userSubscription = pgTable("user_subscription", {
     status: text("status").notNull(), // active, canceled, past_due, trialing
     currentPeriodEnd: timestamp("current_period_end"),
     cancelAtPeriodEnd: boolean("cancel_at_period_end").default(false),
+    isCurrent: boolean("is_current").default(true),
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
 });

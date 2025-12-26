@@ -111,8 +111,8 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
                 const session = await createCheckoutSession({
                     customerId: currentUser.stripeCustomerId!,
                     priceId,
-                    successUrl: `${process.env.VITE_APP_URL}/dashboard/settings/pricing?success=true&session_id={CHECKOUT_SESSION_ID}`,
-                    cancelUrl: `${process.env.VITE_APP_URL}/dashboard/settings/pricing?canceled=true`,
+                    successUrl: `${process.env.CLIENT_URL || "http://localhost:5173"}/settings/credits?success=true&session_id={CHECKOUT_SESSION_ID}`,
+                    cancelUrl: `${process.env.CLIENT_URL || "http://localhost:5173"}/settings/pricing?canceled=true`,
                     clientReferenceId: userId,
                     mode: plan.interval ? 'subscription' : 'payment',
                     metadata: {
@@ -341,7 +341,14 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
                     // GET /subscription just does `where userId limit 1`. It might pick the wrong one!
                     // We must ensure GET /subscription picks the one with 'active' status or latest.
 
-                    // Let's just INSERT. And I'll update GET /subscription to order by createdAt desc or preference active.
+                    // Mark previous subscriptions as not current
+                    await db.update(userSubscription)
+                        .set({ isCurrent: false })
+                        .where(and(
+                            eq(userSubscription.userId, userId),
+                            eq(userSubscription.isCurrent, true)
+                        ));
+
                     await db.insert(userSubscription).values({
                         id: randomUUID(),
                         userId,
@@ -349,6 +356,7 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
                         stripeSubscriptionId: subscriptionId,
                         status: 'active',
                         currentPeriodEnd: periodEnd,
+                        isCurrent: true
                     });
                 }
             }
@@ -444,7 +452,7 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
 
             const session = await createPortalSession({
                 customerId: currentUser.stripeCustomerId,
-                returnUrl: `${process.env.VITE_APP_URL}/dashboard/settings`
+                returnUrl: `${process.env.CLIENT_URL || "http://localhost:5173"}/settings`
             });
 
             // Create a temporary history record for portal access? Not really needed.
@@ -470,7 +478,8 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
             .from(userSubscription)
             .where(and(
                 eq(userSubscription.userId, currentUser.id),
-                eq(userSubscription.status, 'active')
+                eq(userSubscription.status, 'active'), // Note: 'active' status check might be redundant if isCurrent is reliable, but good for safety
+                eq(userSubscription.isCurrent, true)
             ))
             .limit(1);
 
@@ -524,7 +533,8 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
             .from(userSubscription)
             .where(and(
                 eq(userSubscription.userId, currentUser.id),
-                eq(userSubscription.status, 'cancelled')
+                eq(userSubscription.status, 'cancelled'),
+                eq(userSubscription.isCurrent, true)
             ))
             .limit(1);
 
@@ -536,7 +546,27 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
         try {
             console.log(`[Payment] Reactivating subscription ${subscription.stripeSubscriptionId} for user ${userId}`);
 
-            // Update Stripe subscription to NOT cancel at period end
+            // 1. Retrieve current status from Stripe
+            const stripeSub = await stripe.subscriptions.retrieve(subscription.stripeSubscriptionId);
+
+            if (stripeSub.status === 'canceled') {
+                console.warn(`[Payment] Cannot reactivate fully canceled subscription ${subscription.stripeSubscriptionId} for user ${userId}`);
+
+                // Update local DB to ensure it matches
+                await db.update(userSubscription)
+                    .set({
+                        status: 'cancelled',
+                        updatedAt: new Date(),
+                    })
+                    .where(eq(userSubscription.id, subscription.id));
+
+                return reply.status(400).send({
+                    error: "Your subscription has already expired and cannot be reactivated. Please subscribe again to a new plan.",
+                    code: "SUBSCRIPTION_EXPIRED"
+                });
+            }
+
+            // 2. Update Stripe subscription to NOT cancel at period end
             const updatedStripeSubscription = await stripe.subscriptions.update(subscription.stripeSubscriptionId, {
                 cancel_at_period_end: false,
             });
@@ -591,8 +621,10 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
         try {
             const [subscription] = await db.select()
                 .from(userSubscription)
-                .where(eq(userSubscription.userId, currentUser.id))
-                .orderBy(desc(userSubscription.createdAt))
+                .where(and(
+                    eq(userSubscription.userId, currentUser.id),
+                    eq(userSubscription.isCurrent, true)
+                ))
                 .limit(1);
 
             if (!subscription) {
