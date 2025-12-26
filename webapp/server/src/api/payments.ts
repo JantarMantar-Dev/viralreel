@@ -6,11 +6,280 @@ import { z } from "zod";
 import { stripe, createCheckoutSession, createPortalSession } from "../lib/stripe.js";
 import { requireAuth } from "../middleware/auth.js";
 import { randomUUID } from "node:crypto";
+import { sendSubscriptionEmail } from "../lib/email.js";
 
 const PLANS_SCHEMA = z.object({});
 const CHECKOUT_SCHEMA = z.object({
     priceId: z.string(),
 });
+
+const activeVerifications = new Set<string>();
+
+interface PaymentContext {
+    log: (msg: string, data?: any) => void;
+    logError: (msg: string, error: any) => void;
+    userId: string;
+    spanId: string;
+}
+
+// --- Helper Functions ---
+
+async function verifyStripeSession(ctx: PaymentContext, sessionId: string) {
+    ctx.log(`Retrieving session from Stripe...`);
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    ctx.log(`Session retrieved`, { paymentStatus: session.payment_status, status: session.status });
+
+    if (session.payment_status !== 'paid') {
+        const error: any = new Error("Payment not completed");
+        error.statusCode = 400;
+        throw error;
+    }
+    return session;
+}
+
+async function checkIdempotency(ctx: PaymentContext, sessionId: string) {
+    ctx.log(`Checking idempotency in DB...`);
+    const [existingPayment] = await db.select()
+        .from(paymentHistory)
+        .where(or(
+            eq(paymentHistory.stripePaymentId, sessionId),
+            sql`${paymentHistory.metadata}->>'checkoutSessionId' = ${sessionId}`
+        ))
+        .limit(1);
+
+    if (existingPayment && existingPayment.status === 'succeeded') {
+        ctx.log(`Payment already processed successfully`);
+        return true;
+    }
+    return false;
+}
+
+async function resolvePlanAndPrice(ctx: PaymentContext, session: any) {
+    ctx.log(`Retrieving expanded session details...`);
+    const expandedSession = await stripe.checkout.sessions.retrieve(session.id, {
+        expand: ['line_items', 'subscription'],
+    });
+    const lineItem = expandedSession.line_items?.data[0];
+    const priceId = lineItem?.price?.id || session.metadata?.priceId;
+
+    if (!priceId) {
+        throw new Error("Could not determine priceId from session");
+    }
+
+    ctx.log(`Looking up plan for priceId: ${priceId}`);
+    const [plan] = await db.select()
+        .from(subscriptionPlan)
+        .where(eq(subscriptionPlan.stripePriceId, priceId))
+        .limit(1);
+
+    if (!plan) {
+        throw new Error(`Plan not found for priceId: ${priceId}`);
+    }
+
+    let periodEnd: Date | null = null;
+    const subscriptionId = expandedSession.subscription && typeof expandedSession.subscription !== 'string'
+        ? (expandedSession.subscription as any).id
+        : (expandedSession.subscription as string);
+
+    if (plan.interval) {
+        const sub = expandedSession.subscription as any;
+        if (sub && typeof sub !== 'string') {
+            const ts = sub.current_period_end;
+            if (typeof ts === 'number') {
+                periodEnd = new Date(ts * 1000);
+            }
+        }
+    }
+
+    return { plan, priceId, subscriptionId, periodEnd, expandedSession };
+}
+
+async function handleSubscriptionUpdate(
+    ctx: PaymentContext,
+    tx: any,
+    userId: string,
+    planData: { plan: any; subscriptionId: string; periodEnd: Date | null }
+) {
+    const { plan, subscriptionId, periodEnd } = planData;
+
+    if (plan.interval && subscriptionId) {
+        ctx.log(`Transaction: Handling subscription update...`);
+
+        // 1. Cancel/Mark non-current ALL other active subscriptions
+        // "We want to make sure if we are verifying and found exising sub for user and trying to subscribe other then we first cancel that."
+        // We will query for any existing active/trialing subscriptions that are NOT this new one.
+
+        const existingSubs = await tx.select()
+            .from(userSubscription)
+            .where(and(
+                eq(userSubscription.userId, userId),
+                ne(userSubscription.stripeSubscriptionId, subscriptionId), // Don't cancel the one we are about to insert/update if it exists
+                or(
+                    eq(userSubscription.status, 'active'),
+                    eq(userSubscription.status, 'trialing')
+                )
+            ));
+
+        for (const oldSub of existingSubs) {
+            ctx.log(`Cancelling previous subscription ${oldSub.id} (${oldSub.stripeSubscriptionId})`);
+
+            // Cancel in Stripe to be safe, though webhook might handle it too.
+            // Best practice: if user is switching plans via checkout, Stripe usually handles "updates" but if this is a fresh checkout session, it creates a NEW sub.
+            // So we must cancel the old one to avoid double billing.
+            if (oldSub.stripeSubscriptionId) {
+                try {
+                    await stripe.subscriptions.cancel(oldSub.stripeSubscriptionId);
+                } catch (err: any) {
+                    ctx.logError(`Failed to cancel old stripe subscription ${oldSub.stripeSubscriptionId}`, err);
+                    // Continue anyway to update DB
+                }
+            }
+
+            await tx.update(userSubscription)
+                .set({
+                    status: 'cancelled',
+                    isCurrent: false,
+                    updatedAt: new Date()
+                })
+                .where(eq(userSubscription.id, oldSub.id));
+        }
+
+        // 2. Insert or Update the NEW subscription
+        const [existingNewSub] = await tx.select()
+            .from(userSubscription)
+            .where(eq(userSubscription.stripeSubscriptionId, subscriptionId))
+            .limit(1);
+
+        if (existingNewSub) {
+            ctx.log(`Transaction: Updating existing subscription record ${existingNewSub.id}`);
+            await tx.update(userSubscription)
+                .set({
+                    status: 'active',
+                    planId: plan.id,
+                    currentPeriodEnd: periodEnd,
+                    updatedAt: new Date(),
+                    isCurrent: true
+                })
+                .where(eq(userSubscription.id, existingNewSub.id));
+        } else {
+            ctx.log(`Transaction: Creating new subscription record`);
+            await tx.insert(userSubscription).values({
+                id: randomUUID(),
+                userId,
+                planId: plan.id,
+                stripeSubscriptionId: subscriptionId,
+                status: 'active',
+                currentPeriodEnd: periodEnd,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+                isCurrent: true
+            });
+        }
+
+        // Ensure strictly only one isCurrent=true (cleanup any potential consistency issues)
+        await tx.update(userSubscription)
+            .set({ isCurrent: false })
+            .where(and(
+                eq(userSubscription.userId, userId),
+                ne(userSubscription.stripeSubscriptionId, subscriptionId)
+            ));
+    }
+}
+
+async function handleCreditUpdate(
+    ctx: PaymentContext,
+    tx: any,
+    userId: string,
+    plan: any
+) {
+    ctx.log(`Transaction: Adding ${plan.credits} credits...`);
+
+    // Get or Create Balance
+    const [balance] = await tx.select()
+        .from(creditBalance)
+        .where(eq(creditBalance.userId, userId))
+        .limit(1);
+
+    let balanceId: string;
+
+    if (balance) {
+        balanceId = balance.id;
+        await tx.update(creditBalance)
+            .set({
+                amountTotal: balance.amountTotal + plan.credits,
+                updatedAt: new Date()
+            })
+            .where(eq(creditBalance.id, balance.id));
+    } else {
+        balanceId = randomUUID();
+        await tx.insert(creditBalance).values({
+            id: balanceId,
+            userId,
+            amountTotal: plan.credits,
+            amountUsed: 0,
+            createdAt: new Date(),
+            updatedAt: new Date()
+        });
+    }
+
+    // Log Transaction
+    await tx.insert(creditTransaction).values({
+        id: randomUUID(),
+        userId,
+        creditBalanceId: balanceId,
+        amount: plan.credits,
+        description: `Purchase of ${plan.name}`,
+        createdAt: new Date()
+    });
+}
+
+async function recordPaymentHistory(
+    ctx: PaymentContext,
+    tx: any,
+    userId: string,
+    planData: { plan: any; priceId: string; subscriptionId: string | null },
+    sessionId: string
+) {
+    const { plan, priceId, subscriptionId } = planData;
+
+    // Check if record exists (from pending state)
+    const [record] = await tx.select()
+        .from(paymentHistory)
+        .where(or(
+            eq(paymentHistory.stripePaymentId, sessionId),
+            sql`${paymentHistory.metadata}->>'checkoutSessionId' = ${sessionId}`
+        ))
+        .limit(1);
+
+    const paymentData = {
+        userId,
+        amount: plan.price,
+        currency: plan.currency,
+        status: 'succeeded',
+        stripePaymentId: sessionId,
+        metadata: {
+            checkoutSessionId: sessionId,
+            priceId: priceId,
+            planId: plan.id,
+            subscriptionId: subscriptionId
+        },
+        updatedAt: new Date()
+    };
+
+    if (record) {
+        ctx.log(`Transaction: Updating existing payment record ${record.id}`);
+        await tx.update(paymentHistory)
+            .set(paymentData)
+            .where(eq(paymentHistory.id, record.id));
+    } else {
+        ctx.log(`Transaction: Creating new payment record`);
+        await tx.insert(paymentHistory).values({
+            id: randomUUID(),
+            ...paymentData,
+            createdAt: new Date()
+        });
+    }
+}
 
 
 
@@ -179,101 +448,54 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
         const userId = currentUser.id;
         const spanId = randomUUID().substring(0, 8); // Short span ID for readability
 
-        const log = (msg: string, data?: any) => {
-            const prefix = `[Payment][Verify][${userId}][${spanId}]`;
-            if (data) {
-                console.log(`${prefix} ${msg}`, JSON.stringify(data, null, 2));
-            } else {
-                console.log(`${prefix} ${msg}`);
-            }
+        if (activeVerifications.has(sessionId)) {
+            console.log(`[Payment][Verify] Session ${sessionId} is currently being verified. Skipping duplicate request.`);
+            return reply.send({ success: true, verified: true, message: "Verification in progress" });
+        }
+        activeVerifications.add(sessionId);
+
+        const ctx: PaymentContext = {
+            log: (msg: string, data?: any) => {
+                const prefix = `[Payment][Verify][${userId}][${spanId}]`;
+                if (data) {
+                    console.log(`${prefix} ${msg}`, JSON.stringify(data, null, 2));
+                } else {
+                    console.log(`${prefix} ${msg}`);
+                }
+            },
+            logError: (msg: string, error: any) => {
+                const prefix = `[Payment][Verify][${userId}][${spanId}]`;
+                console.error(`${prefix} [ERROR] ${msg}`, error);
+            },
+            userId,
+            spanId
         };
 
-        const logError = (msg: string, error: any) => {
-            const prefix = `[Payment][Verify][${userId}][${spanId}]`;
-            console.error(`${prefix} [ERROR] ${msg}`, error);
-        };
-
-        log(`Starting session verification`, { sessionId });
+        ctx.log(`Starting session verification`, { sessionId });
 
         if (!sessionId) {
-            logError("Session ID is missing in request", null);
+            ctx.logError("Session ID is missing in request", null);
             return reply.status(400).send({ error: "Session ID is required" });
         }
 
         try {
             // 1. Retrieve session from Stripe
-            log(`Retrieving session from Stripe...`);
-            const session = await stripe.checkout.sessions.retrieve(sessionId);
-            log(`Session retrieved`, { paymentStatus: session.payment_status, status: session.status });
-
-            if (session.payment_status !== 'paid') {
-                log(`Payment not paid, returning error`);
-                return reply.status(400).send({ error: "Payment not completed" });
-            }
+            const session = await verifyStripeSession(ctx, sessionId);
 
             // 2. Check if already processed (Idempotency)
-            log(`Checking idempotency in DB...`);
-            const [existingPayment] = await db.select()
-                .from(paymentHistory)
-                .where(or(
-                    eq(paymentHistory.stripePaymentId, sessionId),
-                    sql`${paymentHistory.metadata}->>'checkoutSessionId' = ${sessionId}`
-                ))
-                .limit(1);
-
-            if (existingPayment && existingPayment.status === 'succeeded') {
-                log(`Payment already processed successfully, returning early`);
+            const alreadyProcessed = await checkIdempotency(ctx, sessionId);
+            if (alreadyProcessed) {
                 return { success: true, verified: true, message: "Already processed" };
             }
-            log(`Payment not yet processed or pending (Status: ${existingPayment?.status})`);
 
-            // 3. Process Credits and Subscription atomically
+            // 3. Resolve Plan and Details
+            const planData = await resolvePlanAndPrice(ctx, session);
+            const { plan } = planData;
 
-            // Expand session to get detailed info
-            log(`Retrieving expanded session details...`);
-            const expandedSession = await stripe.checkout.sessions.retrieve(sessionId, {
-                expand: ['line_items', 'subscription'],
-            });
-            const lineItem = expandedSession.line_items?.data[0];
-            const priceId = lineItem?.price?.id || session.metadata?.priceId;
-            log(`Expanded session retrieved`, { priceId });
+            ctx.log(`Plan found: ${plan.name} (${plan.id}), Credits: ${plan.credits}`);
 
-            if (!priceId) {
-                logError("Could not determine priceId from session", expandedSession);
-                return reply.status(400).send({ error: "Could not determine price" });
-            }
-
-            log(`Looking up plan for priceId: ${priceId}`);
-            const [plan] = await db.select()
-                .from(subscriptionPlan)
-                .where(eq(subscriptionPlan.stripePriceId, priceId))
-                .limit(1);
-
-            if (!plan) {
-                logError(`Plan not found for priceId: ${priceId}`, null);
-                return reply.status(404).send({ error: "Plan not found" });
-            }
-            log(`Plan found: ${plan.name} (${plan.id}), Credits: ${plan.credits}`);
-
-            let periodEnd: Date | null = null;
-            const subscriptionId = expandedSession.subscription && typeof expandedSession.subscription !== 'string'
-                ? (expandedSession.subscription as any).id
-                : (expandedSession.subscription as string);
-
-            log(`Subscription ID: ${subscriptionId || 'N/A'}`);
-
-            if (plan.interval) {
-                const sub = expandedSession.subscription as any;
-                if (sub && typeof sub !== 'string') {
-                    const ts = sub.current_period_end;
-                    if (typeof ts === 'number') {
-                        periodEnd = new Date(ts * 1000);
-                        log(`Subscription period end detected: ${periodEnd.toISOString()}`);
-                    }
-                }
-            }
-
-            log(`Starting atomic database transaction...`);
+            // 4. Atomic Database Transaction
+            ctx.log(`Starting atomic database transaction...`);
             await db.transaction(async (tx) => {
                 // Re-verify status inside transaction for safety
                 const [record] = await tx.select()
@@ -285,178 +507,63 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
                     .limit(1);
 
                 if (record && record.status === 'succeeded') {
-                    log(`Transaction: Record already succeeded, aborting...`);
+                    ctx.log(`Transaction: Record already succeeded, aborting...`);
                     return; // Already processed by concurrent request
                 }
 
-                // A. Update or Insert Payment History
-                const paymentData = {
-                    userId,
-                    amount: plan.price,
-                    currency: plan.currency,
-                    status: 'succeeded',
-                    stripePaymentId: sessionId,
-                    metadata: {
-                        checkoutSessionId: sessionId,
-                        priceId: priceId,
-                        planId: plan.id,
-                        subscriptionId: subscriptionId
-                    },
-                    updatedAt: new Date()
-                };
-
-                if (record) {
-                    log(`Transaction: Updating existing pending payment record ${record.id}`);
-                    await tx.update(paymentHistory)
-                        .set(paymentData)
-                        .where(eq(paymentHistory.id, record.id));
-                } else {
-                    log(`Transaction: Creating new payment record`);
-                    await tx.insert(paymentHistory).values({
-                        id: randomUUID(),
-                        ...paymentData,
-                        createdAt: new Date()
-                    });
-                }
-
-                // B. Update Subscription if applicable
-                if (plan.interval && subscriptionId) {
-                    log(`Transaction: Updating subscription status...`);
-                    // First, mark all existing active scripts as cancelled/replaced?
-                    // Or strictly follow webhook logic:
-                    // Here we just set the new one.
-
-                    // Deactivate old active subscriptions? 
-                    // Usually we might want to ensure only ONE active subscription per user if that's the rule.
-                    // For now, let's just insert/update the current one.
-
-                    // Check if we already have a record for this sub ID
-                    const [existingSub] = await tx.select()
-                        .from(userSubscription)
-                        .where(eq(userSubscription.stripeSubscriptionId, subscriptionId))
-                        .limit(1);
-
-                    if (existingSub) {
-                        log(`Transaction: Updating existing subscription record ${existingSub.id}`);
-                        await tx.update(userSubscription)
-                            .set({
-                                status: 'active',
-                                planId: plan.id,
-                                currentPeriodEnd: periodEnd,
-                                updatedAt: new Date(),
-                                isCurrent: true // Mark as current
-                            })
-                            .where(eq(userSubscription.id, existingSub.id));
-                    } else {
-                        log(`Transaction: Creating new subscription record`);
-                        await tx.insert(userSubscription).values({
-                            id: randomUUID(),
-                            userId,
-                            planId: plan.id,
-                            stripeSubscriptionId: subscriptionId,
-                            status: 'active',
-                            currentPeriodEnd: periodEnd,
-                            createdAt: new Date(),
-                            updatedAt: new Date(),
-                            isCurrent: true // Mark as current
-                        });
-                    }
-
-                    // Mark other subscriptions as NOT current
-                    await tx.update(userSubscription)
-                        .set({ isCurrent: false })
-                        .where(and(
-                            eq(userSubscription.userId, userId),
-                            ne(userSubscription.stripeSubscriptionId, subscriptionId)
-                        ));
-                }
-
-                // C. Add Credits
-                log(`Transaction: Adding ${plan.credits} credits...`);
-
-                // 1. Update/Create Balance first to get ID
-                const [balance] = await tx.select()
-                    .from(creditBalance)
-                    .where(eq(creditBalance.userId, userId))
-                    .limit(1);
-
-                let balanceId: string;
-
-                if (balance) {
-                    balanceId = balance.id;
-                    await tx.update(creditBalance)
-                        .set({
-                            amountTotal: balance.amountTotal + plan.credits,
-                            updatedAt: new Date()
-                        })
-                        .where(eq(creditBalance.id, balance.id));
-                } else {
-                    balanceId = randomUUID();
-                    await tx.insert(creditBalance).values({
-                        id: balanceId,
-                        userId,
-                        amountTotal: plan.credits,
-                        amountUsed: 0,
-                        createdAt: new Date(),
-                        updatedAt: new Date()
-                    });
-                }
-
-                // 2. Log transaction linked to balance
-                await tx.insert(creditTransaction).values({
-                    id: randomUUID(),
-                    userId,
-                    creditBalanceId: balanceId,
-                    amount: plan.credits,
-                    description: `Purchase of ${plan.name}`,
-                    createdAt: new Date()
-                });
-
-                log(`Transaction: Credits added successfully (Balance ID: ${balanceId})`);
+                await recordPaymentHistory(ctx, tx, userId, planData, sessionId);
+                await handleSubscriptionUpdate(ctx, tx, userId, planData);
+                await handleCreditUpdate(ctx, tx, userId, plan);
             });
-            log(`Database transaction completed successfully`);
+            ctx.log(`Database transaction completed successfully`);
 
-            // 4. Post-Transaction: Association & Communication
-            // Allow this to fail without failing the request, or handle gracefully
+            // 5. Post-Transaction: Association & Communication
             try {
                 if (currentUser.stripeCustomerId !== session.customer && session.customer) {
-                    log(`Updating Stripe Customer ID on user...`);
+                    ctx.log(`Updating Stripe Customer ID on user...`);
                     await db.update(user)
                         .set({ stripeCustomerId: session.customer as string })
                         .where(eq(user.id, userId));
                 }
             } catch (err) {
-                logError(`Failed to update customer ID association`, err);
+                ctx.logError(`Failed to update customer ID association`, err);
             }
 
-            // 5. Send Email
+            // 6. Send Email
             try {
                 if (currentUser.email) {
-                    log(`Sending confirmation email to ${currentUser.email}...`);
-                    // We need a helper for sending purchase email
-                    // For now, let's assume we have one or just log it.
-                    // Implementation: import { sendPurchaseConfirmation } from '../lib/email';
-                    // await sendPurchaseConfirmation(currentUser.email, plan.name, plan.price);
+                    ctx.log(`Sending confirmation email to ${currentUser.email}...`);
+                    const cost = `$${(plan.price / 100).toFixed(2)}`;
+                    const nextBillingDate = planData.periodEnd ? planData.periodEnd.toLocaleDateString() : 'One-time';
 
-                    // Since we don't have the specific email function imported/ready in this context shown,
-                    // we log it as a TODO or use generic if available. 
-                    // Based on previous context, we might only have generic sendEmail.
-                    // For this refactor, logging is the priority.
-                    log(`(Mock) Email sent successfully`);
+                    await sendSubscriptionEmail(
+                        currentUser.email,
+                        currentUser.name || "User",
+                        plan.name,
+                        cost,
+                        nextBillingDate
+                    );
+                    ctx.log(`Email sent successfully`);
                 }
             } catch (err) {
-                logError(`Failed to send confirmation email`, err);
+                ctx.logError(`Failed to send confirmation email`, err);
             }
 
-            log(`Verification process finished successfully`);
+            ctx.log(`Verification process finished successfully`);
             return { success: true, verified: true };
 
         } catch (error: any) {
-            logError(`Error verifying session`, error);
+            ctx.logError(`Error verifying session`, error);
+            const statusCode = (error as any).statusCode || 500;
+            if (statusCode < 500) {
+                return reply.status(statusCode).send({ error: error.message });
+            }
             return reply.status(500).send({
                 error: "Failed to verify session",
                 details: error.message
             });
+        } finally {
+            activeVerifications.delete(sessionId);
         }
     });
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useNavigate, useLocation, useSearchParams } from "react-router-dom"
 import {
     User,
@@ -702,6 +702,7 @@ function CreditsTab() {
     const [searchQuery, setSearchQuery] = useState("")
     const [history, setHistory] = useState<any[]>([])
     const [balance, setBalance] = useState<{ used: number; total: number } | null>(null)
+    const verificationStarted = useRef(false);
 
     const fetchData = async () => {
         setIsLoading(true)
