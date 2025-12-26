@@ -708,7 +708,7 @@ function CreditsTab() {
         try {
             const [subRes, historyRes] = await Promise.all([
                 fetch(`${API_BASE_URL}/api/payments/subscription`, { credentials: "include" }),
-                fetch(`${API_BASE_URL}/api/payments/credits-history`, { credentials: "include" })
+                fetch(`${API_BASE_URL}/api/payments/credit-balance-history`, { credentials: "include" })
             ])
 
             if (subRes.ok) {
@@ -850,7 +850,7 @@ function CreditsTab() {
             {/* Credit History Section */}
             <Card className="rounded-3xl border-slate-100 shadow-sm overflow-hidden">
                 <CardHeader className="p-8 pb-4 flex flex-col md:flex-row md:items-center justify-between gap-6 space-y-0">
-                    <CardTitle className="text-xl font-bold text-slate-800 tracking-tight">Credit History</CardTitle>
+                    <CardTitle className="text-xl font-bold text-slate-800 tracking-tight">Credit Balance History</CardTitle>
                     <div className="flex items-center gap-3">
                         <div className="relative group flex-1 md:w-64">
                             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-purple-500 transition-colors" />
@@ -889,7 +889,7 @@ function CreditsTab() {
                                 ) : history.length === 0 ? (
                                     <tr>
                                         <td colSpan={4} className="px-8 py-20 text-center">
-                                            <p className="text-sm font-bold text-slate-400">No credit transactions yet.</p>
+                                            <p className="text-sm font-bold text-slate-400">No credit balance history yet.</p>
                                         </td>
                                     </tr>
                                 ) : history.filter(item => item.name.toLowerCase().includes(searchQuery.toLowerCase())).map((item) => {

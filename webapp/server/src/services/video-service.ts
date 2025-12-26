@@ -3,6 +3,7 @@ import { series, video, renderJob, script } from "../db/schema.js";
 import { nanoid } from "nanoid";
 import { CreateJobBody } from "../api/jobs.js";
 import { eq, desc, and, sql, inArray, or } from "drizzle-orm";
+import { deductCredits, hasEnoughCredits } from "./credit-service.js";
 
 interface CreateVideoJobParams {
     userId: string;
@@ -12,6 +13,14 @@ interface CreateVideoJobParams {
 }
 
 export async function createVideoJob({ userId, body, existingSeriesId, isDraft = false }: CreateVideoJobParams) {
+    // 0. Check credits if not a draft
+    if (!isDraft) {
+        const canAfford = await hasEnoughCredits(userId, 1);
+        if (!canAfford) {
+            throw new Error("Insufficient credits to generate this video");
+        }
+    }
+
     // Common metadata for all videos in this request
     const metadata = {
         duration: body.duration,
@@ -112,6 +121,11 @@ export async function createVideoJob({ userId, body, existingSeriesId, isDraft =
         progress: 0
     });
 
+    // 5. Deduct credit if not a draft
+    if (!isDraft) {
+        await deductCredits(userId, 1, `Video Generation: ${title}`);
+    }
+
     return {
         success: true,
         message: "Job created successfully",
@@ -177,6 +191,14 @@ export async function queueVideoRender(videoId: string, userId: string) {
         throw new Error("Video not found or access denied");
     }
 
+    const v = existingVideo[0];
+
+    // Check credits
+    const canAfford = await hasEnoughCredits(userId, 1);
+    if (!canAfford) {
+        throw new Error("Insufficient credits to generate this video");
+    }
+
     // Update video status to SCRIPTING (start of pipeline)
     await db.update(video)
         .set({ status: "SCRIPTING", updatedAt: new Date() })
@@ -186,6 +208,9 @@ export async function queueVideoRender(videoId: string, userId: string) {
     await db.update(renderJob)
         .set({ status: "QUEUED", updatedAt: new Date() })
         .where(eq(renderJob.videoId, videoId));
+
+    // Deduct credit
+    await deductCredits(userId, 1, `Video Generation: ${v.title}`);
 
     return { success: true, message: "Rendering queued successfully" };
 }

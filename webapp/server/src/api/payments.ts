@@ -688,8 +688,8 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
         }
     });
 
-    // GET /api/payments/credits-history
-    fastify.get("/credits-history", {
+    // GET /api/payments/credit-balance-history
+    fastify.get("/credit-balance-history", {
         preHandler: [requireAuth]
     }, async (request, reply) => {
         const currentUser = request.user;
@@ -706,9 +706,10 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
                 name: t.description || (t.amount > 0 ? "Credit Top-up" : "Credit Usage"),
                 date: t.createdAt ? t.createdAt.toISOString() : new Date().toISOString(),
                 status: "Completed",
-                credits: Math.abs(t.amount).toString(),
+                credits: t.amount.toString(),
                 type: t.amount > 0 ? 'purchase' : 'usage',
-                amount: 0 // Real currency amount is in paymentHistory, not here. UI might not need it for credits view.
+                iconType: t.amount > 0 ? 'plus' : 'video',
+                amount: 0
             }));
 
             return history;
