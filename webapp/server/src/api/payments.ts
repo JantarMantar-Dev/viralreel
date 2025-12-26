@@ -240,12 +240,6 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
                 }
             }
 
-            // if plan is a subscription plan, we need to deactivate any existing active subscriptions
-            // if plan is a one-time plan, we need to update the user's credits
-            if (plan.interval) {
-                await cancelAllSubscriptions(userId);
-            }
-
             await db.transaction(async (tx) => {
                 // Re-verify status inside transaction for safety (Select for update if possible, but status check is usually enough)
                 const [record] = await tx.select()
@@ -259,6 +253,12 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
                 if (record && record.status === 'succeeded') {
                     console.log(`[Payment] Session ${sessionId} already succeeded. Skipping verify-session logic.`);
                     return;
+                }
+
+                // if plan is a subscription plan, we need to deactivate any existing active subscriptions
+                // if plan is a one-time plan, we need to update the user's credits
+                if (plan.interval) {
+                    await cancelAllSubscriptions(userId);
                 }
 
                 // A. Update User Subscription
@@ -393,8 +393,7 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
         }
     });
 
-    // create function to cancel all active subscriptions for a user
-    const cancelAllSubscriptions = async (userId: string) => {
+    const cancelAllSubscriptions = async (userId: string, atPeriodEnd: boolean = false) => {
         const existingActiveSubs = await db.select()
             .from(userSubscription)
             .where(and(
@@ -405,36 +404,50 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
                 )
             ));
 
+        const results = {
+            total: existingActiveSubs.length,
+            cancelled: 0,
+            failed: 0,
+            errors: [] as string[]
+        };
+
         for (const oldSub of existingActiveSubs) {
-            // If it's a DIFFERENT Stripe subscription ID, cancel it in Stripe and DB
-            if (oldSub.stripeSubscriptionId) {
-                try {
-                    console.log(`Cancelling old subscription ${oldSub.stripeSubscriptionId} for user ${userId}`);
-                    await stripe.subscriptions.cancel(oldSub.stripeSubscriptionId);
+            try {
+                if (oldSub.stripeSubscriptionId) {
+                    console.log(`[Payment] Cancelling subscription ${oldSub.stripeSubscriptionId} for user ${userId} (atPeriodEnd: ${atPeriodEnd})`);
+                    try {
+                        if (atPeriodEnd) {
+                            await stripe.subscriptions.update(oldSub.stripeSubscriptionId, {
+                                cancel_at_period_end: true,
+                            });
+                        } else {
+                            await stripe.subscriptions.cancel(oldSub.stripeSubscriptionId);
+                        }
+                    } catch (err: any) {
+                        if (err?.code === 'resource_missing') {
+                            console.warn(`Subscription ${oldSub.stripeSubscriptionId} not found in Stripe. Marking as cancelled in DB.`);
+                        } else {
+                            throw err;
+                        }
+                    }
 
                     await db.update(userSubscription)
                         .set({
                             status: 'cancelled',
+                            cancelAtPeriodEnd: atPeriodEnd,
                             updatedAt: new Date()
                         })
                         .where(eq(userSubscription.id, oldSub.id));
-                } catch (err: any) {
-                    // If the subscription is already gone in Stripe (resource_missing),
-                    // we should still mark it as cancelled in our DB to keep consistent.
-                    if (err?.code === 'resource_missing') {
-                        console.warn(`Subscription ${oldSub.stripeSubscriptionId} not found in Stripe. Marking as cancelled in DB.`);
-                        await db.update(userSubscription)
-                            .set({
-                                status: 'cancelled',
-                                updatedAt: new Date()
-                            })
-                            .where(eq(userSubscription.id, oldSub.id));
-                    } else {
-                        console.error(`Failed to cancel old subscription ${oldSub.stripeSubscriptionId}:`, err);
-                    }
+
+                    results.cancelled++;
                 }
+            } catch (err: any) {
+                console.error(`Failed to cancel subscription ${oldSub.id}:`, err);
+                results.failed++;
+                results.errors.push(err.message || `Failed to cancel sub ${oldSub.id}`);
             }
         }
+        return results;
     };
 
     // POST /api/payments/create-portal-session
@@ -475,61 +488,11 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
         const currentUser = request.user;
         const userId = currentUser.id;
 
-        // Get all active/trialing subscriptions
-        const activeSubscriptions = await db.select()
-            .from(userSubscription)
-            .where(and(
-                eq(userSubscription.userId, currentUser.id),
-                or(
-                    eq(userSubscription.status, 'active'),
-                    eq(userSubscription.status, 'trialing')
-                )
-            ));
+        const results = await cancelAllSubscriptions(userId, true);
 
-        if (activeSubscriptions.length === 0) {
+        if (results.total === 0) {
             console.warn(`[Payment] Cancel request for user ${userId} but no active subscription found`);
             return reply.status(400).send({ error: "No active subscription found" });
-        }
-
-        const results = {
-            total: activeSubscriptions.length,
-            cancelled: 0,
-            failed: 0,
-            errors: [] as string[]
-        };
-
-        for (const sub of activeSubscriptions) {
-            try {
-                if (sub.stripeSubscriptionId) {
-                    console.log(`[Payment] Cancelling subscription ${sub.stripeSubscriptionId} for user ${userId}`);
-                    try {
-                        await stripe.subscriptions.update(sub.stripeSubscriptionId, {
-                            cancel_at_period_end: true,
-                        });
-                    } catch (stripeError: any) {
-                        if (stripeError?.code === 'resource_missing') {
-                            console.warn(`[Payment] Subscription ${sub.stripeSubscriptionId} missing in Stripe. Updating local DB only.`);
-                        } else {
-                            throw stripeError;
-                        }
-                    }
-                }
-
-                // Update database
-                await db.update(userSubscription)
-                    .set({
-                        status: 'cancelled',
-                        cancelAtPeriodEnd: true,
-                        updatedAt: new Date(),
-                    })
-                    .where(eq(userSubscription.id, sub.id));
-
-                results.cancelled++;
-            } catch (error: any) {
-                console.error(`[Payment] Cancellation error for sub ${sub.id} (user ${userId}):`, error);
-                results.failed++;
-                results.errors.push(error.message || `Failed to cancel sub ${sub.id}`);
-            }
         }
 
         if (results.failed > 0 && results.cancelled === 0) {
@@ -748,5 +711,7 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
             return reply.status(500).send({ error: "Failed to fetch credit history" });
         }
     });
+
+
 
 }
