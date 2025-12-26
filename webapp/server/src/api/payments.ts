@@ -202,11 +202,6 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
                 return { success: true, verified: true, message: "Already processed" };
             }
 
-            if (!existingPayment) {
-                // If we really can't find it, we might be in a weird state, but let's try to proceed 
-                // if the session itself is valid. We'll create a record later.
-            }
-
             // 3. Process Credits and Subscription atomically
             const userId = currentUser.id;
 
@@ -245,46 +240,10 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
                 }
             }
 
-            // Deactivate any EXISTING active subscriptions that are different from the new one
-            const existingActiveSubs = await db.select()
-                .from(userSubscription)
-                .where(and(
-                    eq(userSubscription.userId, userId),
-                    or(
-                        eq(userSubscription.status, 'active'),
-                        eq(userSubscription.status, 'trialing')
-                    )
-                ));
-
-            for (const oldSub of existingActiveSubs) {
-                // If it's a DIFFERENT Stripe subscription ID, cancel it in Stripe and DB
-                if (oldSub.stripeSubscriptionId && oldSub.stripeSubscriptionId !== subscriptionId) {
-                    try {
-                        console.log(`Cancelling old subscription ${oldSub.stripeSubscriptionId} for user ${userId} due to new subscription ${subscriptionId}`);
-                        await stripe.subscriptions.cancel(oldSub.stripeSubscriptionId);
-
-                        await db.update(userSubscription)
-                            .set({
-                                status: 'cancelled',
-                                updatedAt: new Date()
-                            })
-                            .where(eq(userSubscription.id, oldSub.id));
-                    } catch (err: any) {
-                        // If the subscription is already gone in Stripe (resource_missing),
-                        // we should still mark it as cancelled in our DB to keep consistent.
-                        if (err?.code === 'resource_missing') {
-                            console.warn(`Subscription ${oldSub.stripeSubscriptionId} not found in Stripe. Marking as cancelled in DB.`);
-                            await db.update(userSubscription)
-                                .set({
-                                    status: 'cancelled',
-                                    updatedAt: new Date()
-                                })
-                                .where(eq(userSubscription.id, oldSub.id));
-                        } else {
-                            console.error(`Failed to cancel old subscription ${oldSub.stripeSubscriptionId}:`, err);
-                        }
-                    }
-                }
+            // if plan is a subscription plan, we need to deactivate any existing active subscriptions
+            // if plan is a one-time plan, we need to update the user's credits
+            if (plan.interval) {
+                await cancelAllSubscriptions(userId);
             }
 
             await db.transaction(async (tx) => {
@@ -434,6 +393,50 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
         }
     });
 
+    // create function to cancel all active subscriptions for a user
+    const cancelAllSubscriptions = async (userId: string) => {
+        const existingActiveSubs = await db.select()
+            .from(userSubscription)
+            .where(and(
+                eq(userSubscription.userId, userId),
+                or(
+                    eq(userSubscription.status, 'active'),
+                    eq(userSubscription.status, 'trialing')
+                )
+            ));
+
+        for (const oldSub of existingActiveSubs) {
+            // If it's a DIFFERENT Stripe subscription ID, cancel it in Stripe and DB
+            if (oldSub.stripeSubscriptionId) {
+                try {
+                    console.log(`Cancelling old subscription ${oldSub.stripeSubscriptionId} for user ${userId}`);
+                    await stripe.subscriptions.cancel(oldSub.stripeSubscriptionId);
+
+                    await db.update(userSubscription)
+                        .set({
+                            status: 'cancelled',
+                            updatedAt: new Date()
+                        })
+                        .where(eq(userSubscription.id, oldSub.id));
+                } catch (err: any) {
+                    // If the subscription is already gone in Stripe (resource_missing),
+                    // we should still mark it as cancelled in our DB to keep consistent.
+                    if (err?.code === 'resource_missing') {
+                        console.warn(`Subscription ${oldSub.stripeSubscriptionId} not found in Stripe. Marking as cancelled in DB.`);
+                        await db.update(userSubscription)
+                            .set({
+                                status: 'cancelled',
+                                updatedAt: new Date()
+                            })
+                            .where(eq(userSubscription.id, oldSub.id));
+                    } else {
+                        console.error(`Failed to cancel old subscription ${oldSub.stripeSubscriptionId}:`, err);
+                    }
+                }
+            }
+        }
+    };
+
     // POST /api/payments/create-portal-session
     fastify.post("/create-portal-session", {
         preHandler: [requireAuth]
@@ -472,52 +475,71 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
         const currentUser = request.user;
         const userId = currentUser.id;
 
-        // Get the active subscription
-        const [subscription] = await db.select()
+        // Get all active/trialing subscriptions
+        const activeSubscriptions = await db.select()
             .from(userSubscription)
             .where(and(
                 eq(userSubscription.userId, currentUser.id),
-                eq(userSubscription.status, 'active'), // Note: 'active' status check might be redundant if isCurrent is reliable, but good for safety
-                eq(userSubscription.isCurrent, true)
-            ))
-            .limit(1);
+                or(
+                    eq(userSubscription.status, 'active'),
+                    eq(userSubscription.status, 'trialing')
+                )
+            ));
 
-        if (!subscription || !subscription.stripeSubscriptionId) {
+        if (activeSubscriptions.length === 0) {
             console.warn(`[Payment] Cancel request for user ${userId} but no active subscription found`);
             return reply.status(400).send({ error: "No active subscription found" });
         }
 
-        try {
-            console.log(`[Payment] Cancelling subscription ${subscription.stripeSubscriptionId} for user ${userId}`);
+        const results = {
+            total: activeSubscriptions.length,
+            cancelled: 0,
+            failed: 0,
+            errors: [] as string[]
+        };
 
-            // Check if it exists in Stripe before cancelling?
-            // Just try cancelling.
+        for (const sub of activeSubscriptions) {
             try {
-                await stripe.subscriptions.update(subscription.stripeSubscriptionId, {
-                    cancel_at_period_end: true,
-                });
-            } catch (stripeError: any) {
-                if (stripeError?.code === 'resource_missing') {
-                    console.warn(`[Payment] Subscription ${subscription.stripeSubscriptionId} missing in Stripe. Configuring local DB override.`);
-                } else {
-                    throw stripeError;
+                if (sub.stripeSubscriptionId) {
+                    console.log(`[Payment] Cancelling subscription ${sub.stripeSubscriptionId} for user ${userId}`);
+                    try {
+                        await stripe.subscriptions.update(sub.stripeSubscriptionId, {
+                            cancel_at_period_end: true,
+                        });
+                    } catch (stripeError: any) {
+                        if (stripeError?.code === 'resource_missing') {
+                            console.warn(`[Payment] Subscription ${sub.stripeSubscriptionId} missing in Stripe. Updating local DB only.`);
+                        } else {
+                            throw stripeError;
+                        }
+                    }
                 }
+
+                // Update database
+                await db.update(userSubscription)
+                    .set({
+                        status: 'cancelled',
+                        cancelAtPeriodEnd: true,
+                        updatedAt: new Date(),
+                    })
+                    .where(eq(userSubscription.id, sub.id));
+
+                results.cancelled++;
+            } catch (error: any) {
+                console.error(`[Payment] Cancellation error for sub ${sub.id} (user ${userId}):`, error);
+                results.failed++;
+                results.errors.push(error.message || `Failed to cancel sub ${sub.id}`);
             }
-
-            // Update database
-            await db.update(userSubscription)
-                .set({
-                    status: 'cancelled',
-                    cancelAtPeriodEnd: true,
-                    updatedAt: new Date(),
-                })
-                .where(eq(userSubscription.id, subscription.id));
-
-            return { success: true };
-        } catch (error: any) {
-            console.error(`[Payment] Cancellation error for user ${userId}:`, error);
-            return reply.status(500).send({ error: error.message || "Failed to cancel subscription" });
         }
+
+        if (results.failed > 0 && results.cancelled === 0) {
+            return reply.status(500).send({
+                error: "Failed to cancel any subscriptions",
+                details: results.errors
+            });
+        }
+
+        return { success: true, ...results };
     });
 
     // POST /api/payments/reactivate-subscription
