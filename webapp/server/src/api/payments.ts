@@ -12,7 +12,7 @@ const CHECKOUT_SCHEMA = z.object({
     priceId: z.string(),
 });
 
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
 
 export default async function paymentsRoutes(fastify: FastifyInstance) {
     // GET /api/payments/plans
@@ -190,36 +190,32 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
             }
 
             // 2. Check if already processed (Idempotency)
-            // Use sqlRaw or a specific query if needed, here we check paymentHistory status
             const [existingPayment] = await db.select()
                 .from(paymentHistory)
-                .where(sql`${paymentHistory.metadata}->>'checkoutSessionId' = ${sessionId}`)
+                .where(or(
+                    eq(paymentHistory.stripePaymentId, sessionId),
+                    sql`${paymentHistory.metadata}->>'checkoutSessionId' = ${sessionId}`
+                ))
                 .limit(1);
 
             if (existingPayment && existingPayment.status === 'succeeded') {
-                return { success: true, message: "Already processed" };
+                return { success: true, verified: true, message: "Already processed" };
             }
 
-            const [pendingPayment] = await db.select()
-                .from(paymentHistory)
-                .where(eq(paymentHistory.stripePaymentId, sessionId))
-                .limit(1);
-
-            if (pendingPayment && pendingPayment.status === 'succeeded') {
-                return { success: true, message: "Already processed" };
+            if (!existingPayment) {
+                // If we really can't find it, we might be in a weird state, but let's try to proceed 
+                // if the session itself is valid. We'll create a record later.
             }
 
-            // 3. Process Credits and Subscription (Logic refactored from webhook)
+            // 3. Process Credits and Subscription atomically
             const userId = currentUser.id;
-            const stripePriceId = session.line_items?.data[0]?.price?.id || session.metadata?.priceId;
 
-            // We might need to expand line_items if not present in basic retrieve
+            // Expand session to get detailed info
             const expandedSession = await stripe.checkout.sessions.retrieve(sessionId, {
                 expand: ['line_items', 'subscription'],
             });
-            console.log("DEBUG: expandedSession.subscription:", JSON.stringify(expandedSession.subscription, null, 2));
             const lineItem = expandedSession.line_items?.data[0];
-            const priceId = lineItem?.price?.id;
+            const priceId = lineItem?.price?.id || session.metadata?.priceId;
 
             if (!priceId) {
                 return reply.status(400).send({ error: "Could not determine price" });
@@ -235,185 +231,147 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
             }
 
             let periodEnd: Date | null = null;
-            if (plan.interval) {
-                const sub = expandedSession.subscription && typeof expandedSession.subscription !== 'string'
-                    ? expandedSession.subscription as any
-                    : null;
+            const subscriptionId = expandedSession.subscription && typeof expandedSession.subscription !== 'string'
+                ? (expandedSession.subscription as any).id
+                : (expandedSession.subscription as string);
 
-                if (sub) {
-                    const ts = sub.current_period_end || sub.items?.data?.[0]?.current_period_end;
+            if (plan.interval) {
+                const sub = expandedSession.subscription as any;
+                if (sub && typeof sub !== 'string') {
+                    const ts = sub.current_period_end;
                     if (typeof ts === 'number') {
                         periodEnd = new Date(ts * 1000);
-                    } else {
-                        periodEnd = null;
-                    }
-                } else {
-                    periodEnd = null;
-                }
-
-                const subscriptionId = expandedSession.subscription && typeof expandedSession.subscription !== 'string'
-                    ? expandedSession.subscription.id
-                    : expandedSession.subscription as string;
-
-                // Deactivate any EXISTING active subscriptions that are different from the new one
-                const existingActiveSubs = await db.select()
-                    .from(userSubscription)
-                    .where(and(
-                        eq(userSubscription.userId, userId),
-                        or(
-                            eq(userSubscription.status, 'active'),
-                            eq(userSubscription.status, 'trialing')
-                        )
-                    ));
-
-                for (const oldSub of existingActiveSubs) {
-                    // If it's a DIFFERENT Stripe subscription ID, cancel it in Stripe and DB
-                    if (oldSub.stripeSubscriptionId && oldSub.stripeSubscriptionId !== subscriptionId) {
-                        try {
-                            console.log(`Cancelling old subscription ${oldSub.stripeSubscriptionId} for user ${userId} due to new subscription ${subscriptionId}`);
-                            await stripe.subscriptions.cancel(oldSub.stripeSubscriptionId);
-
-                            await db.update(userSubscription)
-                                .set({
-                                    status: 'cancelled',
-                                    updatedAt: new Date()
-                                })
-                                .where(eq(userSubscription.id, oldSub.id));
-                        } catch (err: any) {
-                            // If the subscription is already gone in Stripe (resource_missing),
-                            // we should still mark it as cancelled in our DB to keep consistent.
-                            if (err?.code === 'resource_missing') {
-                                console.warn(`Subscription ${oldSub.stripeSubscriptionId} not found in Stripe. Marking as cancelled in DB.`);
-                                await db.update(userSubscription)
-                                    .set({
-                                        status: 'cancelled',
-                                        updatedAt: new Date()
-                                    })
-                                    .where(eq(userSubscription.id, oldSub.id));
-                            } else {
-                                console.error(`Failed to cancel old subscription ${oldSub.stripeSubscriptionId}:`, err);
-                            }
-                        }
                     }
                 }
+            }
 
-                const [existingSubMap] = await db.select()
-                    .from(userSubscription)
-                    .where(and(
-                        eq(userSubscription.userId, userId),
-                        eq(userSubscription.stripeSubscriptionId, subscriptionId) // Match by specific Stripe Sub ID if possible, or fallback
+            await db.transaction(async (tx) => {
+                // Re-verify status inside transaction for safety (Select for update if possible, but status check is usually enough)
+                const [record] = await tx.select()
+                    .from(paymentHistory)
+                    .where(or(
+                        eq(paymentHistory.stripePaymentId, sessionId),
+                        sql`${paymentHistory.metadata}->>'checkoutSessionId' = ${sessionId}`
                     ))
                     .limit(1);
 
-                // Decide which record to update:
-                // Priority 1: Exact Stripe ID match (we are just updating the same sub)
-                // But the schema limits logic? No, schema has `id` PK.
+                if (record && record.status === 'succeeded') {
+                    console.log(`[Payment] Session ${sessionId} already succeeded. Skipping verify-session logic.`);
+                    return;
+                }
 
-                // Let's rely on Stripe ID matching.
-                if (existingSubMap) {
-                    await db.update(userSubscription)
-                        .set({
+                // A. Update User Subscription
+                if (plan.interval && subscriptionId) {
+                    const [existingSubMap] = await tx.select()
+                        .from(userSubscription)
+                        .where(eq(userSubscription.userId, userId))
+                        .limit(1);
+
+                    if (existingSubMap) {
+                        await tx.update(userSubscription)
+                            .set({
+                                planId: plan.id,
+                                stripeSubscriptionId: subscriptionId,
+                                status: 'active',
+                                currentPeriodEnd: periodEnd,
+                                isCurrent: true,
+                                updatedAt: new Date(),
+                            })
+                            .where(eq(userSubscription.id, existingSubMap.id));
+                    } else {
+                        await tx.insert(userSubscription).values({
+                            id: randomUUID(),
+                            userId,
                             planId: plan.id,
+                            stripeSubscriptionId: subscriptionId,
                             status: 'active',
                             currentPeriodEnd: periodEnd,
+                            isCurrent: true
+                        });
+                    }
+                }
+
+                // B. Update Credit Balance
+                const [balance] = await tx.select()
+                    .from(creditBalance)
+                    .where(eq(creditBalance.userId, userId))
+                    .limit(1);
+
+                if (balance) {
+                    await tx.update(creditBalance)
+                        .set({
+                            amountTotal: balance.amountTotal + plan.credits,
+                            expiresAt: periodEnd,
                             updatedAt: new Date(),
                         })
-                        .where(eq(userSubscription.id, existingSubMap.id));
-                } else {
-                    // Mark previous subscriptions as not current
-                    await db.update(userSubscription)
-                        .set({ isCurrent: false })
-                        .where(and(
-                            eq(userSubscription.userId, userId),
-                            eq(userSubscription.isCurrent, true)
-                        ));
+                        .where(eq(creditBalance.id, balance.id));
 
-                    await db.insert(userSubscription).values({
+                    await tx.insert(creditTransaction).values({
                         id: randomUUID(),
                         userId,
-                        planId: plan.id,
-                        stripeSubscriptionId: subscriptionId,
-                        status: 'active',
-                        currentPeriodEnd: periodEnd,
-                        isCurrent: true
+                        creditBalanceId: balance.id,
+                        amount: plan.credits,
+                        description: `Plan Purchase: ${plan.name}`,
+                    });
+                } else {
+                    const balanceId = randomUUID();
+                    await tx.insert(creditBalance).values({
+                        id: balanceId,
+                        userId,
+                        amountTotal: plan.credits,
+                        amountUsed: 0,
+                        expiresAt: periodEnd,
+                    });
+
+                    await tx.insert(creditTransaction).values({
+                        id: randomUUID(),
+                        userId,
+                        creditBalanceId: balanceId,
+                        amount: plan.credits,
+                        description: `Initial Plan Purchase: ${plan.name}`,
                     });
                 }
-            }
 
-            // 3. Update credit balance (Single record per user)
-            const [existingBalance] = await db.select()
-                .from(creditBalance)
-                .where(eq(creditBalance.userId, userId))
-                .limit(1);
-
-            if (existingBalance) {
-                // Following user's manual edit: adding credits
-                const newAmountTotal = plan.credits + existingBalance.amountTotal;
-
-                await db.update(creditBalance)
-                    .set({
-                        amountTotal: newAmountTotal,
-                        expiresAt: periodEnd,
-                        updatedAt: new Date(),
-                    })
-                    .where(eq(creditBalance.id, existingBalance.id));
-
-                // Log the transaction
-                await db.insert(creditTransaction).values({
-                    id: randomUUID(),
-                    userId,
-                    creditBalanceId: existingBalance.id,
-                    amount: plan.credits,
-                    description: `Plan Purchase: ${plan.name}`,
-                });
-            } else {
-                const balanceId = randomUUID();
-                await db.insert(creditBalance).values({
-                    id: balanceId,
-                    userId,
-                    amountTotal: plan.credits,
-                    amountUsed: 0,
-                    expiresAt: periodEnd,
-                });
-
-                // Log the transaction
-                await db.insert(creditTransaction).values({
-                    id: randomUUID(),
-                    userId,
-                    creditBalanceId: balanceId,
-                    amount: plan.credits,
-                    description: `Initial Plan Purchase: ${plan.name}`,
-                });
-            }
-
-            // 4. Update Payment History to Succeeded
-            if (pendingPayment) {
-                await db.update(paymentHistory)
-                    .set({
+                // C. Update Payment History
+                if (record) {
+                    await tx.update(paymentHistory).set({
                         status: 'succeeded',
-                        stripePaymentId: expandedSession.payment_intent as string || sessionId // Update to actual PI if available
-                    })
-                    .where(eq(paymentHistory.id, pendingPayment.id));
-            } else {
-                // Fallback if pending record wasn't found (shouldn't happen in this flow)
-                await db.insert(paymentHistory).values({
-                    id: randomUUID(),
-                    userId,
-                    amount: session.amount_total || 0,
-                    currency: session.currency || 'usd',
-                    status: 'succeeded',
-                    stripePaymentId: expandedSession.payment_intent as string || sessionId,
-                    metadata: { checkoutSessionId: sessionId }
-                });
+                        stripePaymentId: expandedSession.payment_intent as string || sessionId
+                    }).where(eq(paymentHistory.id, record.id));
+                } else {
+                    await tx.insert(paymentHistory).values({
+                        id: randomUUID(),
+                        userId,
+                        amount: session.amount_total || 0,
+                        currency: session.currency || 'usd',
+                        status: 'succeeded',
+                        stripePaymentId: expandedSession.payment_intent as string || sessionId,
+                        metadata: { checkoutSessionId: sessionId }
+                    });
+                }
+            });
+
+            // 4. Update user with stripeCustomerId if not already set
+            if (session.customer && !currentUser.stripeCustomerId) {
+                await db.update(user)
+                    .set({ stripeCustomerId: session.customer as string })
+                    .where(eq(user.id, userId));
             }
 
-            // 5. Send Email (Async)
-            // We can invoke the email logic here or assume webhook handles it.
-            // To ensure reliability, we can do it here if we want immediate feedback,
-            // but usually emails are fine in webhooks. Let's keep email in webhook for now or duplicate safely.
-            // For now, let's leave email in webhook,                // 4. Return Success with Redirect
-            // If success=true in query, we might want to redirect or just return.
-            // The client calls this via fetch, so we return JSON.
+            // 5. Send confirmation email (Async)
+            try {
+                const { sendSubscriptionEmail } = await import("../lib/email.js");
+                await sendSubscriptionEmail(
+                    currentUser.email,
+                    currentUser.name || "User",
+                    plan.name,
+                    `$${((session.amount_total || 0) / 100).toFixed(2)}`,
+                    periodEnd?.toLocaleDateString() || "N/A"
+                );
+            } catch (emailErr) {
+                console.error("[Payment] Failed to send subscription email:", emailErr);
+            }
+
             return { success: true, verified: true };
 
         } catch (error: any) {
@@ -719,273 +677,4 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
         }
     });
 
-    // POST /api/payments/webhook
-    fastify.post("/webhook", {
-        config: { rawBody: true },
-    }, async (request: any, reply) => {
-        const sig = request.headers['stripe-signature'];
-
-        if (!sig || !webhookSecret) {
-            console.error("Missing Stripe signature or webhook secret");
-            return reply.status(400).send({ error: "Webhook Error: Missing signature or secret" });
-        }
-
-        let event;
-        try {
-            event = stripe.webhooks.constructEvent(request.rawBody!, sig, webhookSecret);
-        } catch (err: any) {
-            console.error(`Webhook signature verification failed: ${err.message}`);
-            return reply.status(400).send({ error: `Webhook Error: ${err.message}` });
-        }
-
-        console.log(`Processing Stripe event: ${event.type}`);
-
-        try {
-            switch (event.type) {
-                case 'checkout.session.completed': {
-                    const session = event.data.object as any;
-                    const userId = session.client_reference_id;
-                    const subscriptionId = session.subscription;
-                    const customerId = session.customer;
-
-                    if (!userId) {
-                        console.error("No userId found in checkout session metadata");
-                        break;
-                    }
-
-                    // IDEMPOTENCY CHECK:
-                    // Check if we already processed this session via client-side verification
-                    // We check by stripePaymentId which we set to session.id in the pending record
-                    const [existingRecord] = await db.select()
-                        .from(paymentHistory)
-                        .where(eq(paymentHistory.stripePaymentId, session.id))
-                        .limit(1);
-
-                    if (existingRecord && existingRecord.status === 'succeeded') {
-                        console.log(`Session ${session.id} already processed. Skipping webhook logic.`);
-                        break;
-                    }
-
-                    // Get the price and its related plan
-                    const stripePriceId = session.line_items?.data[0]?.price?.id || session.metadata?.priceId;
-
-                    // Note: If line_items isn't expanded, we might need to retrieve the session or just rely on metadata
-                    const expandedSession = await stripe.checkout.sessions.retrieve(session.id, {
-                        expand: ['line_items', 'subscription'],
-                    });
-                    console.log("Webhook DEBUG: expandedSession.subscription:", JSON.stringify(expandedSession.subscription, null, 2));
-
-                    const lineItem = expandedSession.line_items?.data[0];
-                    const priceId = lineItem?.price?.id;
-
-                    if (!priceId) {
-                        console.error("Could not determine priceId from session");
-                        break;
-                    }
-
-                    const [plan] = await db.select()
-                        .from(subscriptionPlan)
-                        .where(eq(subscriptionPlan.stripePriceId, priceId))
-                        .limit(1);
-
-                    if (!plan) {
-                        console.error(`No plan found for Stripe Price ID: ${priceId}`);
-                        break;
-                    }
-
-                    // 1. Update user with stripeCustomerId if not already set
-                    await db.update(user)
-                        .set({ stripeCustomerId: customerId as string })
-                        .where(eq(user.id, userId));
-
-                    // 2. Create or Update userSubscription (only for recurring plans)
-                    // If it's a one-time payment, subscriptionId will be null/undefined, and we skip this.
-                    let periodEnd: Date | null = null;
-                    if (plan.interval) {
-                        const sub = expandedSession.subscription && typeof expandedSession.subscription !== 'string'
-                            ? expandedSession.subscription as any
-                            : null;
-
-                        if (sub) {
-                            const ts = sub.current_period_end || sub.items?.data?.[0]?.current_period_end;
-                            if (typeof ts === 'number') {
-                                periodEnd = new Date(ts * 1000);
-                            } else {
-                                periodEnd = null;
-                            }
-                        } else {
-                            periodEnd = null;
-                        }
-
-                        const [existingSub] = await db.select()
-                            .from(userSubscription)
-                            .where(eq(userSubscription.userId, userId))
-                            .limit(1);
-
-                        if (existingSub) {
-                            await db.update(userSubscription)
-                                .set({
-                                    planId: plan.id,
-                                    stripeSubscriptionId: subscriptionId as string,
-                                    status: 'active',
-                                    currentPeriodEnd: periodEnd,
-                                    updatedAt: new Date(),
-                                })
-                                .where(eq(userSubscription.id, existingSub.id));
-                        } else {
-                            await db.insert(userSubscription).values({
-                                id: randomUUID(),
-                                userId,
-                                planId: plan.id,
-                                stripeSubscriptionId: subscriptionId as string,
-                                status: 'active',
-                                currentPeriodEnd: periodEnd,
-                            });
-                        }
-                    }
-
-                    // 3. Update credit balance (Single record per user)
-                    const [existingBalance] = await db.select()
-                        .from(creditBalance)
-                        .where(eq(creditBalance.userId, userId))
-                        .limit(1);
-
-                    if (existingBalance) {
-                        const newAmountTotal = plan.credits + existingBalance.amountTotal;
-
-                        await db.update(creditBalance)
-                            .set({
-                                amountTotal: newAmountTotal,
-                                expiresAt: periodEnd,
-                                updatedAt: new Date(),
-                            })
-                            .where(eq(creditBalance.id, existingBalance.id));
-
-                        // Log the transaction
-                        await db.insert(creditTransaction).values({
-                            id: randomUUID(),
-                            userId,
-                            creditBalanceId: existingBalance.id,
-                            amount: plan.credits,
-                            description: `Plan Purchase: ${plan.name} (Webhook)`,
-                        });
-                    } else {
-                        const balanceId = randomUUID();
-                        await db.insert(creditBalance).values({
-                            id: balanceId,
-                            userId,
-                            amountTotal: plan.credits,
-                            amountUsed: 0,
-                            expiresAt: periodEnd,
-                        });
-
-                        // Log the transaction
-                        await db.insert(creditTransaction).values({
-                            id: randomUUID(),
-                            userId,
-                            creditBalanceId: balanceId,
-                            amount: plan.credits,
-                            description: `Initial Plan Purchase: ${plan.name} (Webhook)`,
-                        });
-                    }
-
-                    // 4. Log payment history (Update if pending exists, else Insert)
-                    if (existingRecord) {
-                        await db.update(paymentHistory).set({
-                            status: 'succeeded',
-                            stripePaymentId: expandedSession.payment_intent as string || session.id
-                        }).where(eq(paymentHistory.id, existingRecord.id));
-                    } else {
-                        await db.insert(paymentHistory).values({
-                            id: randomUUID(),
-                            userId,
-                            amount: session.amount_total,
-                            currency: session.currency,
-                            status: 'succeeded',
-                            stripePaymentId: session.payment_intent as string || session.id,
-                            metadata: { checkoutSessionId: session.id }
-                        });
-                    }
-
-                    // 5. Send confirmation email
-                    const [userData] = await db.select().from(user).where(eq(user.id, userId)).limit(1);
-                    if (userData) {
-                        const { sendSubscriptionEmail } = await import("../lib/email.js");
-                        await sendSubscriptionEmail(
-                            userData.email,
-                            userData.name,
-                            plan.name,
-                            `$${(session.amount_total / 100).toFixed(2)}`,
-                            periodEnd?.toLocaleDateString() || "N/A"
-                        );
-                    }
-
-                    break;
-                }
-
-                case 'customer.subscription.updated': {
-                    const subscription = event.data.object as any;
-                    let periodEnd: Date | null = null;
-                    const ts = subscription.current_period_end || subscription.items?.data?.[0]?.current_period_end;
-                    if (typeof ts === 'number') {
-                        periodEnd = new Date(ts * 1000);
-                    }
-                    const status = subscription.status;
-                    const cancelAtPeriodEnd = subscription.cancel_at_period_end;
-
-                    await db.update(userSubscription)
-                        .set({
-                            status,
-                            currentPeriodEnd: periodEnd,
-                            cancelAtPeriodEnd,
-                            updatedAt: new Date(),
-                        })
-                        .where(eq(userSubscription.stripeSubscriptionId, subscription.id));
-
-                    break;
-                }
-
-                case 'customer.subscription.deleted': {
-                    const subscription = event.data.object as any;
-
-                    await db.update(userSubscription)
-                        .set({
-                            status: 'canceled',
-                            updatedAt: new Date(),
-                        })
-                        .where(eq(userSubscription.stripeSubscriptionId, subscription.id));
-
-                    // Send cancellation email
-                    const [sub] = await db.select().from(userSubscription).where(eq(userSubscription.stripeSubscriptionId, subscription.id)).limit(1);
-                    if (sub) {
-                        const [userData] = await db.select().from(user).where(eq(user.id, sub.userId)).limit(1);
-                        const [plan] = await db.select().from(subscriptionPlan).where(eq(subscriptionPlan.id, sub.planId)).limit(1);
-                        if (userData && plan) {
-                            const { sendSubscriptionCancelledEmail } = await import("../lib/email.js");
-                            await sendSubscriptionCancelledEmail(
-                                userData.email,
-                                userData.name,
-                                plan.name,
-                                new Date().toLocaleDateString(),
-                                sub.currentPeriodEnd?.toLocaleDateString() || "N/A"
-                            );
-                        }
-                    }
-
-                    break;
-                }
-
-                case 'invoice.paid': {
-                    // Logic for recurring payments logging if needed
-                    break;
-                }
-            }
-        } catch (error: any) {
-            console.error(`Error processing webhook event ${event.type}:`, error);
-            // We still return 200 to Stripe to avoid retries if the signature was valid but our processing failed
-            // Unless it's a temporary error, but here we'll log it.
-        }
-
-        return reply.status(200).send({ received: true });
-    });
 }
