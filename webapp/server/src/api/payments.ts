@@ -65,19 +65,272 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
                 .where(eq(user.id, currentUser.id));
         }
 
-        const successUrl = `${process.env.CLIENT_URL}/dashboard/settings/credits?success=true&session_id={CHECKOUT_SESSION_ID}`;
-        const cancelUrl = `${process.env.CLIENT_URL}/dashboard/settings`;
+        // Check for existing pending session to reuse
+        const pendingPayments = await db.select()
+            .from(paymentHistory)
+            .where(and(
+                eq(paymentHistory.userId, currentUser.id),
+                eq(paymentHistory.status, 'pending')
+            ));
 
-        const session = await createCheckoutSession({
-            customerId: stripeCustomerId,
-            priceId,
-            successUrl,
-            cancelUrl,
-            clientReferenceId: currentUser.id,
-            mode,
-        });
+        let existingRecordToUpdate: any = null;
+
+        for (const record of pendingPayments) {
+            const metadata = record.metadata as any;
+            if (metadata?.priceId === plan.stripePriceId) {
+                // Check if created within last 20 hours
+                const isRecent = new Date().getTime() - new Date(record.createdAt!).getTime() < 20 * 60 * 60 * 1000;
+
+                if (isRecent && metadata.checkoutUrl) {
+                    console.log(`Reusing existing pending session: ${record.id}`);
+                    return { url: metadata.checkoutUrl };
+                }
+
+                // If found but expired (or missing URL), mark for update
+                existingRecordToUpdate = record;
+                break;
+            }
+        }
+
+        console.log("Creating new checkout session");
+
+        const session = await stripe.checkout.sessions.create({
+            payment_method_types: ['card'],
+            line_items: [
+                {
+                    price: plan.stripePriceId,
+                    quantity: 1,
+                },
+            ],
+            mode: plan.interval ? 'subscription' : 'payment',
+            success_url: `${process.env.CLIENT_URL}/settings/credits?success=true&session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${process.env.CLIENT_URL}/settings/billing?canceled=true`,
+            customer: currentUser.stripeCustomerId || undefined,
+            client_reference_id: currentUser.id,
+            subscription_data: plan.interval ? {
+                metadata: {
+                    userId: currentUser.id,
+                    priceId: plan.stripePriceId
+                }
+            } : undefined,
+            metadata: {
+                userId: currentUser.id,
+                priceId: plan.stripePriceId
+            }
+        } as any);
+
+        if (!session.url) {
+            throw new Error("Failed to create checkout session");
+        }
+
+        // Create or Update pending payment record
+        const metadata = {
+            checkoutSessionId: session.id,
+            checkoutUrl: session.url,
+            priceId: plan.stripePriceId
+        };
+
+        if (existingRecordToUpdate) {
+            await db.update(paymentHistory)
+                .set({
+                    status: 'pending',
+                    stripePaymentId: session.id,
+                    amount: session.amount_total || plan.price,
+                    currency: session.currency || plan.currency,
+                    createdAt: new Date(), // Reset timestamp for new window
+                    metadata: metadata
+                })
+                .where(eq(paymentHistory.id, existingRecordToUpdate.id));
+        } else {
+            await db.insert(paymentHistory).values({
+                id: randomUUID(),
+                userId: currentUser.id,
+                amount: session.amount_total || plan.price,
+                currency: session.currency || plan.currency,
+                status: 'pending',
+                stripePaymentId: session.id, // Store session ID for idempotency
+                metadata: metadata
+            });
+        }
 
         return { url: session.url };
+    });
+
+    // POST /api/payments/verify-session
+    fastify.post("/verify-session", {
+        preHandler: [requireAuth],
+        schema: {
+            body: z.object({
+                sessionId: z.string()
+            })
+        }
+    }, async (request: FastifyRequest<{ Body: { sessionId: string } }>, reply) => {
+        const { sessionId } = request.body;
+        const currentUser = request.user;
+
+        if (!sessionId) {
+            return reply.status(400).send({ error: "Session ID is required" });
+        }
+
+        try {
+            // 1. Retrieve session from Stripe
+            const session = await stripe.checkout.sessions.retrieve(sessionId);
+
+            if (session.payment_status !== 'paid') {
+                return reply.status(400).send({ error: "Payment not completed" });
+            }
+
+            // 2. Check if already processed (Idempotency)
+            // Use sqlRaw or a specific query if needed, here we check paymentHistory status
+            const [existingPayment] = await db.select()
+                .from(paymentHistory)
+                .where(eq(paymentHistory.metadata, { checkoutSessionId: sessionId } as any)) // Cast due to JSONb
+                .limit(1);
+
+            // If we found a record and it's succeeded, we're done
+            // Note: In Drizzle, querying JSON fields might need specific operators depending on driver.
+            // A safer bet without complex operators is checking by stripePaymentId if we stored session.id there initially
+            // OR find by userId and then filter in memory if volume is low, but better to use stripePaymentId for lookup if possible.
+            // Let's rely on finding by stripePaymentId since we stored session.id there in pending step.
+
+            const [pendingPayment] = await db.select()
+                .from(paymentHistory)
+                .where(eq(paymentHistory.stripePaymentId, sessionId))
+                .limit(1);
+
+            if (pendingPayment && pendingPayment.status === 'succeeded') {
+                return { success: true, message: "Already processed" };
+            }
+
+            // 3. Process Credits and Subscription (Logic refactored from webhook)
+            const userId = currentUser.id;
+            const stripePriceId = session.line_items?.data[0]?.price?.id || session.metadata?.priceId;
+
+            // We might need to expand line_items if not present in basic retrieve
+            const expandedSession = await stripe.checkout.sessions.retrieve(sessionId, {
+                expand: ['line_items', 'subscription'],
+            });
+            const lineItem = expandedSession.line_items?.data[0];
+            const priceId = lineItem?.price?.id;
+
+            if (!priceId) {
+                return reply.status(400).send({ error: "Could not determine price" });
+            }
+
+            const [plan] = await db.select()
+                .from(subscriptionPlan)
+                .where(eq(subscriptionPlan.stripePriceId, priceId))
+                .limit(1);
+
+            if (!plan) {
+                return reply.status(404).send({ error: "Plan not found" });
+            }
+
+            // --- Credit / Subscription Update Logic ---
+            let periodEnd: Date | null = null;
+            if (plan.interval) {
+                periodEnd = expandedSession.subscription && typeof expandedSession.subscription !== 'string'
+                    ? new Date((expandedSession.subscription as any).current_period_end * 1000)
+                    : null;
+
+                const subscriptionId = expandedSession.subscription && typeof expandedSession.subscription !== 'string'
+                    ? expandedSession.subscription.id
+                    : expandedSession.subscription as string;
+
+                const [existingSub] = await db.select()
+                    .from(userSubscription)
+                    .where(eq(userSubscription.userId, userId))
+                    .limit(1);
+
+                if (existingSub) {
+                    await db.update(userSubscription)
+                        .set({
+                            planId: plan.id,
+                            stripeSubscriptionId: subscriptionId,
+                            status: 'active',
+                            currentPeriodEnd: periodEnd,
+                            updatedAt: new Date(),
+                        })
+                        .where(eq(userSubscription.id, existingSub.id));
+                } else {
+                    await db.insert(userSubscription).values({
+                        id: randomUUID(),
+                        userId,
+                        planId: plan.id,
+                        stripeSubscriptionId: subscriptionId,
+                        status: 'active',
+                        currentPeriodEnd: periodEnd,
+                    });
+                }
+            }
+
+            // Update credit balance
+            const [existingBalance] = await db.select()
+                .from(creditBalance)
+                .where(and(
+                    eq(creditBalance.userId, userId),
+                    eq(creditBalance.planId, plan.id)
+                ))
+                .limit(1);
+
+            if (existingBalance) {
+                const newAmountTotal = plan.interval
+                    ? plan.credits
+                    : existingBalance.amountTotal + plan.credits;
+                const newAmountUsed = plan.interval ? 0 : existingBalance.amountUsed;
+
+                await db.update(creditBalance)
+                    .set({
+                        amountTotal: newAmountTotal,
+                        amountUsed: newAmountUsed,
+                        expiresAt: periodEnd,
+                        updatedAt: new Date(),
+                    })
+                    .where(eq(creditBalance.id, existingBalance.id));
+            } else {
+                await db.insert(creditBalance).values({
+                    id: randomUUID(),
+                    userId,
+                    planId: plan.id,
+                    amountTotal: plan.credits,
+                    amountUsed: 0,
+                    expiresAt: periodEnd,
+                });
+            }
+
+            // 4. Update Payment History to Succeeded
+            if (pendingPayment) {
+                await db.update(paymentHistory)
+                    .set({
+                        status: 'succeeded',
+                        stripePaymentId: expandedSession.payment_intent as string || sessionId // Update to actual PI if available
+                    })
+                    .where(eq(paymentHistory.id, pendingPayment.id));
+            } else {
+                // Fallback if pending record wasn't found (shouldn't happen in this flow)
+                await db.insert(paymentHistory).values({
+                    id: randomUUID(),
+                    userId,
+                    amount: session.amount_total || 0,
+                    currency: session.currency || 'usd',
+                    status: 'succeeded',
+                    stripePaymentId: expandedSession.payment_intent as string || sessionId,
+                    metadata: { checkoutSessionId: sessionId }
+                });
+            }
+
+            // 5. Send Email (Async)
+            // We can invoke the email logic here or assume webhook handles it. 
+            // To ensure reliability, we can do it here if we want immediate feedback, 
+            // but usually emails are fine in webhooks. Let's keep email in webhook for now or duplicate safely.
+            // For now, let's leave email in webhook, as it's not critical for the UI response.
+
+            return { success: true };
+
+        } catch (error: any) {
+            console.error("Verification failed:", error);
+            return reply.status(500).send({ error: "Verification failed", details: error.message });
+        }
     });
 
     // POST /api/payments/create-portal-session
@@ -90,7 +343,7 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
             return reply.status(400).send({ error: "No active subscription found", code: "NO_CUSTOMER_ID" });
         }
 
-        const returnUrl = `${process.env.CLIENT_URL}/dashboard/settings`;
+        const returnUrl = `${process.env.CLIENT_URL}/settings`;
 
         const session = await createPortalSession({
             customerId: currentUser.stripeCustomerId,
@@ -150,10 +403,26 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
 
         const invoices = await db.select()
             .from(paymentHistory)
-            .where(eq(paymentHistory.userId, currentUser.id))
+            .where(and(
+                eq(paymentHistory.userId, currentUser.id),
+                // optionally filter out pending if you only want to show completed, 
+                // but user might want to see pending too. Usually invoices are finalized.
+                // Let's keep all for now or filter status != 'pending' if it looks weird.
+                // But pending is useful for debug.
+            ))
             .orderBy(desc(paymentHistory.createdAt));
 
-        return invoices;
+        return invoices.map(inv => ({
+            id: inv.id,
+            number: inv.metadata && (inv.metadata as any).invoiceNumber
+                ? (inv.metadata as any).invoiceNumber
+                : (inv.stripePaymentId ? inv.stripePaymentId.slice(-8).toUpperCase() : 'DRAFT'),
+            amount_paid: inv.amount,
+            currency: inv.currency,
+            status: inv.status,
+            created: inv.createdAt ? Math.floor(new Date(inv.createdAt).getTime() / 1000) : 0,
+            invoice_pdf: ''
+        }));
     });
 
     // POST /api/payments/webhook
@@ -188,6 +457,19 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
 
                     if (!userId) {
                         console.error("No userId found in checkout session metadata");
+                        break;
+                    }
+
+                    // IDEMPOTENCY CHECK:
+                    // Check if we already processed this session via client-side verification
+                    // We check by stripePaymentId which we set to session.id in the pending record
+                    const [existingRecord] = await db.select()
+                        .from(paymentHistory)
+                        .where(eq(paymentHistory.stripePaymentId, session.id))
+                        .limit(1);
+
+                    if (existingRecord && existingRecord.status === 'succeeded') {
+                        console.log(`Session ${session.id} already processed. Skipping webhook logic.`);
                         break;
                     }
 
@@ -296,16 +578,23 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
                         });
                     }
 
-                    // 4. Log payment history
-                    await db.insert(paymentHistory).values({
-                        id: randomUUID(),
-                        userId,
-                        amount: session.amount_total,
-                        currency: session.currency,
-                        status: 'succeeded',
-                        stripePaymentId: session.payment_intent as string || session.id,
-                        metadata: { checkoutSessionId: session.id }
-                    });
+                    // 4. Log payment history (Update if pending exists, else Insert)
+                    if (existingRecord) {
+                        await db.update(paymentHistory).set({
+                            status: 'succeeded',
+                            stripePaymentId: expandedSession.payment_intent as string || session.id
+                        }).where(eq(paymentHistory.id, existingRecord.id));
+                    } else {
+                        await db.insert(paymentHistory).values({
+                            id: randomUUID(),
+                            userId,
+                            amount: session.amount_total,
+                            currency: session.currency,
+                            status: 'succeeded',
+                            stripePaymentId: session.payment_intent as string || session.id,
+                            metadata: { checkoutSessionId: session.id }
+                        });
+                    }
 
                     // 5. Send confirmation email
                     const [userData] = await db.select().from(user).where(eq(user.id, userId)).limit(1);

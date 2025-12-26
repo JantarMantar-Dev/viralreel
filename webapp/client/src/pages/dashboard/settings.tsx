@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { useNavigate, useLocation } from "react-router-dom"
+import { useNavigate, useLocation, useSearchParams } from "react-router-dom"
 import {
     User,
     CreditCard,
@@ -66,6 +66,7 @@ interface Invoice {
 export default function SettingsPage() {
     const navigate = useNavigate()
     const location = useLocation()
+    const [searchParams, setSearchParams] = useSearchParams()
     const { session } = useAuth()
 
     // Determine active tab from the URL path
@@ -92,6 +93,17 @@ export default function SettingsPage() {
             setEmail(session.user.email || "")
         }
     }, [session])
+
+    // Handle Payment Cancel
+    useEffect(() => {
+        if (searchParams.get("canceled")) {
+            toast.info("Payment sequence canceled")
+            // Clear the param without refreshing
+            const newParams = new URLSearchParams(searchParams)
+            newParams.delete("canceled")
+            setSearchParams(newParams, { replace: true })
+        }
+    }, [searchParams, setSearchParams])
 
     const handleSaveProfile = async () => {
         setIsSavingProfile(true)
@@ -512,8 +524,64 @@ function BillingTab() {
 
 function CreditsTab() {
     const navigate = useNavigate()
+    const [searchParams, setSearchParams] = useSearchParams()
+    const [isVerifying, setIsVerifying] = useState(false)
     const [autoRecharge, setAutoRecharge] = useState(false)
     const [searchQuery, setSearchQuery] = useState("")
+
+    // Handle Payment Success & Verification
+    useEffect(() => {
+        const sessionId = searchParams.get("session_id")
+        const success = searchParams.get("success")
+
+        if (success && sessionId && !isVerifying) {
+            const verifyPayment = async () => {
+                setIsVerifying(true)
+                const toastId = toast.loading("Verifying payment...")
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}/api/payments/verify-session`, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({ sessionId }),
+                        credentials: "include", // Important for auth
+                    })
+
+                    if (!response.ok) {
+                        const errorData = await response.json()
+                        throw new Error(errorData.error || "Verification failed")
+                    }
+
+                    const data = await response.json()
+
+                    toast.success("Payment verified! Credits added.", {
+                        id: toastId,
+                    })
+
+                    // Clear params
+                    const newParams = new URLSearchParams(searchParams)
+                    newParams.delete("success")
+                    newParams.delete("session_id")
+                    setSearchParams(newParams, { replace: true })
+
+                    // Here you would typically trigger a re-fetch of credits/history
+                    // For now, reliance on page reload or parent state update
+
+                } catch (error: any) {
+                    console.error("Verification error:", error)
+                    toast.error(error.message || "Payment verification failed", {
+                        id: toastId,
+                    })
+                } finally {
+                    setIsVerifying(false)
+                }
+            }
+
+            verifyPayment()
+        }
+    }, [searchParams, setSearchParams])
 
     const history = [
         { id: 1, name: "Summer Promo Campaign", date: "Oct 24, 2023 2:30 PM", type: "HD Rendering", status: "Completed", credits: -50, icon: Video },
