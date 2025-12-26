@@ -19,7 +19,8 @@ import {
     Plus,
     CheckCircle2,
     XCircle,
-    Video
+    Video,
+    Clock
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -47,9 +48,18 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
 
 interface SubscriptionData {
+    status: string;
     subscription: any | null;
-    plan: any | null;
-    creditBalance: any | null;
+    planName?: string;
+    planPrice?: number;
+    interval?: string;
+    currentPeriodEnd?: string;
+    cancelAtPeriodEnd?: boolean;
+    usage?: {
+        used: number;
+        total: number;
+        resetsAt: string;
+    } | null;
 }
 
 interface Invoice {
@@ -385,6 +395,24 @@ function BillingTab() {
         fetchBillingData()
     }, [])
 
+    const handleManageSubscription = async () => {
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/payments/create-portal-session`, {
+                method: 'POST',
+                credentials: 'include'
+            })
+            const data = await res.json()
+            if (data.url) {
+                window.location.href = data.url
+            } else {
+                toast.error("Failed to open billing portal")
+            }
+        } catch (error) {
+            console.error("Portal error:", error)
+            toast.error("An error occurred")
+        }
+    }
+
     if (isLoading) {
         return (
             <div className="flex flex-col items-center justify-center h-64 space-y-4">
@@ -394,14 +422,23 @@ function BillingTab() {
         )
     }
 
-    const hasActiveSubscription = subData?.subscription?.status === 'active'
+    const hasActiveSubscription = subData?.status === 'active'
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
-            {/* Billing & Subscription Section */}
+            {/* Subscription Plan Section */}
             <Card className="rounded-3xl border-slate-100 shadow-sm overflow-hidden">
-                <CardHeader className="p-8 pb-4">
-                    <CardTitle className="text-xl font-bold">Billing & Subscription</CardTitle>
+                <CardHeader className="p-8 pb-4 flex flex-row items-center justify-between">
+                    <div className="space-y-1">
+                        <CardTitle className="text-xl font-bold">Subscription Plan</CardTitle>
+                        <p className="text-slate-500 font-medium text-sm">Manage your billing and subscription details</p>
+                    </div>
+                    {hasActiveSubscription && (
+                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-100 italic">
+                            <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                            <span className="text-xs font-bold text-emerald-600">Active Status</span>
+                        </div>
+                    )}
                 </CardHeader>
                 <CardContent className="p-8 pt-0">
                     {!hasActiveSubscription ? (
@@ -426,24 +463,101 @@ function BillingTab() {
                             </div>
                         </div>
                     ) : (
-                        <div className="bg-purple-50/30 rounded-2xl p-8 border border-purple-100 flex items-start gap-6">
-                            <div className="h-12 w-12 rounded-xl bg-white border border-purple-100 flex items-center justify-center shadow-sm shrink-0">
-                                <CreditCard className="h-6 w-6 text-purple-600" />
-                            </div>
-                            <div className="space-y-4 flex-1">
-                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                    <div className="space-y-1">
-                                        <div className="flex items-center gap-2">
-                                            <h3 className="font-bold text-slate-800 text-lg leading-none">{subData?.plan?.name} Plan</h3>
-                                            <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-600 text-[10px] font-bold uppercase tracking-wider">
-                                                Active
-                                            </span>
-                                        </div>
-                                        <p className="text-slate-500 font-medium text-sm">
-                                            Your next billing date is {subData?.subscription?.current_period_end ? new Date(subData.subscription.current_period_end).toLocaleDateString() : 'N/A'}.
-                                        </p>
+                        <div className="bg-white rounded-[2rem] p-8 border border-slate-100 shadow-sm space-y-8">
+                            <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 pb-6 border-b border-slate-50">
+                                <div className="space-y-2">
+                                    <div className="flex items-center gap-2">
+                                        <h3 className="font-extrabold text-slate-800 text-2xl tracking-tight">{subData?.planName || 'Creator Plus'}</h3>
+                                        <CheckCircle2 className="h-5 w-5 text-indigo-500 fill-indigo-500/10" strokeWidth={2.5} />
                                     </div>
-                                    <Button variant="outline" className="border-slate-200 h-10 px-4 rounded-xl font-bold text-slate-700 bg-white">
+                                    <div className="flex items-center gap-2 text-slate-500 font-medium text-sm">
+                                        <p>Next billing date: <span className="text-slate-900 font-bold">{subData?.currentPeriodEnd ? new Date(subData.currentPeriodEnd).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'N/A'}</span></p>
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    <div className="flex items-baseline justify-end gap-1">
+                                        <span className="text-4xl font-black text-slate-900 leading-none">${(subData?.planPrice || 3900) / 100}</span>
+                                        <span className="text-slate-400 font-bold text-lg">/{subData?.interval || 'mo'}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-6">
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <h4 className="font-bold text-slate-800 text-sm">Monthly Usage</h4>
+                                        <div className="text-sm">
+                                            <span className="text-indigo-600 font-black">{subData?.usage?.used || 0}</span>
+                                            <span className="text-slate-400 font-semibold"> / {subData?.usage?.total || 60} premium videos</span>
+                                        </div>
+                                    </div>
+                                    <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                                        <div
+                                            className="h-full bg-indigo-500 rounded-full transition-all duration-1000"
+                                            style={{ width: `${Math.min(100, ((subData?.usage?.used || 0) / (subData?.usage?.total || 60)) * 100)}%` }}
+                                        />
+                                    </div>
+                                    <p className="text-[10px] font-bold text-slate-400 italic">
+                                        Resets on {subData?.usage?.resetsAt ? new Date(subData.usage.resetsAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
+                                    </p>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Plan Features</h5>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-8">
+                                        {[
+                                            { label: "Priority generation", active: true },
+                                            { label: "Auto-post to YouTube", active: true },
+                                            { label: "All voices, styles, transitions", active: true },
+                                            { label: "Multi-niche workflows", active: true },
+                                            { label: "Early access to new features", active: true },
+                                            { label: "TikTok/IG auto-post", comingSoon: true },
+                                        ].map((feature, i) => (
+                                            <div key={i} className="flex items-center gap-3">
+                                                {feature.comingSoon ? (
+                                                    <div className="h-5 w-5 rounded-full border-2 border-slate-200 flex items-center justify-center shrink-0">
+                                                        <Clock className="h-3 w-3 text-slate-300" />
+                                                    </div>
+                                                ) : (
+                                                    <div className="h-5 w-5 rounded-full bg-indigo-500 flex items-center justify-center shrink-0 shadow-sm shadow-indigo-100">
+                                                        <Check className="h-3 w-3 text-white" strokeWidth={4} />
+                                                    </div>
+                                                )}
+                                                <div className="flex items-center gap-2">
+                                                    <span className={cn("text-xs font-bold", feature.comingSoon ? "text-slate-300" : "text-slate-600")}>
+                                                        {feature.label}
+                                                    </span>
+                                                    {feature.comingSoon && (
+                                                        <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-400 text-[8px] font-black uppercase tracking-tighter">
+                                                            Coming Soon
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col md:flex-row md:items-center justify-between pt-6 border-t border-slate-50 gap-4">
+                                <button
+                                    onClick={() => toast.info("Please contact support to cancel your plan")}
+                                    className="text-xs font-bold text-red-400 hover:text-red-500 transition-colors"
+                                >
+                                    Cancel Plan
+                                </button>
+                                <div className="flex items-center gap-3">
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => toast.info("Upgrade/Downgrade functionality coming soon")}
+                                        className="h-11 px-6 rounded-xl border-slate-200 hover:bg-slate-50 font-bold text-slate-600"
+                                    >
+                                        Upgrade/Downgrade Plan
+                                    </Button>
+                                    <Button
+                                        onClick={handleManageSubscription}
+                                        className="h-11 px-6 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-lg shadow-indigo-100"
+                                    >
                                         Manage Subscription
                                     </Button>
                                 </div>

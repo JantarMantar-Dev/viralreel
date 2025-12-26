@@ -1,7 +1,7 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { db } from "../db/index.js";
 import { subscriptionPlan, userSubscription, user, paymentHistory, creditBalance, creditTransaction } from "../db/schema.js";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, sql } from "drizzle-orm";
 import { z } from "zod";
 import { stripe, createCheckoutSession, createPortalSession } from "../lib/stripe.js";
 import { requireAuth } from "../middleware/auth.js";
@@ -184,14 +184,12 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
             // Use sqlRaw or a specific query if needed, here we check paymentHistory status
             const [existingPayment] = await db.select()
                 .from(paymentHistory)
-                .where(eq(paymentHistory.metadata, { checkoutSessionId: sessionId } as any)) // Cast due to JSONb
+                .where(sql`${paymentHistory.metadata}->>'checkoutSessionId' = ${sessionId}`)
                 .limit(1);
 
-            // If we found a record and it's succeeded, we're done
-            // Note: In Drizzle, querying JSON fields might need specific operators depending on driver.
-            // A safer bet without complex operators is checking by stripePaymentId if we stored session.id there initially
-            // OR find by userId and then filter in memory if volume is low, but better to use stripePaymentId for lookup if possible.
-            // Let's rely on finding by stripePaymentId since we stored session.id there in pending step.
+            if (existingPayment && existingPayment.status === 'succeeded') {
+                return { success: true, message: "Already processed" };
+            }
 
             const [pendingPayment] = await db.select()
                 .from(paymentHistory)
@@ -210,6 +208,7 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
             const expandedSession = await stripe.checkout.sessions.retrieve(sessionId, {
                 expand: ['line_items', 'subscription'],
             });
+            console.log("DEBUG: expandedSession.subscription:", JSON.stringify(expandedSession.subscription, null, 2));
             const lineItem = expandedSession.line_items?.data[0];
             const priceId = lineItem?.price?.id;
 
@@ -226,12 +225,22 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
                 return reply.status(404).send({ error: "Plan not found" });
             }
 
-            // --- Credit / Subscription Update Logic ---
             let periodEnd: Date | null = null;
             if (plan.interval) {
-                periodEnd = expandedSession.subscription && typeof expandedSession.subscription !== 'string'
-                    ? new Date((expandedSession.subscription as any).current_period_end * 1000)
+                const sub = expandedSession.subscription && typeof expandedSession.subscription !== 'string'
+                    ? expandedSession.subscription as any
                     : null;
+
+                if (sub) {
+                    const ts = sub.current_period_end || sub.items?.data?.[0]?.current_period_end;
+                    if (typeof ts === 'number') {
+                        periodEnd = new Date(ts * 1000);
+                    } else {
+                        periodEnd = null;
+                    }
+                } else {
+                    periodEnd = null;
+                }
 
                 const subscriptionId = expandedSession.subscription && typeof expandedSession.subscription !== 'string'
                     ? expandedSession.subscription.id
@@ -385,6 +394,8 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
         return {
             status: subscription.status,
             planName: plan?.name,
+            planPrice: plan?.price,
+            interval: plan?.interval,
             currentPeriodEnd: subscription.currentPeriodEnd,
             cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
             usage: balance ? {
@@ -405,10 +416,7 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
             .from(paymentHistory)
             .where(and(
                 eq(paymentHistory.userId, currentUser.id),
-                // optionally filter out pending if you only want to show completed, 
-                // but user might want to see pending too. Usually invoices are finalized.
-                // Let's keep all for now or filter status != 'pending' if it looks weird.
-                // But pending is useful for debug.
+                eq(paymentHistory.status, 'succeeded')
             ))
             .orderBy(desc(paymentHistory.createdAt));
 
@@ -437,7 +445,7 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
             plan: subscriptionPlan
         })
             .from(paymentHistory)
-            .leftJoin(subscriptionPlan, eq(paymentHistory.metadata, { priceId: subscriptionPlan.stripePriceId } as any))
+            .leftJoin(subscriptionPlan, sql`${paymentHistory.metadata}->>'priceId' = ${subscriptionPlan.stripePriceId}`)
             .where(and(
                 eq(paymentHistory.userId, currentUser.id),
                 eq(paymentHistory.status, 'succeeded')
@@ -537,6 +545,7 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
                     const expandedSession = await stripe.checkout.sessions.retrieve(session.id, {
                         expand: ['line_items', 'subscription'],
                     });
+                    console.log("Webhook DEBUG: expandedSession.subscription:", JSON.stringify(expandedSession.subscription, null, 2));
 
                     const lineItem = expandedSession.line_items?.data[0];
                     const priceId = lineItem?.price?.id;
@@ -565,9 +574,20 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
                     // If it's a one-time payment, subscriptionId will be null/undefined, and we skip this.
                     let periodEnd: Date | null = null;
                     if (plan.interval) {
-                        periodEnd = expandedSession.subscription && typeof expandedSession.subscription !== 'string'
-                            ? new Date((expandedSession.subscription as any).current_period_end * 1000)
+                        const sub = expandedSession.subscription && typeof expandedSession.subscription !== 'string'
+                            ? expandedSession.subscription as any
                             : null;
+
+                        if (sub) {
+                            const ts = sub.current_period_end || sub.items?.data?.[0]?.current_period_end;
+                            if (typeof ts === 'number') {
+                                periodEnd = new Date(ts * 1000);
+                            } else {
+                                periodEnd = null;
+                            }
+                        } else {
+                            periodEnd = null;
+                        }
 
                         const [existingSub] = await db.select()
                             .from(userSubscription)
@@ -671,7 +691,11 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
 
                 case 'customer.subscription.updated': {
                     const subscription = event.data.object as any;
-                    const periodEnd = new Date(subscription.current_period_end * 1000);
+                    let periodEnd: Date | null = null;
+                    const ts = subscription.current_period_end || subscription.items?.data?.[0]?.current_period_end;
+                    if (typeof ts === 'number') {
+                        periodEnd = new Date(ts * 1000);
+                    }
                     const status = subscription.status;
                     const cancelAtPeriodEnd = subscription.cancel_at_period_end;
 
