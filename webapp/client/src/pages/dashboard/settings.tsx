@@ -526,8 +526,37 @@ function CreditsTab() {
     const navigate = useNavigate()
     const [searchParams, setSearchParams] = useSearchParams()
     const [isVerifying, setIsVerifying] = useState(false)
+    const [isLoading, setIsLoading] = useState(true)
     const [autoRecharge, setAutoRecharge] = useState(false)
     const [searchQuery, setSearchQuery] = useState("")
+    const [history, setHistory] = useState<any[]>([])
+    const [balance, setBalance] = useState<{ used: number; total: number } | null>(null)
+
+    const fetchData = async () => {
+        setIsLoading(true)
+        try {
+            const [subRes, historyRes] = await Promise.all([
+                fetch(`${API_BASE_URL}/api/payments/subscription`, { credentials: "include" }),
+                fetch(`${API_BASE_URL}/api/payments/credits-history`, { credentials: "include" })
+            ])
+
+            if (subRes.ok) {
+                const subData = await subRes.json()
+                setBalance(subData.usage)
+            }
+
+            if (historyRes.ok) {
+                const historyData = await historyRes.json()
+                setHistory(historyData)
+            }
+        } catch (error) {
+            console.error("Error fetching credits data:", error)
+        } finally {
+            setIsLoading(false)
+        }
+    }
+
+    useEffect(() => { fetchData() }, [])
 
     // Handle Payment Success & Verification
     useEffect(() => {
@@ -566,8 +595,8 @@ function CreditsTab() {
                     newParams.delete("session_id")
                     setSearchParams(newParams, { replace: true })
 
-                    // Here you would typically trigger a re-fetch of credits/history
-                    // For now, reliance on page reload or parent state update
+                    // Re-fetch data to reflect new credits
+                    fetchData()
 
                 } catch (error: any) {
                     console.error("Verification error:", error)
@@ -583,44 +612,64 @@ function CreditsTab() {
         }
     }, [searchParams, setSearchParams])
 
-    const history = [
-        { id: 1, name: "Summer Promo Campaign", date: "Oct 24, 2023 2:30 PM", type: "HD Rendering", status: "Completed", credits: -50, icon: Video },
-        { id: 2, name: "Product Launch Teaser", date: "Oct 22, 2023 10:15 AM", type: "4K Rendering", status: "Completed", credits: -120, icon: Video },
-        { id: 3, name: "Credit Pack Purchase", date: "Oct 20, 2023 9:00 AM", type: "Top-up", status: "Success", credits: 500, icon: Plus },
-        { id: 4, name: "Social Media Shorts #4", date: "Oct 18, 2023 4:45 PM", type: "HD Rendering", status: "Failed (Refunded)", credits: 0, icon: Video },
-        { id: 5, name: "Voiceover Generation", date: "Oct 18, 2023 4:30 PM", type: "TTS Service", status: "Completed", credits: -15, icon: Share2 },
-    ]
+    const formatCredits = (credits: any) => {
+        const num = parseFloat(credits)
+        return num > 0 ? `+${num}` : num
+    }
+
+    const getIcon = (type: string) => {
+        switch (type) {
+            case 'plus': return Plus
+            case 'video': return Video
+            default: return Share2
+        }
+    }
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500 pb-20">
             {/* Top Section: Balance & Auto-Recharge */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <Card className="lg:col-span-2 rounded-[32px] border-slate-100 shadow-sm overflow-hidden relative">
-                    <CardContent className="p-10 space-y-8">
+                <Card className="lg:col-span-2 rounded-3xl border-slate-100 shadow-sm overflow-hidden relative">
+                    <CardContent className="p-8 space-y-8">
                         <div className="flex items-center justify-between">
-                            <h3 className="text-xl font-bold text-slate-800">Credit Balance</h3>
+                            <h3 className="text-xl font-bold text-slate-800 tracking-tight">Credit Balance</h3>
                             <Button
                                 onClick={() => navigate("/settings/pricing")}
-                                className="bg-purple-600 hover:bg-purple-700 text-white font-bold h-11 px-6 rounded-xl shadow-lg shadow-purple-100 flex items-center gap-2"
+                                className="bg-purple-600 hover:bg-purple-700 text-white font-bold h-11 px-6 rounded-xl shadow-lg shadow-purple-100 flex items-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                                disabled={isLoading}
                             >
                                 <Plus className="h-4 w-4" />
                                 Buy Credits
                             </Button>
                         </div>
 
-                        <div className="bg-purple-50/30 rounded-3xl p-8 border border-purple-100/50 flex flex-col md:flex-row items-start md:items-center gap-8 relative overflow-hidden group">
+                        <div className="bg-purple-50/10 rounded-2xl p-8 border border-purple-100/50 flex flex-col md:flex-row items-start md:items-center gap-8 relative overflow-hidden group">
                             {/* Decorative background circle */}
                             <div className="absolute -right-20 -top-20 w-64 h-64 bg-purple-100/10 rounded-full blur-3xl group-hover:bg-purple-100/20 transition-all duration-700" />
 
                             <div className="space-y-1 relative">
-                                <p className="text-[11px] font-black uppercase tracking-widest text-purple-400">Available Credits</p>
-                                <div className="flex items-baseline gap-3">
-                                    <span className="text-6xl font-black text-purple-600 tracking-tight">2,450</span>
-                                    <span className="text-xl font-bold text-purple-400">credits</span>
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-purple-400">Available Credits</p>
+                                <div className="flex items-baseline gap-2">
+                                    {isLoading ? (
+                                        <Loader2 className="h-8 w-8 text-purple-600 animate-spin" />
+                                    ) : (
+                                        <>
+                                            <span className="text-5xl font-bold text-purple-600 tracking-tight">
+                                                {balance ? (balance.total - balance.used).toLocaleString() : "0"}
+                                            </span>
+                                            <span className="text-lg font-bold text-purple-400/80">credits</span>
+                                        </>
+                                    )}
                                 </div>
-                                <p className="text-sm font-semibold text-slate-500 pt-2">
-                                    Enough for approximately <span className="text-slate-800">45 minutes</span> of HD video rendering.
-                                </p>
+                                {!isLoading && balance && (
+                                    <p className="text-sm font-medium text-slate-500 pt-2 flex items-center gap-1.5">
+                                        You have used <span className="font-bold text-slate-700">{balance.used}</span> out of <span className="font-bold text-slate-700">{balance.total}</span> credits
+                                        <span className="h-1 w-1 rounded-full bg-slate-200 mx-1" />
+                                        <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
+                                            {Math.round(((balance.total - balance.used) / balance.total) * 100)}% available
+                                        </span>
+                                    </p>
+                                )}
                             </div>
                         </div>
                     </CardContent>
@@ -628,20 +677,20 @@ function CreditsTab() {
             </div>
 
             {/* Credit History Section */}
-            <Card className="rounded-[32px] border-slate-100 shadow-sm overflow-hidden">
-                <CardHeader className="p-10 pb-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
-                    <CardTitle className="text-2xl font-black text-slate-800 tracking-tight">Credit History</CardTitle>
+            <Card className="rounded-3xl border-slate-100 shadow-sm overflow-hidden">
+                <CardHeader className="p-8 pb-4 flex flex-col md:flex-row md:items-center justify-between gap-6 space-y-0">
+                    <CardTitle className="text-xl font-bold text-slate-800 tracking-tight">Credit History</CardTitle>
                     <div className="flex items-center gap-3">
                         <div className="relative group flex-1 md:w-64">
                             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-purple-500 transition-colors" />
                             <Input
-                                placeholder="Search jobs..."
+                                placeholder="Search history..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="h-11 pl-11 pr-4 rounded-xl bg-slate-50 border-slate-100 focus:bg-white focus:ring-purple-50 transition-all font-medium"
+                                className="h-10 pl-11 pr-4 rounded-xl bg-slate-50 border-slate-100 focus:bg-white focus:ring-purple-50 transition-all font-medium text-sm"
                             />
                         </div>
-                        <Button variant="outline" className="h-11 px-4 rounded-xl border-slate-200 hover:bg-slate-50 font-bold flex items-center gap-2">
+                        <Button variant="outline" className="h-10 px-4 rounded-xl border-slate-200 hover:bg-slate-50 font-bold flex items-center gap-2 text-sm text-slate-600">
                             <Filter className="h-4 w-4" />
                             Filter
                         </Button>
@@ -652,47 +701,55 @@ function CreditsTab() {
                         <table className="w-full text-left">
                             <thead>
                                 <tr className="border-y border-slate-100 bg-slate-50/50">
-                                    <th className="px-10 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Job Name</th>
-                                    <th className="px-10 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Date</th>
-                                    <th className="px-10 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Type</th>
-                                    <th className="px-10 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
-                                    <th className="px-10 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Credits</th>
+                                    <th className="px-8 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Description</th>
+                                    <th className="px-8 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Date</th>
+                                    <th className="px-8 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Status</th>
+                                    <th className="px-8 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Credits</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {history.map((item) => {
-                                    const Icon = item.icon
+                                {isLoading ? (
+                                    <tr>
+                                        <td colSpan={4} className="px-8 py-20 text-center">
+                                            <Loader2 className="h-8 w-8 text-purple-600 animate-spin mx-auto" />
+                                            <p className="text-sm font-bold text-slate-400 mt-4">Loading history...</p>
+                                        </td>
+                                    </tr>
+                                ) : history.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={4} className="px-8 py-20 text-center">
+                                            <p className="text-sm font-bold text-slate-400">No credit transactions yet.</p>
+                                        </td>
+                                    </tr>
+                                ) : history.filter(item => item.name.toLowerCase().includes(searchQuery.toLowerCase())).map((item) => {
+                                    const Icon = getIcon(item.iconType)
+                                    const date = new Date(item.date)
                                     return (
                                         <tr key={item.id} className="hover:bg-slate-50/30 transition-colors group">
-                                            <td className="px-10 py-6">
+                                            <td className="px-8 py-6">
                                                 <div className="flex items-center gap-4">
                                                     <div className={cn(
-                                                        "h-10 w-10 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110",
-                                                        item.credits > 0 ? "bg-emerald-50 text-emerald-500" : "bg-slate-50 text-slate-400"
+                                                        "h-10 w-10 rounded-xl flex items-center justify-center transition-transform group-hover:scale-105",
+                                                        parseFloat(item.credits) > 0 ? "bg-emerald-50 text-emerald-500" : "bg-slate-50 text-slate-400"
                                                     )}>
                                                         <Icon className="h-5 w-5" />
                                                     </div>
                                                     <span className="font-bold text-slate-700">{item.name}</span>
                                                 </div>
                                             </td>
-                                            <td className="px-10 py-6">
+                                            <td className="px-8 py-6">
                                                 <div className="flex flex-col">
                                                     <span className="font-bold text-slate-600 text-sm whitespace-nowrap">
-                                                        {item.date.split(' ').slice(0, 3).join(' ')}
+                                                        {date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                                                     </span>
-                                                    <span className="text-[10px] font-bold text-slate-300 uppercase">
-                                                        {item.date.split(' ').slice(3).join(' ')}
+                                                    <span className="text-[10px] font-bold text-slate-400">
+                                                        {date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
                                                     </span>
                                                 </div>
                                             </td>
-                                            <td className="px-10 py-6">
-                                                <span className="text-sm font-semibold text-slate-500 whitespace-nowrap">
-                                                    {item.type}
-                                                </span>
-                                            </td>
-                                            <td className="px-10 py-6">
+                                            <td className="px-8 py-6 text-center">
                                                 <span className={cn(
-                                                    "px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider",
+                                                    "px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider",
                                                     item.status === 'Completed' || item.status === 'Success'
                                                         ? "bg-emerald-100 text-emerald-600"
                                                         : item.status.includes('Failed')
@@ -702,12 +759,12 @@ function CreditsTab() {
                                                     {item.status}
                                                 </span>
                                             </td>
-                                            <td className="px-10 py-6 text-right font-black">
+                                            <td className="px-8 py-6 text-right">
                                                 <span className={cn(
-                                                    "text-sm tracking-tight",
-                                                    item.credits > 0 ? "text-emerald-600" : item.credits < 0 ? "text-red-500" : "text-slate-400"
+                                                    "text-sm font-bold tracking-tight",
+                                                    parseFloat(item.credits) > 0 ? "text-emerald-600" : parseFloat(item.credits) < 0 ? "text-red-500" : "text-slate-400"
                                                 )}>
-                                                    {item.credits > 0 ? `+${item.credits}` : item.credits}
+                                                    {formatCredits(item.credits)}
                                                 </span>
                                             </td>
                                         </tr>

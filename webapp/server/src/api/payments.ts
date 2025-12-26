@@ -1,6 +1,6 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { db } from "../db/index.js";
-import { subscriptionPlan, userSubscription, user, paymentHistory, creditBalance } from "../db/schema.js";
+import { subscriptionPlan, userSubscription, user, paymentHistory, creditBalance, creditTransaction } from "../db/schema.js";
 import { eq, desc, and } from "drizzle-orm";
 import { z } from "zod";
 import { stripe, createCheckoutSession, createPortalSession } from "../lib/stripe.js";
@@ -423,6 +423,63 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
             created: inv.createdAt ? Math.floor(new Date(inv.createdAt).getTime() / 1000) : 0,
             invoice_pdf: ''
         }));
+    });
+
+    // GET /api/payments/credits-history
+    fastify.get("/credits-history", {
+        preHandler: [requireAuth]
+    }, async (request, reply) => {
+        const currentUser = request.user;
+
+        // 1. Fetch successful payments (Top-ups) joined with plans to get credit counts
+        const payments = await db.select({
+            payment: paymentHistory,
+            plan: subscriptionPlan
+        })
+            .from(paymentHistory)
+            .leftJoin(subscriptionPlan, eq(paymentHistory.metadata, { priceId: subscriptionPlan.stripePriceId } as any))
+            .where(and(
+                eq(paymentHistory.userId, currentUser.id),
+                eq(paymentHistory.status, 'succeeded')
+            ))
+            .orderBy(desc(paymentHistory.createdAt));
+
+        // Note: leftJoin by metadata priceId might be tricky with standard Drizzle. 
+        // Let's just fetch plans separately and map in memory for better reliability if needed, 
+        // OR rely on the fact that we store priceId in metadata.
+
+        // 2. Fetch usage transactions
+        const transactions = await db.select()
+            .from(creditTransaction)
+            .where(eq(creditTransaction.userId, currentUser.id))
+            .orderBy(desc(creditTransaction.createdAt));
+
+        // 3. Merge and format
+        const history = [
+            ...payments.map(row => {
+                const p = row.payment;
+                const pl = row.plan;
+                return {
+                    id: p.id,
+                    name: pl ? `${pl.name} Plan` : "Credit Top-up",
+                    date: p.createdAt ? p.createdAt.toISOString() : new Date().toISOString(),
+                    status: "Success",
+                    credits: pl ? pl.credits.toString() : "0",
+                    iconType: "plus"
+                }
+            }),
+            ...transactions.map(t => ({
+                id: t.id,
+                name: t.description || "Credit Usage",
+                date: t.createdAt ? t.createdAt.toISOString() : new Date().toISOString(),
+                status: "Completed",
+                credits: t.amount.toString(),
+                iconType: t.amount > 0 ? "plus" : "video"
+            }))
+        ];
+
+        // Sort by date desc
+        return history.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     });
 
     // POST /api/payments/webhook
