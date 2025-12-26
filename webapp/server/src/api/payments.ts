@@ -328,19 +328,6 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
                         })
                         .where(eq(userSubscription.id, existingSubMap.id));
                 } else {
-                    // If we have a legacy row that we just cancelled, we might still have it in DB.
-                    // We should definitely insert a NEW row for the NEW subscription ID to keep history clean.
-                    // OR overwrite the old one if we want to keep table size small.
-                    // Given "deactivate that as well", implies keeping history might be good, but overwriting is cleaner for "current state".
-                    // However, if we overwrite, we lose the record that the OLD one was cancelled.
-                    // Let's INSERT a new one if it's a new Stripe Sub ID.
-
-                    // BUT, to keep simple for now and avoid "multiple active" confusion if UI only reads one:
-                    // UI reads `.limit(1)`.
-                    // If we insert new, UI might read old cancelled one?
-                    // GET /subscription just does `where userId limit 1`. It might pick the wrong one!
-                    // We must ensure GET /subscription picks the one with 'active' status or latest.
-
                     // Mark previous subscriptions as not current
                     await db.update(userSubscription)
                         .set({ isCurrent: false })
@@ -371,10 +358,8 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
                 .limit(1);
 
             if (existingBalance) {
-                const newAmountTotal = plan.interval
-                    ? plan.credits
-                    : existingBalance.amountTotal + plan.credits;
-                const newAmountUsed = plan.interval ? 0 : existingBalance.amountUsed;
+                const newAmountTotal = plan.credits;
+                const newAmountUsed = 0;
 
                 await db.update(creditBalance)
                     .set({
@@ -897,15 +882,8 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
                         .limit(1);
 
                     if (existingBalance) {
-                        // For subscriptions: Reset credits (new period)
-                        // For one-time packs: Add to existing credits
-                        const newAmountTotal = plan.interval
-                            ? plan.credits
-                            : existingBalance.amountTotal + plan.credits;
-
-                        // For subscriptions: Reset usage to 0
-                        // For one-time packs: Keep usage as is (effectively just raising the ceiling)
-                        const newAmountUsed = plan.interval ? 0 : existingBalance.amountUsed;
+                        const newAmountTotal = plan.credits;
+                        const newAmountUsed = 0;
 
                         await db.update(creditBalance)
                             .set({
