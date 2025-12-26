@@ -212,17 +212,16 @@ export default function FeedbackPage() {
                             </div>
                         </div>
 
-                        {/* Attachments */}
-                        <div className="space-y-3">
-                            <Label className="text-sm font-bold text-slate-700 ml-1">Attachments (Optional)</Label>
-                            <div className="border-2 border-dashed border-slate-100 rounded-[30px] p-8 bg-slate-50/30 hover:bg-white hover:border-purple-200 transition-all duration-300 group cursor-pointer text-center space-y-3">
-                                <div className="h-12 w-12 rounded-2xl bg-purple-50 text-purple-500 flex items-center justify-center mx-auto shadow-sm group-hover:scale-110 transition-transform">
-                                    <Upload className="h-5 w-5" />
-                                </div>
-                                <div className="space-y-0.5">
-                                    <p className="text-sm font-bold text-slate-900">Click to upload or drag and drop</p>
-                                    <p className="text-[11px] text-slate-400 font-medium">SVG, PNG, JPG or GIF (max. 800×400px)</p>
-                                </div>
+                        {/* External Link for Attachments */}
+                        <div className="bg-purple-50/50 border border-purple-100 rounded-[30px] p-6 flex items-start gap-4">
+                            <div className="h-10 w-10 rounded-2xl bg-white text-purple-600 flex items-center justify-center shadow-sm shrink-0">
+                                <Upload className="h-5 w-5" />
+                            </div>
+                            <div className="space-y-1">
+                                <p className="text-sm font-bold text-slate-900">Need to share screenshots?</p>
+                                <p className="text-sm text-slate-600 leading-relaxed font-medium">
+                                    Our internal form doesn't support direct uploads yet. If you want to upload images, please <a href="https://opnform.com/forms/feedback-form-sii68u" target="_blank" rel="noopener noreferrer" className="text-purple-600 hover:underline font-bold inline-flex items-center">use this external link <ChevronLeft className="h-3 w-3 ml-1 rotate-180" /></a> to submit your request with files.
+                                </p>
                             </div>
                         </div>
 
