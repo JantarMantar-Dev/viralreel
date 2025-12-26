@@ -362,6 +362,47 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
         return { url: session.url };
     });
 
+    // POST /api/payments/cancel-subscription
+    fastify.post("/cancel-subscription", {
+        preHandler: [requireAuth]
+    }, async (request, reply) => {
+        const currentUser = request.user;
+
+        // Get the active subscription
+        const [subscription] = await db.select()
+            .from(userSubscription)
+            .where(and(
+                eq(userSubscription.userId, currentUser.id),
+                eq(userSubscription.status, 'active')
+            ))
+            .limit(1);
+
+        if (!subscription || !subscription.stripeSubscriptionId) {
+            return reply.status(400).send({ error: "No active subscription found" });
+        }
+
+        try {
+            // Update Stripe subscription to cancel at period end
+            await stripe.subscriptions.update(subscription.stripeSubscriptionId, {
+                cancel_at_period_end: true,
+            });
+
+            // Update database
+            await db.update(userSubscription)
+                .set({
+                    status: 'cancelled',
+                    cancelAtPeriodEnd: true,
+                    updatedAt: new Date(),
+                })
+                .where(eq(userSubscription.id, subscription.id));
+
+            return { success: true };
+        } catch (error: any) {
+            console.error("Cancellation error:", error);
+            return reply.status(500).send({ error: error.message || "Failed to cancel subscription" });
+        }
+    });
+
     // GET /api/payments/subscription
     fastify.get("/subscription", {
         preHandler: [requireAuth]

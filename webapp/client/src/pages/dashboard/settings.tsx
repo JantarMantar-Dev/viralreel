@@ -44,6 +44,14 @@ import {
     TabsList,
     TabsTrigger,
 } from "@/components/ui/tabs"
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
 
@@ -366,34 +374,61 @@ function BillingTab() {
     const [subData, setSubData] = useState<SubscriptionData | null>(null)
     const [invoices, setInvoices] = useState<Invoice[]>([])
     const [isLoading, setIsLoading] = useState(true)
+    const [showCancelDialog, setShowCancelDialog] = useState(false)
+    const [isCanceling, setIsCanceling] = useState(false)
+
+    const fetchBillingData = async () => {
+        try {
+            const [subRes, invRes] = await Promise.all([
+                fetch(`${API_BASE_URL}/api/payments/subscription`, { credentials: 'include' }),
+                fetch(`${API_BASE_URL}/api/payments/invoices`, { credentials: 'include' })
+            ])
+
+            if (subRes.ok) {
+                const data = await subRes.json()
+                setSubData(data)
+            }
+
+            if (invRes.ok) {
+                const data = await invRes.json()
+                setInvoices(data)
+            }
+        } catch (error) {
+            console.error("Failed to fetch billing data:", error)
+            toast.error("Failed to load billing information")
+        } finally {
+            setIsLoading(false)
+        }
+    }
 
     useEffect(() => {
-        const fetchBillingData = async () => {
-            try {
-                const [subRes, invRes] = await Promise.all([
-                    fetch(`${API_BASE_URL}/api/payments/subscription`, { credentials: 'include' }),
-                    fetch(`${API_BASE_URL}/api/payments/invoices`, { credentials: 'include' })
-                ])
-
-                if (subRes.ok) {
-                    const data = await subRes.json()
-                    setSubData(data)
-                }
-
-                if (invRes.ok) {
-                    const data = await invRes.json()
-                    setInvoices(data)
-                }
-            } catch (error) {
-                console.error("Failed to fetch billing data:", error)
-                toast.error("Failed to load billing information")
-            } finally {
-                setIsLoading(false)
-            }
-        }
-
         fetchBillingData()
     }, [])
+
+    const handleCancelSubscription = async () => {
+        setIsCanceling(true)
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/payments/cancel-subscription`, {
+                method: 'POST',
+                credentials: 'include'
+            })
+
+            if (res.ok) {
+                toast.success("Subscription canceled successfully. Your benefits will continue until the end of the current period.")
+                setShowCancelDialog(false)
+                // Refresh data to reflect cancellation status
+                await fetchBillingData()
+            } else {
+                const data = await res.json()
+                toast.error(data.error || "Failed to cancel subscription")
+            }
+        } catch (error) {
+            console.error("Cancellation error:", error)
+            toast.error("An error occurred while canceling")
+        } finally {
+            setIsCanceling(false)
+        }
+    }
 
     const handleManageSubscription = async () => {
         try {
@@ -422,7 +457,7 @@ function BillingTab() {
         )
     }
 
-    const hasActiveSubscription = subData?.status === 'active'
+    const hasActiveSubscription = subData?.status === 'active' || subData?.status === 'cancelled'
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
@@ -434,9 +469,22 @@ function BillingTab() {
                         <p className="text-slate-500 font-medium text-sm">Manage your billing and subscription details</p>
                     </div>
                     {hasActiveSubscription && (
-                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-100 italic">
-                            <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                            <span className="text-xs font-bold text-emerald-600">Active Status</span>
+                        <div className={cn(
+                            "flex items-center gap-2 px-3 py-1.5 rounded-full italic border",
+                            subData?.status === 'cancelled'
+                                ? "bg-amber-50 border-amber-100"
+                                : "bg-emerald-50 border-emerald-100"
+                        )}>
+                            <div className={cn(
+                                "h-2 w-2 rounded-full animate-pulse",
+                                subData?.status === 'cancelled' ? "bg-amber-500" : "bg-emerald-500"
+                            )} />
+                            <span className={cn(
+                                "text-xs font-bold capitalize",
+                                subData?.status === 'cancelled' ? "text-amber-600" : "text-emerald-600"
+                            )}>
+                                {subData?.status} Status
+                            </span>
                         </div>
                     )}
                 </CardHeader>
@@ -471,7 +519,7 @@ function BillingTab() {
                                         <CheckCircle2 className="h-5 w-5 text-indigo-500 fill-indigo-500/10" strokeWidth={2.5} />
                                     </div>
                                     <div className="flex items-center gap-2 text-slate-500 font-medium text-sm">
-                                        <p>Next billing date: <span className="text-slate-900 font-bold">{subData?.currentPeriodEnd ? new Date(subData.currentPeriodEnd).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'N/A'}</span></p>
+                                        <p>{subData?.status === 'cancelled' ? 'Ends on:' : 'Next billing date:'} <span className="text-slate-900 font-bold">{subData?.currentPeriodEnd ? new Date(subData.currentPeriodEnd).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'N/A'}</span></p>
                                     </div>
                                 </div>
                                 <div className="text-right">
@@ -501,50 +549,15 @@ function BillingTab() {
                                         Resets on {subData?.usage?.resetsAt ? new Date(subData.usage.resetsAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
                                     </p>
                                 </div>
-
-                                <div className="space-y-4">
-                                    <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Plan Features</h5>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-8">
-                                        {[
-                                            { label: "Priority generation", active: true },
-                                            { label: "Auto-post to YouTube", active: true },
-                                            { label: "All voices, styles, transitions", active: true },
-                                            { label: "Multi-niche workflows", active: true },
-                                            { label: "Early access to new features", active: true },
-                                            { label: "TikTok/IG auto-post", comingSoon: true },
-                                        ].map((feature, i) => (
-                                            <div key={i} className="flex items-center gap-3">
-                                                {feature.comingSoon ? (
-                                                    <div className="h-5 w-5 rounded-full border-2 border-slate-200 flex items-center justify-center shrink-0">
-                                                        <Clock className="h-3 w-3 text-slate-300" />
-                                                    </div>
-                                                ) : (
-                                                    <div className="h-5 w-5 rounded-full bg-indigo-500 flex items-center justify-center shrink-0 shadow-sm shadow-indigo-100">
-                                                        <Check className="h-3 w-3 text-white" strokeWidth={4} />
-                                                    </div>
-                                                )}
-                                                <div className="flex items-center gap-2">
-                                                    <span className={cn("text-xs font-bold", feature.comingSoon ? "text-slate-300" : "text-slate-600")}>
-                                                        {feature.label}
-                                                    </span>
-                                                    {feature.comingSoon && (
-                                                        <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-400 text-[8px] font-black uppercase tracking-tighter">
-                                                            Coming Soon
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
                             </div>
 
                             <div className="flex flex-col md:flex-row md:items-center justify-between pt-6 border-t border-slate-50 gap-4">
                                 <button
-                                    onClick={() => toast.info("Please contact support to cancel your plan")}
+                                    onClick={() => setShowCancelDialog(true)}
                                     className="text-xs font-bold text-red-400 hover:text-red-500 transition-colors"
+                                    disabled={subData?.cancelAtPeriodEnd}
                                 >
-                                    Cancel Plan
+                                    {subData?.cancelAtPeriodEnd ? "Cancelled" : "Cancel Plan"}
                                 </button>
                                 <div className="flex items-center gap-3">
                                     <Button
@@ -562,6 +575,40 @@ function BillingTab() {
                                     </Button>
                                 </div>
                             </div>
+
+                            <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+                                <DialogContent className="rounded-[2rem] border-none shadow-2xl p-0 overflow-hidden max-w-md mt-0 focus-visible:ring-0">
+                                    <div className="bg-red-50 p-8 flex flex-col items-center text-center space-y-4">
+                                        <div className="h-16 w-16 rounded-2xl bg-white flex items-center justify-center shadow-sm">
+                                            <AlertCircle className="h-8 w-8 text-red-500" />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <DialogTitle className="text-xl font-black text-slate-900">Cancel Subscription?</DialogTitle>
+                                            <DialogDescription className="text-slate-500 font-medium">
+                                                You will lose access to premium features and priority rendering at the end of your current billing period.
+                                                Are you sure you want to proceed?
+                                            </DialogDescription>
+                                        </div>
+                                    </div>
+                                    <DialogFooter className="p-6 bg-white flex flex-col sm:flex-row gap-3">
+                                        <Button
+                                            variant="ghost"
+                                            className="flex-1 h-12 rounded-xl font-bold text-slate-500 hover:bg-slate-50"
+                                            onClick={() => setShowCancelDialog(false)}
+                                        >
+                                            Keep My Plan
+                                        </Button>
+                                        <Button
+                                            className="flex-1 h-12 rounded-xl bg-red-500 hover:bg-red-600 text-white font-bold shadow-lg shadow-red-100"
+                                            onClick={handleCancelSubscription}
+                                            disabled={isCanceling}
+                                        >
+                                            {isCanceling && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                            Yes, Cancel Plan
+                                        </Button>
+                                    </DialogFooter>
+                                </DialogContent>
+                            </Dialog>
                         </div>
                     )}
                 </CardContent>
