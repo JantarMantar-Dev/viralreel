@@ -44,3 +44,21 @@ export const CONTACT_SALES_FORM = {
     },
     APP_NAME_VALUE: "Viral Reel",
 };
+
+/**
+ * Field IDs for the Feedback Form
+ * Slug: feedback-form-fqbk9l
+ */
+export const FEEDBACK_FORM = {
+    SLUG: "feedback-form-fqbk9l",
+    FIELDS: {
+        TYPE: "d7ae2c37-bfaa-4f1e-b64f-6feaae972153",
+        RATING: "8e2dc3df-530a-475a-afcc-3d6edb1486a1",
+        NAME: "e64d0e7f-5498-45bf-9996-182f1c618049",
+        EMAIL: "19991dae-bc26-42de-8322-1a9b0130e66b",
+        DETAILS: "1e442bb6-77f9-40a5-aab8-8399471f57c6",
+        ATTACHMENTS: "5c5196ad-54f9-4593-80f4-75afe3b16b83",
+        APP_NAME: "ba12e91c-3667-4023-bba6-68e75164f9e0",
+        APP_USER_ID: "211e5628-c0f6-4d68-ac16-2f1ec06e3764",
+    },
+};

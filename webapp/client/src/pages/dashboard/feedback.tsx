@@ -21,6 +21,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { toast } from "sonner"
 import { useAuth } from "@/context/auth-context"
 import { cn } from "@/lib/utils"
+import { submitOpnForm, FEEDBACK_FORM, CONTACT_SALES_FORM } from "@/lib/opnform"
 
 type FeedbackType = "bug" | "feature" | "general" | "billing"
 
@@ -52,12 +53,24 @@ export default function FeedbackPage() {
         setIsSubmitting(true)
 
         try {
-            // Mock submission for now
-            await new Promise(resolve => setTimeout(resolve, 1500))
+            await submitOpnForm({
+                slug: FEEDBACK_FORM.SLUG,
+                data: {
+                    [FEEDBACK_FORM.FIELDS.TYPE]: feedbackTypes.find(f => f.id === type)?.label || type,
+                    [FEEDBACK_FORM.FIELDS.RATING]: rating,
+                    [FEEDBACK_FORM.FIELDS.NAME]: session?.user?.name || "Anonymous",
+                    [FEEDBACK_FORM.FIELDS.EMAIL]: session?.user?.email || "",
+                    [FEEDBACK_FORM.FIELDS.DETAILS]: formData.details,
+                    [FEEDBACK_FORM.FIELDS.APP_NAME]: CONTACT_SALES_FORM.APP_NAME_VALUE,
+                    [FEEDBACK_FORM.FIELDS.APP_USER_ID]: session?.user?.email || "anonymous",
+                }
+            })
+
             toast.success("Feedback submitted! Thank you for your input.")
             navigate("/dashboard")
-        } catch (error) {
-            toast.error("Something went wrong. Please try again.")
+        } catch (error: any) {
+            console.error("OpnForm submission error:", error)
+            toast.error(error.message || "Something went wrong. Please try again.")
         } finally {
             setIsSubmitting(false)
         }

@@ -23,6 +23,7 @@ import PlaceholderStep from "./pages/dashboard/create/steps/placeholder-step"
 import NotFoundPage from "./pages/dashboard/not-found"
 import PricingPage from "./pages/dashboard/settings/pricing"
 import ContactSalesPage from "./pages/dashboard/settings/contact-sales"
+import FeedbackPage from "./pages/dashboard/feedback"
 
 function App() {
   return (
@@ -43,6 +44,7 @@ function App() {
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="videos" element={<ProjectsPage />} />
+          <Route path="feedback" element={<FeedbackPage />} />
           <Route path="videos/series/:id" element={<SeriesDetailsPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="settings/account" element={<SettingsPage />} />
