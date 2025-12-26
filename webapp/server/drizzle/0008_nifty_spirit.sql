@@ -1,1 +1,1 @@
-ALTER TABLE "user_subscription" ADD COLUMN "is_current" boolean DEFAULT true;
+ALTER TABLE "user_subscription" ADD COLUMN IF NOT EXISTS "is_current" boolean DEFAULT true;
