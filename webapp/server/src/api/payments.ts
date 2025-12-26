@@ -696,52 +696,20 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
         const userId = currentUser.id;
 
         try {
-            // 1. Fetch successful payments (Top-ups) joined with plans
-            const payments = await db.select({
-                payment: paymentHistory,
-                plan: subscriptionPlan
-            })
-                .from(paymentHistory)
-                .leftJoin(subscriptionPlan, sql`${paymentHistory.metadata}->>'priceId' = ${subscriptionPlan.stripePriceId}`)
-                .where(and(
-                    eq(paymentHistory.userId, currentUser.id),
-                    eq(paymentHistory.status, 'succeeded')
-                ))
-                .orderBy(desc(paymentHistory.createdAt));
-
-            // 2. Fetch usage transactions
             const transactions = await db.select()
                 .from(creditTransaction)
                 .where(eq(creditTransaction.userId, currentUser.id))
                 .orderBy(desc(creditTransaction.createdAt));
 
-            // 3. Merge and format
-            const history = [
-                ...payments.map(row => {
-                    const p = row.payment;
-                    const pl = row.plan;
-                    return {
-                        id: p.id,
-                        name: pl ? `${pl.name} Plan` : "Credit Top-up",
-                        date: p.createdAt ? p.createdAt.toISOString() : new Date().toISOString(),
-                        status: "Success",
-                        credits: pl ? pl.credits.toString() : "0",
-                        type: 'purchase',
-                        amount: p.amount
-                    }
-                }),
-                ...transactions.map(t => ({
-                    id: t.id,
-                    name: t.description || "Credit Usage",
-                    date: t.createdAt ? t.createdAt.toISOString() : new Date().toISOString(),
-                    status: "Completed",
-                    credits: Math.abs(t.amount).toString(), // Show usage as positive number in list? Or with sign?
-                    // Typically usage is shown as negative, but UI might want absolute.
-                    // Let's keep it as string.
-                    type: 'usage',
-                    amount: 0
-                }))
-            ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+            const history = transactions.map(t => ({
+                id: t.id,
+                name: t.description || (t.amount > 0 ? "Credit Top-up" : "Credit Usage"),
+                date: t.createdAt ? t.createdAt.toISOString() : new Date().toISOString(),
+                status: "Completed",
+                credits: Math.abs(t.amount).toString(),
+                type: t.amount > 0 ? 'purchase' : 'usage',
+                amount: 0 // Real currency amount is in paymentHistory, not here. UI might not need it for credits view.
+            }));
 
             return history;
         } catch (error: any) {
