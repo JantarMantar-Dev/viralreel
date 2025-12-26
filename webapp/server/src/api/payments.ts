@@ -1,7 +1,7 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { db } from "../db/index.js";
 import { subscriptionPlan, userSubscription, user, paymentHistory, creditBalance, creditTransaction } from "../db/schema.js";
-import { eq, desc, and, sql } from "drizzle-orm";
+import { eq, desc, and, sql, or } from "drizzle-orm";
 import { z } from "zod";
 import { stripe, createCheckoutSession, createPortalSession } from "../lib/stripe.js";
 import { requireAuth } from "../middleware/auth.js";
@@ -11,6 +11,8 @@ const PLANS_SCHEMA = z.object({});
 const CHECKOUT_SCHEMA = z.object({
     priceId: z.string(),
 });
+
+const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
 export default async function paymentsRoutes(fastify: FastifyInstance) {
     // GET /api/payments/plans
@@ -31,129 +33,136 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
         schema: {
             body: CHECKOUT_SCHEMA
         }
-    }, async (request: FastifyRequest<{ Body: z.infer<typeof CHECKOUT_SCHEMA> }>, reply) => {
-        const { priceId } = request.body;
+    }, async (request: FastifyRequest<{ Body: { priceId: string; metadata?: any } }>, reply) => {
+        const { priceId, metadata } = request.body;
         const currentUser = request.user;
+        const userId = currentUser.id;
 
-        // Fetch plan to determine mode (subscription vs one-time)
-        const [plan] = await db.select()
-            .from(subscriptionPlan)
-            .where(eq(subscriptionPlan.stripePriceId, priceId))
-            .limit(1);
+        try {
+            console.log(`[Payment] Creating checkout session for user ${userId}, priceId: ${priceId}`);
 
-        if (!plan) {
-            return reply.status(404).send({ error: "Plan not found", code: "PLAN_NOT_FOUND" });
-        }
+            // 1. Fetch Plan Details
+            const [plan] = await db.select()
+                .from(subscriptionPlan)
+                .where(eq(subscriptionPlan.stripePriceId, priceId))
+                .limit(1);
 
-        const mode = plan.interval ? 'subscription' : 'payment';
-
-        // Get or create Stripe customer
-        let stripeCustomerId = currentUser.stripeCustomerId;
-        if (!stripeCustomerId) {
-            const customer = await stripe.customers.create({
-                email: currentUser.email,
-                name: currentUser.name,
-                metadata: {
-                    userId: currentUser.id
-                }
-            });
-            stripeCustomerId = customer.id;
-
-            // Update user with stripeCustomerId
-            await db.update(user)
-                .set({ stripeCustomerId })
-                .where(eq(user.id, currentUser.id));
-        }
-
-        // Check for existing pending session to reuse
-        const pendingPayments = await db.select()
-            .from(paymentHistory)
-            .where(and(
-                eq(paymentHistory.userId, currentUser.id),
-                eq(paymentHistory.status, 'pending')
-            ));
-
-        let existingRecordToUpdate: any = null;
-
-        for (const record of pendingPayments) {
-            const metadata = record.metadata as any;
-            if (metadata?.priceId === plan.stripePriceId) {
-                // Check if created within last 20 hours
-                const isRecent = new Date().getTime() - new Date(record.createdAt!).getTime() < 20 * 60 * 60 * 1000;
-
-                if (isRecent && metadata.checkoutUrl) {
-                    console.log(`Reusing existing pending session: ${record.id}`);
-                    return { url: metadata.checkoutUrl };
-                }
-
-                // If found but expired (or missing URL), mark for update
-                existingRecordToUpdate = record;
-                break;
+            if (!plan) {
+                console.warn(`[Payment] Plan not found for priceId: ${priceId}`);
+                return reply.status(404).send({ error: "Plan not found" });
             }
-        }
 
-        console.log("Creating new checkout session");
+            // 2. Check for active subscription (Prevent duplicate subs if already on THIS plan)
+            const [existingSub] = await db.select()
+                .from(userSubscription)
+                .where(and(
+                    eq(userSubscription.userId, userId),
+                    eq(userSubscription.planId, plan.id),
+                    eq(userSubscription.status, 'active')
+                ))
+                .limit(1);
 
-        const session = await stripe.checkout.sessions.create({
-            payment_method_types: ['card'],
-            line_items: [
-                {
-                    price: plan.stripePriceId,
-                    quantity: 1,
-                },
-            ],
-            mode: plan.interval ? 'subscription' : 'payment',
-            success_url: `${process.env.CLIENT_URL}/settings/credits?success=true&session_id={CHECKOUT_SESSION_ID}`,
-            cancel_url: `${process.env.CLIENT_URL}/settings/billing?canceled=true`,
-            customer: currentUser.stripeCustomerId || undefined,
-            client_reference_id: currentUser.id,
-            subscription_data: plan.interval ? {
-                metadata: {
-                    userId: currentUser.id,
-                    priceId: plan.stripePriceId
-                }
-            } : undefined,
-            metadata: {
-                userId: currentUser.id,
-                priceId: plan.stripePriceId
+            if (existingSub) {
+                console.info(`[Payment] User ${userId} already has active subscription for plan ${plan.id}`);
+                return reply.status(400).send({ error: "You are already subscribed to this plan" });
             }
-        } as any);
 
-        if (!session.url) {
-            throw new Error("Failed to create checkout session");
-        }
+            // 3. Create Session
+            // Reuse existing pending session logic...
+            // Check for recent pending session for this exact price
+            const [existingPending] = await db.select()
+                .from(paymentHistory)
+                .where(and(
+                    eq(paymentHistory.userId, userId),
+                    sql`${paymentHistory.metadata}->>'priceId' = ${priceId}`,
+                    eq(paymentHistory.status, 'pending')
+                    // Check if created within last 20 hours to be safe (Stripe sessions expire in ~24h)
+                ))
+                .orderBy(desc(paymentHistory.createdAt))
+                .limit(1);
 
-        // Create or Update pending payment record
-        const metadata = {
-            checkoutSessionId: session.id,
-            checkoutUrl: session.url,
-            priceId: plan.stripePriceId
-        };
+            let sessionUrl: string | null = null;
+            let sessionId: string | null = null;
 
-        if (existingRecordToUpdate) {
-            await db.update(paymentHistory)
-                .set({
+            if (existingPending && existingPending.metadata) {
+                const meta = existingPending.metadata as any;
+                if (meta.checkoutUrl && meta.checkoutSessionId) {
+                    // Verify if it's still valid in Stripe?
+                    // For speed optimization we can assume it returns valid if < 20h.
+                    // But if user cancelled it in UI, reusing might show "Expired".
+                    // Ideally we check Stripe.
+                    try {
+                        const session = await stripe.checkout.sessions.retrieve(meta.checkoutSessionId);
+                        if (session.status === 'open') {
+                            console.log(`[Payment] Reusing existing session ${session.id} for user ${userId}`);
+                            sessionUrl = session.url;
+                            sessionId = session.id;
+                        } else {
+                            // It's expired or completed, ignore
+                        }
+                    } catch (err) {
+                        // Ignore error, create new one
+                        console.warn(`[Payment] Failed to retrieve existing session ${meta.checkoutSessionId} for user ${userId}:`, err);
+                    }
+                }
+            }
+
+            if (!sessionUrl) {
+                const session = await createCheckoutSession({
+                    customerId: currentUser.stripeCustomerId!,
+                    priceId,
+                    successUrl: `${process.env.VITE_APP_URL}/dashboard/settings/pricing?success=true&session_id={CHECKOUT_SESSION_ID}`,
+                    cancelUrl: `${process.env.VITE_APP_URL}/dashboard/settings/pricing?canceled=true`,
+                    clientReferenceId: userId,
+                    mode: plan.interval ? 'subscription' : 'payment',
+                    metadata: {
+                        planId: plan.id, // Store our DB plan ID
+                        credits: plan.credits,
+                        isSubscription: !!plan.interval,
+                        ...metadata // Merge any additional metadata from the request body
+                    }
+                });
+                sessionUrl = session.url;
+                sessionId = session.id;
+                console.log(`[Payment] Created NEW session ${sessionId} for user ${userId}`);
+            }
+
+            if (!sessionUrl) {
+                throw new Error("Failed to create Stripe session URL");
+            }
+
+            // 4. Log "Pending" Payment
+            // If reusing, we could update or just leave it.
+            // If new, insert.
+            // Let's insert a log for tracking attempts or update logic?
+            // The prompt "Insert paymentHistory record with status pending" implies new record.
+            // But if we reuse, we duplicate pending records?
+            // Better to only insert if we created a NEW session.
+            if (!existingPending || existingPending.metadata && (existingPending.metadata as any).checkoutSessionId !== sessionId) {
+                await db.insert(paymentHistory).values({
+                    id: randomUUID(),
+                    userId,
+                    amount: plan.price,
+                    currency: plan.currency,
                     status: 'pending',
-                    stripePaymentId: session.id,
-                    amount: session.amount_total || plan.price,
-                    currency: session.currency || plan.currency,
-                    createdAt: new Date(), // Reset timestamp for new window
-                    metadata: metadata
-                })
-                .where(eq(paymentHistory.id, existingRecordToUpdate.id));
-        } else {
-            await db.insert(paymentHistory).values({
-                id: randomUUID(),
-                userId: currentUser.id,
-                amount: session.amount_total || plan.price,
-                currency: session.currency || plan.currency,
-                status: 'pending',
-                stripePaymentId: session.id, // Store session ID for idempotency
-                metadata: metadata
+                    stripePaymentId: sessionId, // Store session ID as payment ref for now
+                    metadata: {
+                        checkoutUrl: sessionUrl,
+                        checkoutSessionId: sessionId,
+                        priceId: priceId
+                    }
+                });
+            }
+
+            return { url: sessionUrl };
+        } catch (error: any) {
+            console.error(`[Payment] Error creating checkout session for user ${userId}:`, error);
+            // Include stack trace in dev/staging if helpful, or just message
+            return reply.status(500).send({
+                error: "Failed to create checkout session",
+                details: error.message
             });
         }
-
-        return { url: session.url };
     });
 
     // POST /api/payments/verify-session
@@ -246,22 +255,93 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
                     ? expandedSession.subscription.id
                     : expandedSession.subscription as string;
 
-                const [existingSub] = await db.select()
+                // Deactivate any EXISTING active subscriptions that are different from the new one
+                const existingActiveSubs = await db.select()
+                    .from(userSubscription)
+                    .where(and(
+                        eq(userSubscription.userId, userId),
+                        or(
+                            eq(userSubscription.status, 'active'),
+                            eq(userSubscription.status, 'trialing')
+                        )
+                    ));
+
+                for (const oldSub of existingActiveSubs) {
+                    // If it's a DIFFERENT Stripe subscription ID, cancel it in Stripe and DB
+                    if (oldSub.stripeSubscriptionId && oldSub.stripeSubscriptionId !== subscriptionId) {
+                        try {
+                            console.log(`Cancelling old subscription ${oldSub.stripeSubscriptionId} for user ${userId} due to new subscription ${subscriptionId}`);
+                            await stripe.subscriptions.cancel(oldSub.stripeSubscriptionId);
+
+                            await db.update(userSubscription)
+                                .set({
+                                    status: 'cancelled',
+                                    updatedAt: new Date()
+                                })
+                                .where(eq(userSubscription.id, oldSub.id));
+                        } catch (err: any) {
+                            // If the subscription is already gone in Stripe (resource_missing),
+                            // we should still mark it as cancelled in our DB to keep consistent.
+                            if (err?.code === 'resource_missing') {
+                                console.warn(`Subscription ${oldSub.stripeSubscriptionId} not found in Stripe. Marking as cancelled in DB.`);
+                                await db.update(userSubscription)
+                                    .set({
+                                        status: 'cancelled',
+                                        updatedAt: new Date()
+                                    })
+                                    .where(eq(userSubscription.id, oldSub.id));
+                            } else {
+                                console.error(`Failed to cancel old subscription ${oldSub.stripeSubscriptionId}:`, err);
+                            }
+                        }
+                    }
+                }
+
+                const [existingSubMap] = await db.select()
+                    .from(userSubscription)
+                    .where(and(
+                        eq(userSubscription.userId, userId),
+                        eq(userSubscription.stripeSubscriptionId, subscriptionId) // Match by specific Stripe Sub ID if possible, or fallback
+                    ))
+                    .limit(1);
+
+                // If we don't match by Stripe ID, check if we have a generic user record we're re-using (legacy logic)
+                const [legacySub] = await db.select()
                     .from(userSubscription)
                     .where(eq(userSubscription.userId, userId))
                     .limit(1);
 
-                if (existingSub) {
+                // Decide which record to update:
+                // Priority 1: Exact Stripe ID match (we are just updating the same sub)
+                // Priority 2: Reuse the legacy single-row if it exists and wasn't just cancelled above?
+                // Actually, if we just cancelled it above, we should probably insert a NEW one for the NEW Stripe sub ID.
+                // But the schema limits logic? No, schema has `id` PK.
+
+                // Let's rely on Stripe ID matching.
+                if (existingSubMap) {
                     await db.update(userSubscription)
                         .set({
                             planId: plan.id,
-                            stripeSubscriptionId: subscriptionId,
                             status: 'active',
                             currentPeriodEnd: periodEnd,
                             updatedAt: new Date(),
                         })
-                        .where(eq(userSubscription.id, existingSub.id));
+                        .where(eq(userSubscription.id, existingSubMap.id));
                 } else {
+                    // If we have a legacy row that we just cancelled, we might still have it in DB.
+                    // We should definitely insert a NEW row for the NEW subscription ID to keep history clean.
+                    // OR overwrite the old one if we want to keep table size small.
+                    // Given "deactivate that as well", implies keeping history might be good, but overwriting is cleaner for "current state".
+                    // However, if we overwrite, we lose the record that the OLD one was cancelled.
+                    // Let's INSERT a new one if it's a new Stripe Sub ID.
+
+                    // BUT, to keep simple for now and avoid "multiple active" confusion if UI only reads one:
+                    // UI reads `.limit(1)`.
+                    // If we insert new, UI might read old cancelled one?
+                    // GET /subscription just does `where userId limit 1`. It might pick the wrong one!
+                    // We must ensure GET /subscription picks the one with 'active' status or latest.
+
+                    // Let's just INSERT. And I'll update GET /subscription to order by createdAt desc or preference active.
                     await db.insert(userSubscription).values({
                         id: randomUUID(),
                         userId,
@@ -329,16 +409,21 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
             }
 
             // 5. Send Email (Async)
-            // We can invoke the email logic here or assume webhook handles it. 
-            // To ensure reliability, we can do it here if we want immediate feedback, 
+            // We can invoke the email logic here or assume webhook handles it.
+            // To ensure reliability, we can do it here if we want immediate feedback,
             // but usually emails are fine in webhooks. Let's keep email in webhook for now or duplicate safely.
-            // For now, let's leave email in webhook, as it's not critical for the UI response.
-
-            return { success: true };
+            // For now, let's leave email in webhook,                // 4. Return Success with Redirect
+            // If success=true in query, we might want to redirect or just return.
+            // The client calls this via fetch, so we return JSON.
+            return { success: true, verified: true };
 
         } catch (error: any) {
-            console.error("Verification failed:", error);
-            return reply.status(500).send({ error: "Verification failed", details: error.message });
+            console.error(`[Payment] Verification Error for user ${currentUser.id}:`, error);
+            // Log deep details for debugging
+            if (error.type === 'StripeError') {
+                console.error(`[Payment] Stripe Error Details: ${error.type}, Code: ${error.code}, Param: ${error.param}`);
+            }
+            return reply.status(500).send({ error: "Internal Server Error during verification" });
         }
     });
 
@@ -347,19 +432,30 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
         preHandler: [requireAuth]
     }, async (request, reply) => {
         const currentUser = request.user;
+        const userId = currentUser.id;
 
-        if (!currentUser.stripeCustomerId) {
-            return reply.status(400).send({ error: "No active subscription found", code: "NO_CUSTOMER_ID" });
+        try {
+            console.log(`[Payment] Creating portal session for user ${userId}`);
+
+            if (!currentUser.stripeCustomerId) {
+                console.warn(`[Payment] User ${userId} has no stripe_customer_id`);
+                return reply.status(400).send({ error: "No billing account found" });
+            }
+
+            const session = await createPortalSession({
+                customerId: currentUser.stripeCustomerId,
+                returnUrl: `${process.env.VITE_APP_URL}/dashboard/settings`
+            });
+
+            // Create a temporary history record for portal access? Not really needed.
+            // But we could log it.
+            // await db.insert(paymentHistory).values({ ... status: 'portal_access' ... });
+
+            return { url: session.url };
+        } catch (error: any) {
+            console.error(`[Payment] Error creating portal session for user ${userId}:`, error);
+            return reply.status(500).send({ error: "Failed to create billing portal session" });
         }
-
-        const returnUrl = `${process.env.CLIENT_URL}/settings`;
-
-        const session = await createPortalSession({
-            customerId: currentUser.stripeCustomerId,
-            returnUrl,
-        });
-
-        return { url: session.url };
     });
 
     // POST /api/payments/cancel-subscription
@@ -367,6 +463,7 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
         preHandler: [requireAuth]
     }, async (request, reply) => {
         const currentUser = request.user;
+        const userId = currentUser.id;
 
         // Get the active subscription
         const [subscription] = await db.select()
@@ -378,14 +475,26 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
             .limit(1);
 
         if (!subscription || !subscription.stripeSubscriptionId) {
+            console.warn(`[Payment] Cancel request for user ${userId} but no active subscription found`);
             return reply.status(400).send({ error: "No active subscription found" });
         }
 
         try {
-            // Update Stripe subscription to cancel at period end
-            await stripe.subscriptions.update(subscription.stripeSubscriptionId, {
-                cancel_at_period_end: true,
-            });
+            console.log(`[Payment] Cancelling subscription ${subscription.stripeSubscriptionId} for user ${userId}`);
+
+            // Check if it exists in Stripe before cancelling?
+            // Just try cancelling.
+            try {
+                await stripe.subscriptions.update(subscription.stripeSubscriptionId, {
+                    cancel_at_period_end: true,
+                });
+            } catch (stripeError: any) {
+                if (stripeError?.code === 'resource_missing') {
+                    console.warn(`[Payment] Subscription ${subscription.stripeSubscriptionId} missing in Stripe. Configuring local DB override.`);
+                } else {
+                    throw stripeError;
+                }
+            }
 
             // Update database
             await db.update(userSubscription)
@@ -398,8 +507,77 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
 
             return { success: true };
         } catch (error: any) {
-            console.error("Cancellation error:", error);
+            console.error(`[Payment] Cancellation error for user ${userId}:`, error);
             return reply.status(500).send({ error: error.message || "Failed to cancel subscription" });
+        }
+    });
+
+    // POST /api/payments/reactivate-subscription
+    fastify.post("/reactivate-subscription", {
+        preHandler: [requireAuth]
+    }, async (request, reply) => {
+        const currentUser = request.user;
+        const userId = currentUser.id;
+
+        // Get the cancelled subscription
+        const [subscription] = await db.select()
+            .from(userSubscription)
+            .where(and(
+                eq(userSubscription.userId, currentUser.id),
+                eq(userSubscription.status, 'cancelled')
+            ))
+            .limit(1);
+
+        if (!subscription || !subscription.stripeSubscriptionId) {
+            console.warn(`[Payment] Reactivation request for user ${userId} but no cancelled subscription found`);
+            return reply.status(400).send({ error: "No cancelled subscription found" });
+        }
+
+        try {
+            console.log(`[Payment] Reactivating subscription ${subscription.stripeSubscriptionId} for user ${userId}`);
+
+            // Update Stripe subscription to NOT cancel at period end
+            const updatedStripeSubscription = await stripe.subscriptions.update(subscription.stripeSubscriptionId, {
+                cancel_at_period_end: false,
+            });
+
+            console.log("Reactivation Stripe Response:", JSON.stringify(updatedStripeSubscription, null, 2));
+
+            let newPeriodEnd: Date;
+            const stripePeriodEnd = (updatedStripeSubscription as any).current_period_end ||
+                (updatedStripeSubscription as any).items?.data?.[0]?.current_period_end;
+
+            if (stripePeriodEnd && typeof stripePeriodEnd === 'number') {
+                newPeriodEnd = new Date(stripePeriodEnd * 1000);
+            } else {
+                console.warn("Could not find valid current_period_end in stripe response, falling back to existing DB value");
+                newPeriodEnd = subscription.currentPeriodEnd || new Date();
+            }
+
+            // Final safety check
+            if (isNaN(newPeriodEnd.getTime())) {
+                console.error("Calculated newPeriodEnd is Invalid Date. Fallback to now.");
+                newPeriodEnd = new Date();
+            }
+
+            // Update database with fresh data from Stripe
+            await db.update(userSubscription)
+                .set({
+                    status: 'active',
+                    cancelAtPeriodEnd: false,
+                    currentPeriodEnd: newPeriodEnd,
+                    updatedAt: new Date(),
+                })
+                .where(eq(userSubscription.id, subscription.id));
+
+            return { success: true };
+        } catch (error: any) {
+            console.error(`[Payment] Reactivation error for user ${userId}:`, error);
+            // Include user context in error message if needed, or just standard 500
+            return reply.status(500).send({
+                error: error.message || "Failed to reactivate subscription",
+                code: "REACTIVATION_FAILED"
+            });
         }
     });
 
@@ -408,43 +586,53 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
         preHandler: [requireAuth]
     }, async (request, reply) => {
         const currentUser = request.user;
+        const userId = currentUser.id;
 
-        const [subscription] = await db.select()
-            .from(userSubscription)
-            .where(eq(userSubscription.userId, currentUser.id))
-            .limit(1);
+        try {
+            const [subscription] = await db.select()
+                .from(userSubscription)
+                .where(eq(userSubscription.userId, currentUser.id))
+                .orderBy(desc(userSubscription.createdAt))
+                .limit(1);
 
-        if (!subscription) {
-            return { status: 'none' };
+            if (!subscription) {
+                return { status: 'none', subscription: null, usage: null };
+            }
+
+            const [plan] = await db.select()
+                .from(subscriptionPlan)
+                .where(eq(subscriptionPlan.id, subscription.planId))
+                .limit(1);
+
+            // Get usage from credit_balance
+            // We need to fetch specific balance for this plan or generic?
+            // Existing logic matches planId.
+            const [balance] = await db.select()
+                .from(creditBalance)
+                .where(and(
+                    eq(creditBalance.userId, currentUser.id),
+                    eq(creditBalance.planId, subscription.planId)
+                ))
+                .limit(1);
+
+            return {
+                status: subscription.status,
+                planName: plan?.name,
+                planPrice: plan?.price,
+                interval: plan?.interval,
+                currentPeriodEnd: subscription.currentPeriodEnd,
+                cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
+                usage: balance ? {
+                    used: balance.amountUsed,
+                    total: balance.amountTotal,
+                    resetsAt: balance.expiresAt || subscription.currentPeriodEnd
+                } : null,
+                subscription: subscription // Return full object if needed by frontend types
+            };
+        } catch (error: any) {
+            console.error(`[Payment] Error fetching subscription for user ${userId}:`, error);
+            return reply.status(500).send({ error: "Failed to fetch subscription details" });
         }
-
-        const [plan] = await db.select()
-            .from(subscriptionPlan)
-            .where(eq(subscriptionPlan.id, subscription.planId))
-            .limit(1);
-
-        // Get usage from credit_balance
-        const [balance] = await db.select()
-            .from(creditBalance)
-            .where(and(
-                eq(creditBalance.userId, currentUser.id),
-                eq(creditBalance.planId, subscription.planId)
-            ))
-            .limit(1);
-
-        return {
-            status: subscription.status,
-            planName: plan?.name,
-            planPrice: plan?.price,
-            interval: plan?.interval,
-            currentPeriodEnd: subscription.currentPeriodEnd,
-            cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
-            usage: balance ? {
-                used: balance.amountUsed,
-                total: balance.amountTotal,
-                resetsAt: balance.expiresAt
-            } : null
-        };
     });
 
     // GET /api/payments/invoices
@@ -452,26 +640,32 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
         preHandler: [requireAuth]
     }, async (request, reply) => {
         const currentUser = request.user;
+        const userId = currentUser.id;
 
-        const invoices = await db.select()
-            .from(paymentHistory)
-            .where(and(
-                eq(paymentHistory.userId, currentUser.id),
-                eq(paymentHistory.status, 'succeeded')
-            ))
-            .orderBy(desc(paymentHistory.createdAt));
+        try {
+            const invoices = await db.select()
+                .from(paymentHistory)
+                .where(and(
+                    eq(paymentHistory.userId, currentUser.id),
+                    eq(paymentHistory.status, 'succeeded')
+                ))
+                .orderBy(desc(paymentHistory.createdAt));
 
-        return invoices.map(inv => ({
-            id: inv.id,
-            number: inv.metadata && (inv.metadata as any).invoiceNumber
-                ? (inv.metadata as any).invoiceNumber
-                : (inv.stripePaymentId ? inv.stripePaymentId.slice(-8).toUpperCase() : 'DRAFT'),
-            amount_paid: inv.amount,
-            currency: inv.currency,
-            status: inv.status,
-            created: inv.createdAt ? Math.floor(new Date(inv.createdAt).getTime() / 1000) : 0,
-            invoice_pdf: ''
-        }));
+            return invoices.map(inv => ({
+                id: inv.id,
+                number: inv.metadata && (inv.metadata as any).invoiceNumber
+                    ? (inv.metadata as any).invoiceNumber
+                    : (inv.stripePaymentId ? inv.stripePaymentId.slice(-8).toUpperCase() : 'DRAFT'),
+                amount_paid: inv.amount,
+                currency: inv.currency,
+                status: inv.status,
+                created: inv.createdAt ? Math.floor(new Date(inv.createdAt).getTime() / 1000) : 0,
+                invoice_pdf: ''
+            }));
+        } catch (error: any) {
+            console.error(`[Payment] Error fetching invoices for user ${userId}:`, error);
+            return reply.status(500).send({ error: "Failed to fetch invoices" });
+        }
     });
 
     // GET /api/payments/credits-history
@@ -479,56 +673,61 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
         preHandler: [requireAuth]
     }, async (request, reply) => {
         const currentUser = request.user;
+        const userId = currentUser.id;
 
-        // 1. Fetch successful payments (Top-ups) joined with plans to get credit counts
-        const payments = await db.select({
-            payment: paymentHistory,
-            plan: subscriptionPlan
-        })
-            .from(paymentHistory)
-            .leftJoin(subscriptionPlan, sql`${paymentHistory.metadata}->>'priceId' = ${subscriptionPlan.stripePriceId}`)
-            .where(and(
-                eq(paymentHistory.userId, currentUser.id),
-                eq(paymentHistory.status, 'succeeded')
-            ))
-            .orderBy(desc(paymentHistory.createdAt));
+        try {
+            // 1. Fetch successful payments (Top-ups) joined with plans
+            const payments = await db.select({
+                payment: paymentHistory,
+                plan: subscriptionPlan
+            })
+                .from(paymentHistory)
+                .leftJoin(subscriptionPlan, sql`${paymentHistory.metadata}->>'priceId' = ${subscriptionPlan.stripePriceId}`)
+                .where(and(
+                    eq(paymentHistory.userId, currentUser.id),
+                    eq(paymentHistory.status, 'succeeded')
+                ))
+                .orderBy(desc(paymentHistory.createdAt));
 
-        // Note: leftJoin by metadata priceId might be tricky with standard Drizzle. 
-        // Let's just fetch plans separately and map in memory for better reliability if needed, 
-        // OR rely on the fact that we store priceId in metadata.
+            // 2. Fetch usage transactions
+            const transactions = await db.select()
+                .from(creditTransaction)
+                .where(eq(creditTransaction.userId, currentUser.id))
+                .orderBy(desc(creditTransaction.createdAt));
 
-        // 2. Fetch usage transactions
-        const transactions = await db.select()
-            .from(creditTransaction)
-            .where(eq(creditTransaction.userId, currentUser.id))
-            .orderBy(desc(creditTransaction.createdAt));
+            // 3. Merge and format
+            const history = [
+                ...payments.map(row => {
+                    const p = row.payment;
+                    const pl = row.plan;
+                    return {
+                        id: p.id,
+                        name: pl ? `${pl.name} Plan` : "Credit Top-up",
+                        date: p.createdAt ? p.createdAt.toISOString() : new Date().toISOString(),
+                        status: "Success",
+                        credits: pl ? pl.credits.toString() : "0",
+                        type: 'purchase',
+                        amount: p.amount
+                    }
+                }),
+                ...transactions.map(t => ({
+                    id: t.id,
+                    name: t.description || "Credit Usage",
+                    date: t.createdAt ? t.createdAt.toISOString() : new Date().toISOString(),
+                    status: "Completed",
+                    credits: Math.abs(t.amount).toString(), // Show usage as positive number in list? Or with sign?
+                    // Typically usage is shown as negative, but UI might want absolute.
+                    // Let's keep it as string.
+                    type: 'usage',
+                    amount: 0
+                }))
+            ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-        // 3. Merge and format
-        const history = [
-            ...payments.map(row => {
-                const p = row.payment;
-                const pl = row.plan;
-                return {
-                    id: p.id,
-                    name: pl ? `${pl.name} Plan` : "Credit Top-up",
-                    date: p.createdAt ? p.createdAt.toISOString() : new Date().toISOString(),
-                    status: "Success",
-                    credits: pl ? pl.credits.toString() : "0",
-                    iconType: "plus"
-                }
-            }),
-            ...transactions.map(t => ({
-                id: t.id,
-                name: t.description || "Credit Usage",
-                date: t.createdAt ? t.createdAt.toISOString() : new Date().toISOString(),
-                status: "Completed",
-                credits: t.amount.toString(),
-                iconType: t.amount > 0 ? "plus" : "video"
-            }))
-        ];
-
-        // Sort by date desc
-        return history.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+            return history;
+        } catch (error: any) {
+            console.error(`[Payment] Error fetching credits history for user ${userId}:`, error);
+            return reply.status(500).send({ error: "Failed to fetch credit history" });
+        }
     });
 
     // POST /api/payments/webhook
@@ -536,7 +735,6 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
         config: { rawBody: true },
     }, async (request: any, reply) => {
         const sig = request.headers['stripe-signature'];
-        const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
         if (!sig || !webhookSecret) {
             console.error("Missing Stripe signature or webhook secret");

@@ -23,6 +23,7 @@ export async function createCheckoutSession({
     clientReferenceId,
     userEmail,
     mode = 'subscription',
+    metadata = {},
 }: {
     customerId?: string;
     priceId: string;
@@ -31,6 +32,7 @@ export async function createCheckoutSession({
     clientReferenceId: string;
     userEmail?: string;
     mode?: 'subscription' | 'payment';
+    metadata?: Record<string, any>;
 }) {
     const session = await stripe.checkout.sessions.create({
         customer: customerId,
@@ -49,13 +51,15 @@ export async function createCheckoutSession({
             subscription_data: {
                 metadata: {
                     userId: clientReferenceId,
+                    ...metadata,
                 },
             },
         } : {
             payment_intent_data: {
                 metadata: {
                     userId: clientReferenceId,
-                }
+                    ...metadata,
+                },
             }
         }),
     });

@@ -376,6 +376,7 @@ function BillingTab() {
     const [isLoading, setIsLoading] = useState(true)
     const [showCancelDialog, setShowCancelDialog] = useState(false)
     const [isCanceling, setIsCanceling] = useState(false)
+    const [isReactivating, setIsReactivating] = useState(false)
 
     const fetchBillingData = async () => {
         try {
@@ -414,7 +415,7 @@ function BillingTab() {
             })
 
             if (res.ok) {
-                toast.success("Subscription canceled successfully. Your benefits will continue until the end of the current period.")
+                toast.success("Subscription canceled successfully")
                 setShowCancelDialog(false)
                 // Refresh data to reflect cancellation status
                 await fetchBillingData()
@@ -430,21 +431,26 @@ function BillingTab() {
         }
     }
 
-    const handleManageSubscription = async () => {
+    const handleReactivateSubscription = async () => {
+        setIsReactivating(true)
         try {
-            const res = await fetch(`${API_BASE_URL}/api/payments/create-portal-session`, {
+            const res = await fetch(`${API_BASE_URL}/api/payments/reactivate-subscription`, {
                 method: 'POST',
                 credentials: 'include'
             })
-            const data = await res.json()
-            if (data.url) {
-                window.location.href = data.url
+
+            if (res.ok) {
+                toast.success("Subscription reactivated successfully!")
+                await fetchBillingData()
             } else {
-                toast.error("Failed to open billing portal")
+                const data = await res.json()
+                toast.error(data.error || "Failed to reactivate subscription")
             }
         } catch (error) {
-            console.error("Portal error:", error)
+            console.error("Reactivation error:", error)
             toast.error("An error occurred")
+        } finally {
+            setIsReactivating(false)
         }
     }
 
@@ -555,23 +561,27 @@ function BillingTab() {
                                 <button
                                     onClick={() => setShowCancelDialog(true)}
                                     className="text-xs font-bold text-red-400 hover:text-red-500 transition-colors"
-                                    disabled={subData?.cancelAtPeriodEnd}
+                                    disabled={subData?.status === 'cancelled'}
                                 >
-                                    {subData?.cancelAtPeriodEnd ? "Cancelled" : "Cancel Plan"}
+                                    {subData?.status === 'cancelled' ? "Cancelled" : "Cancel Plan"}
                                 </button>
                                 <div className="flex items-center gap-3">
+                                    {subData?.status === 'cancelled' && (
+                                        <Button
+                                            onClick={handleReactivateSubscription}
+                                            disabled={isReactivating}
+                                            className="h-11 px-6 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-lg shadow-indigo-100"
+                                        >
+                                            {isReactivating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                            Reactivate Plan
+                                        </Button>
+                                    )}
                                     <Button
                                         variant="outline"
-                                        onClick={() => toast.info("Upgrade/Downgrade functionality coming soon")}
+                                        onClick={() => navigate("/settings/pricing")}
                                         className="h-11 px-6 rounded-xl border-slate-200 hover:bg-slate-50 font-bold text-slate-600"
                                     >
-                                        Upgrade/Downgrade Plan
-                                    </Button>
-                                    <Button
-                                        onClick={handleManageSubscription}
-                                        className="h-11 px-6 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-lg shadow-indigo-100"
-                                    >
-                                        Manage Subscription
+                                        Change Plan
                                     </Button>
                                 </div>
                             </div>
