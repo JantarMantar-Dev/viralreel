@@ -49,6 +49,7 @@ function App() {
           <Route path="settings" element={<SettingsPage />} />
           <Route path="settings/account" element={<SettingsPage />} />
           <Route path="settings/billing" element={<SettingsPage />} />
+          <Route path="settings/credits" element={<SettingsPage />} />
           <Route path="settings/social" element={<SettingsPage />} />
           <Route path="settings/pricing" element={<PricingPage />} />
           <Route path="settings/pricing/contact" element={<ContactSalesPage />} />

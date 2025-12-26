@@ -65,7 +65,7 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
                 .where(eq(user.id, currentUser.id));
         }
 
-        const successUrl = `${process.env.CLIENT_URL}/dashboard/settings?session_id={CHECKOUT_SESSION_ID}`;
+        const successUrl = `${process.env.CLIENT_URL}/dashboard/settings/credits?success=true&session_id={CHECKOUT_SESSION_ID}`;
         const cancelUrl = `${process.env.CLIENT_URL}/dashboard/settings`;
 
         const session = await createCheckoutSession({
@@ -222,35 +222,39 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
                         .set({ stripeCustomerId: customerId as string })
                         .where(eq(user.id, userId));
 
-                    // 2. Create or Update userSubscription
-                    const periodEnd = expandedSession.subscription && typeof expandedSession.subscription !== 'string'
-                        ? new Date((expandedSession.subscription as any).current_period_end * 1000)
-                        : null;
+                    // 2. Create or Update userSubscription (only for recurring plans)
+                    // If it's a one-time payment, subscriptionId will be null/undefined, and we skip this.
+                    let periodEnd: Date | null = null;
+                    if (plan.interval) {
+                        periodEnd = expandedSession.subscription && typeof expandedSession.subscription !== 'string'
+                            ? new Date((expandedSession.subscription as any).current_period_end * 1000)
+                            : null;
 
-                    const [existingSub] = await db.select()
-                        .from(userSubscription)
-                        .where(eq(userSubscription.userId, userId))
-                        .limit(1);
+                        const [existingSub] = await db.select()
+                            .from(userSubscription)
+                            .where(eq(userSubscription.userId, userId))
+                            .limit(1);
 
-                    if (existingSub) {
-                        await db.update(userSubscription)
-                            .set({
+                        if (existingSub) {
+                            await db.update(userSubscription)
+                                .set({
+                                    planId: plan.id,
+                                    stripeSubscriptionId: subscriptionId as string,
+                                    status: 'active',
+                                    currentPeriodEnd: periodEnd,
+                                    updatedAt: new Date(),
+                                })
+                                .where(eq(userSubscription.id, existingSub.id));
+                        } else {
+                            await db.insert(userSubscription).values({
+                                id: randomUUID(),
+                                userId,
                                 planId: plan.id,
                                 stripeSubscriptionId: subscriptionId as string,
                                 status: 'active',
                                 currentPeriodEnd: periodEnd,
-                                updatedAt: new Date(),
-                            })
-                            .where(eq(userSubscription.id, existingSub.id));
-                    } else {
-                        await db.insert(userSubscription).values({
-                            id: randomUUID(),
-                            userId,
-                            planId: plan.id,
-                            stripeSubscriptionId: subscriptionId as string,
-                            status: 'active',
-                            currentPeriodEnd: periodEnd,
-                        });
+                            });
+                        }
                     }
 
                     // 3. Update credit balance
@@ -263,11 +267,21 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
                         .limit(1);
 
                     if (existingBalance) {
+                        // For subscriptions: Reset credits (new period)
+                        // For one-time packs: Add to existing credits
+                        const newAmountTotal = plan.interval
+                            ? plan.credits
+                            : existingBalance.amountTotal + plan.credits;
+
+                        // For subscriptions: Reset usage to 0
+                        // For one-time packs: Keep usage as is (effectively just raising the ceiling)
+                        const newAmountUsed = plan.interval ? 0 : existingBalance.amountUsed;
+
                         await db.update(creditBalance)
                             .set({
-                                amountTotal: plan.credits,
-                                amountUsed: 0, // Reset for new period/plan? Usually yes for subscriptions
-                                expiresAt: periodEnd,
+                                amountTotal: newAmountTotal,
+                                amountUsed: newAmountUsed,
+                                expiresAt: periodEnd, // Updates expiry if subscription, null if one-time (stays null)
                                 updatedAt: new Date(),
                             })
                             .where(eq(creditBalance.id, existingBalance.id));

@@ -511,6 +511,7 @@ function BillingTab() {
 }
 
 function CreditsTab() {
+    const navigate = useNavigate()
     const [autoRecharge, setAutoRecharge] = useState(false)
     const [searchQuery, setSearchQuery] = useState("")
 
@@ -530,7 +531,10 @@ function CreditsTab() {
                     <CardContent className="p-10 space-y-8">
                         <div className="flex items-center justify-between">
                             <h3 className="text-xl font-bold text-slate-800">Credit Balance</h3>
-                            <Button className="bg-purple-600 hover:bg-purple-700 text-white font-bold h-11 px-6 rounded-xl shadow-lg shadow-purple-100 flex items-center gap-2">
+                            <Button
+                                onClick={() => navigate("/settings/pricing")}
+                                className="bg-purple-600 hover:bg-purple-700 text-white font-bold h-11 px-6 rounded-xl shadow-lg shadow-purple-100 flex items-center gap-2"
+                            >
                                 <Plus className="h-4 w-4" />
                                 Buy Credits
                             </Button>
@@ -550,42 +554,6 @@ function CreditsTab() {
                                     Enough for approximately <span className="text-slate-800">45 minutes</span> of HD video rendering.
                                 </p>
                             </div>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card className="rounded-[32px] border-slate-100 shadow-sm bg-slate-50/50">
-                    <CardContent className="p-10 flex flex-col justify-between h-full space-y-8">
-                        <div className="space-y-4">
-                            <div className="flex items-center gap-3">
-                                <div className="h-10 w-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center shadow-sm">
-                                    <AlertCircle className="h-5 w-5 text-slate-400" />
-                                </div>
-                                <h3 className="font-bold text-slate-800">Auto-Recharge</h3>
-                            </div>
-                            <p className="text-sm font-medium text-slate-500 leading-relaxed">
-                                Automatically purchase credits when your balance falls below 100.
-                            </p>
-                        </div>
-
-                        <div className="flex items-center justify-between p-4 bg-white rounded-2xl border border-slate-100">
-                            <span className={cn("text-sm font-bold", autoRecharge ? "text-slate-800" : "text-slate-400")}>
-                                {autoRecharge ? "Enabled" : "Disabled"}
-                            </span>
-                            <button
-                                onClick={() => setAutoRecharge(!autoRecharge)}
-                                className={cn(
-                                    "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none",
-                                    autoRecharge ? "bg-purple-600" : "bg-slate-200"
-                                )}
-                            >
-                                <span
-                                    className={cn(
-                                        "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200",
-                                        autoRecharge ? "translate-x-5" : "translate-x-0"
-                                    )}
-                                />
-                            </button>
                         </div>
                     </CardContent>
                 </Card>
