@@ -261,7 +261,7 @@ export default function FeedbackPage() {
 
             <div className="text-center">
                 <p className="text-[11px] font-bold text-slate-300 uppercase tracking-[0.2em]">
-                    © 2024 Viral Reel. All rights reserved.
+                    © 2026 Viral Reel. All rights reserved.
                 </p>
             </div>
         </div>

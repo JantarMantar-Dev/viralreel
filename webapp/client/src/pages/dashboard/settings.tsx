@@ -12,7 +12,14 @@ import {
     DollarSign,
     History,
     FileText,
-    Download
+    Download,
+    Coins,
+    Search,
+    Filter,
+    Plus,
+    CheckCircle2,
+    XCircle,
+    Video
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -146,6 +153,13 @@ export default function SettingsPage() {
                     >
                         <CreditCard className="h-4 w-4 mr-2" />
                         Billing
+                    </TabsTrigger>
+                    <TabsTrigger
+                        value="credits"
+                        className="rounded-none border-b-2 border-transparent data-[state=active]:border-purple-600 data-[state=active]:bg-transparent data-[state=active]:text-purple-600 text-slate-500 px-0 py-3 font-semibold transition-all"
+                    >
+                        <Coins className="h-4 w-4 mr-2" />
+                        Credits
                     </TabsTrigger>
                     <TabsTrigger
                         value="social"
@@ -305,6 +319,10 @@ export default function SettingsPage() {
 
                 <TabsContent value="billing" className="space-y-8 mt-0 focus-visible:ring-0">
                     <BillingTab />
+                </TabsContent>
+
+                <TabsContent value="credits" className="space-y-8 mt-0 focus-visible:ring-0">
+                    <CreditsTab />
                 </TabsContent>
 
                 <TabsContent value="social">
@@ -486,6 +504,182 @@ function BillingTab() {
                             </table>
                         </div>
                     )}
+                </CardContent>
+            </Card>
+        </div>
+    )
+}
+
+function CreditsTab() {
+    const [autoRecharge, setAutoRecharge] = useState(false)
+    const [searchQuery, setSearchQuery] = useState("")
+
+    const history = [
+        { id: 1, name: "Summer Promo Campaign", date: "Oct 24, 2023 2:30 PM", type: "HD Rendering", status: "Completed", credits: -50, icon: Video },
+        { id: 2, name: "Product Launch Teaser", date: "Oct 22, 2023 10:15 AM", type: "4K Rendering", status: "Completed", credits: -120, icon: Video },
+        { id: 3, name: "Credit Pack Purchase", date: "Oct 20, 2023 9:00 AM", type: "Top-up", status: "Success", credits: 500, icon: Plus },
+        { id: 4, name: "Social Media Shorts #4", date: "Oct 18, 2023 4:45 PM", type: "HD Rendering", status: "Failed (Refunded)", credits: 0, icon: Video },
+        { id: 5, name: "Voiceover Generation", date: "Oct 18, 2023 4:30 PM", type: "TTS Service", status: "Completed", credits: -15, icon: Share2 },
+    ]
+
+    return (
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500 pb-20">
+            {/* Top Section: Balance & Auto-Recharge */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <Card className="lg:col-span-2 rounded-[32px] border-slate-100 shadow-sm overflow-hidden relative">
+                    <CardContent className="p-10 space-y-8">
+                        <div className="flex items-center justify-between">
+                            <h3 className="text-xl font-bold text-slate-800">Credit Balance</h3>
+                            <Button className="bg-purple-600 hover:bg-purple-700 text-white font-bold h-11 px-6 rounded-xl shadow-lg shadow-purple-100 flex items-center gap-2">
+                                <Plus className="h-4 w-4" />
+                                Buy Credits
+                            </Button>
+                        </div>
+
+                        <div className="bg-purple-50/30 rounded-3xl p-8 border border-purple-100/50 flex flex-col md:flex-row items-start md:items-center gap-8 relative overflow-hidden group">
+                            {/* Decorative background circle */}
+                            <div className="absolute -right-20 -top-20 w-64 h-64 bg-purple-100/10 rounded-full blur-3xl group-hover:bg-purple-100/20 transition-all duration-700" />
+
+                            <div className="space-y-1 relative">
+                                <p className="text-[11px] font-black uppercase tracking-widest text-purple-400">Available Credits</p>
+                                <div className="flex items-baseline gap-3">
+                                    <span className="text-6xl font-black text-purple-600 tracking-tight">2,450</span>
+                                    <span className="text-xl font-bold text-purple-400">credits</span>
+                                </div>
+                                <p className="text-sm font-semibold text-slate-500 pt-2">
+                                    Enough for approximately <span className="text-slate-800">45 minutes</span> of HD video rendering.
+                                </p>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card className="rounded-[32px] border-slate-100 shadow-sm bg-slate-50/50">
+                    <CardContent className="p-10 flex flex-col justify-between h-full space-y-8">
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-3">
+                                <div className="h-10 w-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center shadow-sm">
+                                    <AlertCircle className="h-5 w-5 text-slate-400" />
+                                </div>
+                                <h3 className="font-bold text-slate-800">Auto-Recharge</h3>
+                            </div>
+                            <p className="text-sm font-medium text-slate-500 leading-relaxed">
+                                Automatically purchase credits when your balance falls below 100.
+                            </p>
+                        </div>
+
+                        <div className="flex items-center justify-between p-4 bg-white rounded-2xl border border-slate-100">
+                            <span className={cn("text-sm font-bold", autoRecharge ? "text-slate-800" : "text-slate-400")}>
+                                {autoRecharge ? "Enabled" : "Disabled"}
+                            </span>
+                            <button
+                                onClick={() => setAutoRecharge(!autoRecharge)}
+                                className={cn(
+                                    "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none",
+                                    autoRecharge ? "bg-purple-600" : "bg-slate-200"
+                                )}
+                            >
+                                <span
+                                    className={cn(
+                                        "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200",
+                                        autoRecharge ? "translate-x-5" : "translate-x-0"
+                                    )}
+                                />
+                            </button>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+
+            {/* Credit History Section */}
+            <Card className="rounded-[32px] border-slate-100 shadow-sm overflow-hidden">
+                <CardHeader className="p-10 pb-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                    <CardTitle className="text-2xl font-black text-slate-800 tracking-tight">Credit History</CardTitle>
+                    <div className="flex items-center gap-3">
+                        <div className="relative group flex-1 md:w-64">
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-purple-500 transition-colors" />
+                            <Input
+                                placeholder="Search jobs..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="h-11 pl-11 pr-4 rounded-xl bg-slate-50 border-slate-100 focus:bg-white focus:ring-purple-50 transition-all font-medium"
+                            />
+                        </div>
+                        <Button variant="outline" className="h-11 px-4 rounded-xl border-slate-200 hover:bg-slate-50 font-bold flex items-center gap-2">
+                            <Filter className="h-4 w-4" />
+                            Filter
+                        </Button>
+                    </div>
+                </CardHeader>
+                <CardContent className="p-0">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                            <thead>
+                                <tr className="border-y border-slate-100 bg-slate-50/50">
+                                    <th className="px-10 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Job Name</th>
+                                    <th className="px-10 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Date</th>
+                                    <th className="px-10 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Type</th>
+                                    <th className="px-10 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+                                    <th className="px-10 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Credits</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {history.map((item) => {
+                                    const Icon = item.icon
+                                    return (
+                                        <tr key={item.id} className="hover:bg-slate-50/30 transition-colors group">
+                                            <td className="px-10 py-6">
+                                                <div className="flex items-center gap-4">
+                                                    <div className={cn(
+                                                        "h-10 w-10 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110",
+                                                        item.credits > 0 ? "bg-emerald-50 text-emerald-500" : "bg-slate-50 text-slate-400"
+                                                    )}>
+                                                        <Icon className="h-5 w-5" />
+                                                    </div>
+                                                    <span className="font-bold text-slate-700">{item.name}</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-10 py-6">
+                                                <div className="flex flex-col">
+                                                    <span className="font-bold text-slate-600 text-sm whitespace-nowrap">
+                                                        {item.date.split(' ').slice(0, 3).join(' ')}
+                                                    </span>
+                                                    <span className="text-[10px] font-bold text-slate-300 uppercase">
+                                                        {item.date.split(' ').slice(3).join(' ')}
+                                                    </span>
+                                                </div>
+                                            </td>
+                                            <td className="px-10 py-6">
+                                                <span className="text-sm font-semibold text-slate-500 whitespace-nowrap">
+                                                    {item.type}
+                                                </span>
+                                            </td>
+                                            <td className="px-10 py-6">
+                                                <span className={cn(
+                                                    "px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider",
+                                                    item.status === 'Completed' || item.status === 'Success'
+                                                        ? "bg-emerald-100 text-emerald-600"
+                                                        : item.status.includes('Failed')
+                                                            ? "bg-amber-100 text-amber-600"
+                                                            : "bg-slate-100 text-slate-500"
+                                                )}>
+                                                    {item.status}
+                                                </span>
+                                            </td>
+                                            <td className="px-10 py-6 text-right font-black">
+                                                <span className={cn(
+                                                    "text-sm tracking-tight",
+                                                    item.credits > 0 ? "text-emerald-600" : item.credits < 0 ? "text-red-500" : "text-slate-400"
+                                                )}>
+                                                    {item.credits > 0 ? `+${item.credits}` : item.credits}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    )
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
                 </CardContent>
             </Card>
         </div>
