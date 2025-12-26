@@ -245,6 +245,48 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
                 }
             }
 
+            // Deactivate any EXISTING active subscriptions that are different from the new one
+            const existingActiveSubs = await db.select()
+                .from(userSubscription)
+                .where(and(
+                    eq(userSubscription.userId, userId),
+                    or(
+                        eq(userSubscription.status, 'active'),
+                        eq(userSubscription.status, 'trialing')
+                    )
+                ));
+
+            for (const oldSub of existingActiveSubs) {
+                // If it's a DIFFERENT Stripe subscription ID, cancel it in Stripe and DB
+                if (oldSub.stripeSubscriptionId && oldSub.stripeSubscriptionId !== subscriptionId) {
+                    try {
+                        console.log(`Cancelling old subscription ${oldSub.stripeSubscriptionId} for user ${userId} due to new subscription ${subscriptionId}`);
+                        await stripe.subscriptions.cancel(oldSub.stripeSubscriptionId);
+
+                        await db.update(userSubscription)
+                            .set({
+                                status: 'cancelled',
+                                updatedAt: new Date()
+                            })
+                            .where(eq(userSubscription.id, oldSub.id));
+                    } catch (err: any) {
+                        // If the subscription is already gone in Stripe (resource_missing),
+                        // we should still mark it as cancelled in our DB to keep consistent.
+                        if (err?.code === 'resource_missing') {
+                            console.warn(`Subscription ${oldSub.stripeSubscriptionId} not found in Stripe. Marking as cancelled in DB.`);
+                            await db.update(userSubscription)
+                                .set({
+                                    status: 'cancelled',
+                                    updatedAt: new Date()
+                                })
+                                .where(eq(userSubscription.id, oldSub.id));
+                        } else {
+                            console.error(`Failed to cancel old subscription ${oldSub.stripeSubscriptionId}:`, err);
+                        }
+                    }
+                }
+            }
+
             await db.transaction(async (tx) => {
                 // Re-verify status inside transaction for safety (Select for update if possible, but status check is usually enough)
                 const [record] = await tx.select()
@@ -279,6 +321,14 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
                             })
                             .where(eq(userSubscription.id, existingSubMap.id));
                     } else {
+                        // Mark previous subscriptions as not current
+                        await tx.update(userSubscription)
+                            .set({ isCurrent: false })
+                            .where(and(
+                                eq(userSubscription.userId, userId),
+                                eq(userSubscription.isCurrent, true)
+                            ));
+
                         await tx.insert(userSubscription).values({
                             id: randomUUID(),
                             userId,
