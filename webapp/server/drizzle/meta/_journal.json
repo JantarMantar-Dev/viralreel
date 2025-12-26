@@ -64,6 +64,13 @@
       "when": 1766781521403,
       "tag": "0008_nifty_spirit",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1766782905749,
+      "tag": "0009_safe_eternals",
+      "breakpoints": true
     }
   ]
 }

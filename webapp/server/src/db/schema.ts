@@ -294,11 +294,10 @@ export const paymentHistory = pgTable("payment_history", {
  */
 export const creditBalance = pgTable("credit_balance", {
     id: text("id").primaryKey(), // UUID
-    userId: text("user_id").notNull().references(() => user.id),
-    planId: text("plan_id").references(() => subscriptionPlan.id), // Nullable if manual grant
-    amountTotal: integer("amount_total").notNull(), // Initial amount granted
-    amountUsed: integer("amount_used").default(0).notNull(), // Amount consumed
-    expiresAt: timestamp("expires_at"), // Nullable (e.g. monthly credits expire, packs don't)
+    userId: text("user_id").notNull().unique().references(() => user.id),
+    amountTotal: integer("amount_total").notNull(), // Cumulative amount granted
+    amountUsed: integer("amount_used").default(0).notNull(), // Cumulative amount consumed
+    expiresAt: timestamp("expires_at"), // Nullable
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
 });

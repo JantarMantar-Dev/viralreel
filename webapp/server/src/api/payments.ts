@@ -305,16 +305,8 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
                     ))
                     .limit(1);
 
-                // If we don't match by Stripe ID, check if we have a generic user record we're re-using (legacy logic)
-                const [legacySub] = await db.select()
-                    .from(userSubscription)
-                    .where(eq(userSubscription.userId, userId))
-                    .limit(1);
-
                 // Decide which record to update:
                 // Priority 1: Exact Stripe ID match (we are just updating the same sub)
-                // Priority 2: Reuse the legacy single-row if it exists and wasn't just cancelled above?
-                // Actually, if we just cancelled it above, we should probably insert a NEW one for the NEW Stripe sub ID.
                 // But the schema limits logic? No, schema has `id` PK.
 
                 // Let's rely on Stripe ID matching.
@@ -348,35 +340,49 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
                 }
             }
 
-            // Update credit balance
+            // 3. Update credit balance (Single record per user)
             const [existingBalance] = await db.select()
                 .from(creditBalance)
-                .where(and(
-                    eq(creditBalance.userId, userId),
-                    eq(creditBalance.planId, plan.id)
-                ))
+                .where(eq(creditBalance.userId, userId))
                 .limit(1);
 
             if (existingBalance) {
-                const newAmountTotal = plan.credits;
-                const newAmountUsed = 0;
+                // Following user's manual edit: adding credits
+                const newAmountTotal = plan.credits + existingBalance.amountTotal;
 
                 await db.update(creditBalance)
                     .set({
                         amountTotal: newAmountTotal,
-                        amountUsed: newAmountUsed,
                         expiresAt: periodEnd,
                         updatedAt: new Date(),
                     })
                     .where(eq(creditBalance.id, existingBalance.id));
-            } else {
-                await db.insert(creditBalance).values({
+
+                // Log the transaction
+                await db.insert(creditTransaction).values({
                     id: randomUUID(),
                     userId,
-                    planId: plan.id,
+                    creditBalanceId: existingBalance.id,
+                    amount: plan.credits,
+                    description: `Plan Purchase: ${plan.name}`,
+                });
+            } else {
+                const balanceId = randomUUID();
+                await db.insert(creditBalance).values({
+                    id: balanceId,
+                    userId,
                     amountTotal: plan.credits,
                     amountUsed: 0,
                     expiresAt: periodEnd,
+                });
+
+                // Log the transaction
+                await db.insert(creditTransaction).values({
+                    id: randomUUID(),
+                    userId,
+                    creditBalanceId: balanceId,
+                    amount: plan.credits,
+                    description: `Initial Plan Purchase: ${plan.name}`,
                 });
             }
 
@@ -626,10 +632,7 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
             // Existing logic matches planId.
             const [balance] = await db.select()
                 .from(creditBalance)
-                .where(and(
-                    eq(creditBalance.userId, currentUser.id),
-                    eq(creditBalance.planId, subscription.planId)
-                ))
+                .where(eq(creditBalance.userId, currentUser.id))
                 .limit(1);
 
             return {
@@ -872,35 +875,48 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
                         }
                     }
 
-                    // 3. Update credit balance
+                    // 3. Update credit balance (Single record per user)
                     const [existingBalance] = await db.select()
                         .from(creditBalance)
-                        .where(and(
-                            eq(creditBalance.userId, userId),
-                            eq(creditBalance.planId, plan.id)
-                        ))
+                        .where(eq(creditBalance.userId, userId))
                         .limit(1);
 
                     if (existingBalance) {
-                        const newAmountTotal = plan.credits;
-                        const newAmountUsed = 0;
+                        const newAmountTotal = plan.credits + existingBalance.amountTotal;
 
                         await db.update(creditBalance)
                             .set({
                                 amountTotal: newAmountTotal,
-                                amountUsed: newAmountUsed,
-                                expiresAt: periodEnd, // Updates expiry if subscription, null if one-time (stays null)
+                                expiresAt: periodEnd,
                                 updatedAt: new Date(),
                             })
                             .where(eq(creditBalance.id, existingBalance.id));
-                    } else {
-                        await db.insert(creditBalance).values({
+
+                        // Log the transaction
+                        await db.insert(creditTransaction).values({
                             id: randomUUID(),
                             userId,
-                            planId: plan.id,
+                            creditBalanceId: existingBalance.id,
+                            amount: plan.credits,
+                            description: `Plan Purchase: ${plan.name} (Webhook)`,
+                        });
+                    } else {
+                        const balanceId = randomUUID();
+                        await db.insert(creditBalance).values({
+                            id: balanceId,
+                            userId,
                             amountTotal: plan.credits,
                             amountUsed: 0,
                             expiresAt: periodEnd,
+                        });
+
+                        // Log the transaction
+                        await db.insert(creditTransaction).values({
+                            id: randomUUID(),
+                            userId,
+                            creditBalanceId: balanceId,
+                            amount: plan.credits,
+                            description: `Initial Plan Purchase: ${plan.name} (Webhook)`,
                         });
                     }
 
