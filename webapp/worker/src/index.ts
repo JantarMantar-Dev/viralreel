@@ -112,7 +112,12 @@ async function processJob(job: typeof renderJob.$inferSelect) {
         console.log("Rendering...");
         console.log("Input Props being sent to render:", JSON.stringify(inputProps, null, 2));
 
-        const outputLocation = path.join(process.cwd(), 'out', `${job.id}.mp4`);
+        const workDir = process.env.VIDEO_WORK_DIR || path.join(process.cwd(), 'out');
+        if (!fs.existsSync(workDir)) {
+            fs.mkdirSync(workDir, { recursive: true });
+        }
+
+        const outputLocation = path.join(workDir, `${job.id}.mp4`);
         await renderMedia({
             composition,
             serveUrl: bundleLocation,

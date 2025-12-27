@@ -75,6 +75,7 @@ services:
       - /app/node_modules
     environment:
       - DATABASE_URL=postgresql://user:password@postgres:5432/webapp
+      - VIDEO_WORK_DIR=${VIDEO_WORK_DIR:-/app/out}
     command: npx tsx watch src/index.ts
     depends_on:
       postgres:
