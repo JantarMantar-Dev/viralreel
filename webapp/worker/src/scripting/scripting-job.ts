@@ -114,12 +114,12 @@ export class ScriptingJob implements ScriptingJobInterface {
 
         // 3.5 Save to Local File System
         try {
-            // Define work dir relative to CWD (webapp/worker based on how it's run, or absolute)
-            // Using process.cwd() ensures we are relative to where the process started.
-            // Assuming worker is started from 'webapp/worker' or root.
-            // Let's use an absolute path validation or relative to 'webapp/worker/work_dirs' logic.
-            // Better to just ensure the folder exists relative to where this code runs.
-            const workDir = path.resolve(process.cwd(), 'work_dir', this.videoId);
+            let baseDir = process.env.VIDEO_WORK_DIR;
+            if (!baseDir) {
+                baseDir = path.resolve(process.cwd(), 'work_dirs');
+            }
+
+            const workDir = path.resolve(baseDir, this.videoId);
             await fs.mkdir(workDir, { recursive: true });
 
             const scriptPath = path.join(workDir, 'script.json');
