@@ -34,7 +34,9 @@ async function insertJob() {
         status: "Script Ready",
         createdAt: new Date(),
         updatedAt: new Date(),
-        metadata: {}
+        metadata: {
+            templateId: 'simple'
+        }
     });
     console.log("Created video", videoId);
 

@@ -102,9 +102,13 @@ async function processJob(job: typeof renderJob.$inferSelect) {
         });
 
         // 3. Select Composition
+        // Extract templateId from metadata or default to 'simple'
+        const templateId = (videoData.metadata as any)?.templateId || 'simple';
+        console.log(`Selecting composition for template: ${templateId}`);
+
         const composition = await selectComposition({
             serveUrl: bundleLocation,
-            id: 'MyComp',
+            id: templateId,
             inputProps,
         });
 
