@@ -152,11 +152,10 @@ async function processJob(job: typeof renderJob.$inferSelect) {
         // 6. Update DB
         await db.update(renderJob)
             .set({
-                status: 'COMPLETED',
+                status: 'VIDEO_COMPLETED',
                 progress: 100,
                 completedAt: new Date(),
-                // outputUrl: publicUrl // Schema doesn't have outputUrl on renderJob? It does in video app description, checking schema.ts
-                // Schema has outputUrl on VIDEO table.
+                updatedAt: new Date()
             })
             .where(eq(renderJob.id, job.id));
 
@@ -204,9 +203,10 @@ async function startWorker() {
                     // until the status change is committed.
                     await tx.update(renderJob)
                         .set({
-                            status: 'PROCESSING',
+                            status: 'VIDEO_PROCESSING',
                             workerId: WORKER_ID,
-                            startedAt: new Date()
+                            startedAt: new Date(),
+                            updatedAt: new Date()
                         })
                         .where(eq(renderJob.id, job.id));
 
@@ -228,11 +228,11 @@ async function startWorker() {
     }
 }
 
-const WORKER_SIZE = parseInt(process.env.WORKER_SIZE || '1', 10);
-console.log(`Starting ${WORKER_SIZE} worker threads...`);
+const VIDEO_WORKER_SIZE = parseInt(process.env.VIDEO_WORKER_SIZE || '1', 10);
+console.log(`Starting ${VIDEO_WORKER_SIZE} video worker threads...`);
 
-for (let i = 0; i < WORKER_SIZE; i++) {
+for (let i = 0; i < VIDEO_WORKER_SIZE; i++) {
     startWorker().catch(err => {
-        console.error(`Worker thread ${i} failed:`, err);
+        console.error(`Video worker thread ${i} failed:`, err);
     });
 }

@@ -6,6 +6,9 @@
     "type": "module",
     "scripts": {
         "start": "tsx src/video_renderer.ts",
+        "start:script": "tsx src/script_renderer.ts",
+        "start:ai": "tsx src/ai_asset_generator.ts",
+        "start:video": "tsx src/video_renderer.ts",
         "build": "tsc",
         "preview": "remotion preview src/remotion/index.ts"
     },
