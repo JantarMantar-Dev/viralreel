@@ -116,7 +116,15 @@ export class ScriptingJob implements ScriptingJobInterface {
         try {
             let baseDir = process.env.VIDEO_WORK_DIR;
             if (!baseDir) {
-                baseDir = path.resolve(process.cwd(), 'work_dirs');
+                baseDir = path.resolve(process.cwd(), 'work_dir');
+            }
+            // if we are using /app/work_dir then that path is only valid in the container this means we are running outside of the container
+            // so we need use cwd() logic
+            try {
+                await fs.access(baseDir);
+            } catch {
+                baseDir = path.resolve(process.cwd(), 'work_dir');
+                await fs.mkdir(baseDir, { recursive: true });
             }
 
             const workDir = path.resolve(baseDir, this.videoId);
