@@ -1,7 +1,6 @@
 
 import { Composition, registerRoot } from 'remotion';
-// @ts-expect-error: Remotion bundler needs extensionless import, but NodeList demands .js
-import { TEMPLATES } from './templates/index';
+import { TEMPLATES } from './templates/index.js';
 
 export const RemotionRoot: React.FC = () => {
     return (

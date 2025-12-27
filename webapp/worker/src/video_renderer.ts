@@ -100,6 +100,17 @@ async function processJob(job: typeof renderJob.$inferSelect) {
         const bundleLocation = await bundle({
             entryPoint,
             // If reusing bundle, pass logic here
+            webpackOverride: (config) => {
+                return {
+                    ...config,
+                    resolve: {
+                        ...config.resolve,
+                        extensionAlias: {
+                            ".js": [".ts", ".tsx", ".js", ".jsx"],
+                        },
+                    },
+                };
+            },
         });
 
         // 3. Select Composition
@@ -177,35 +188,38 @@ async function startWorker() {
 
     while (true) {
         try {
-            // Find a QUEUED job
-            // Using transaction to lock would be better, but keeping simple for now
-            const jobs = await db.select()
-                .from(renderJob)
-                .where(eq(renderJob.status, 'QUEUED'))
-                .limit(1);
+            await db.transaction(async (tx) => {
+                // 1. Find a QUEUED job and lock it (SKIP LOCKED)
+                const jobs = await tx.select()
+                    .from(renderJob)
+                    .where(eq(renderJob.status, 'VIDEO_QUEUED'))
+                    .limit(1)
+                    .for('update', { skipLocked: true });
 
-            if (jobs.length > 0) {
-                const job = jobs[0];
+                if (jobs.length > 0) {
+                    const job = jobs[0];
 
-                // Optimistically lock/claim
-                const updated = await db.update(renderJob)
-                    .set({
-                        status: 'PROCESSING',
-                        workerId: WORKER_ID,
-                        startedAt: new Date()
-                    })
-                    .where(and(
-                        eq(renderJob.id, job.id),
-                        eq(renderJob.status, 'QUEUED')
-                    ))
-                    .returning();
+                    // 2. Mark as PROCESSING immediately
+                    // We must await this update within the transaction so the lock is held
+                    // until the status change is committed.
+                    await tx.update(renderJob)
+                        .set({
+                            status: 'PROCESSING',
+                            workerId: WORKER_ID,
+                            startedAt: new Date()
+                        })
+                        .where(eq(renderJob.id, job.id));
 
-                if (updated.length > 0) {
-                    await processJob(updated[0]);
+                    return job;
                 }
-            } else {
-                // console.log("No jobs found. Sleeping...");
-            }
+            }).then(async (pickedJob) => {
+                // 3. Process the job outside the transaction (but status is already PROCESSING)
+                // This ensures the transaction is short-lived.
+                if (pickedJob) {
+                    await processJob(pickedJob);
+                }
+            });
+
         } catch (err) {
             console.error("Worker Loop Error:", err);
         }

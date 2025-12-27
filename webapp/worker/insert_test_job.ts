@@ -98,7 +98,7 @@ async function insertJob() {
     await db.insert(renderJob).values({
         id: jobId,
         videoId: videoId,
-        status: "QUEUED",
+        status: "VIDEO_QUEUED",
         createdAt: new Date(),
         updatedAt: new Date()
     });

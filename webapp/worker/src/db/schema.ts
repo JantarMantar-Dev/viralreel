@@ -222,7 +222,21 @@ export const renderJob = pgTable("render_job", {
     id: text("id").primaryKey(), // UUID
     videoId: text("video_id").notNull().references(() => video.id),
 
-    status: text("status").notNull().default("QUEUED"), // QUEUED, PROCESSING, COMPLETED, FAILED
+    // Lifecycle Status
+    // QUEUED: Job is waiting to be processed
+    // SCRIPTING: Job is being scripted
+    // SCRIPTING_FAILED: Scripting failed
+    // SCRIPT_READY: Script is ready to be processed
+    // AI_ASSET_GEN_QUEUED: AI asset generation is waiting to be processed
+    // AI_ASSET_GEN_PROCESSING: AI asset generation is being processed
+    // AI_ASSET_GEN_COMPLETED: AI asset generation is ready to be processed
+    // AI_ASSET_GEN_FAILED: AI asset generation failed
+    // VIDEO_QUEUED: Video is waiting to be processed
+    // VIDEO_PROCESSING: Video is being processed
+    // VIDEO_COMPLETED: Video is ready to be processed
+    // VIDEO_UPLOADED: Video is uploaded to S3
+    // VIDEO_FAILED: Video processing failed
+    status: text("status").notNull().default("QUEUED"),
     workerId: text("worker_id"), // ID of the worker picking up the job
 
     progress: integer("progress").default(0), // 0-100

@@ -1,6 +1,5 @@
 
-// @ts-expect-error: Remotion bundler needs extensionless import
-import { SimpleComposition, SimpleCompositionSchema } from './Simple/Composition';
+import { SimpleComposition, SimpleCompositionSchema } from './Simple/Composition.js';
 import { z } from 'zod';
 
 export const TEMPLATES = {

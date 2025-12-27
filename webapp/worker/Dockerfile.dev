@@ -1,7 +1,6 @@
-
 FROM node:20-bookworm
 
-# Install dependencies for Remotion (Chrome) and ffmpeg
+# Install dependencies for Remotion (SKIPPED - Need to view file first) and ffmpeg
 RUN apt-get update && apt-get install -y \
     ffmpeg \
     libnss3 \

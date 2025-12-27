@@ -34,8 +34,8 @@ export const ImageWithEffect: React.FC<ImageWithEffectProps> = ({ effect, ...pro
     if (!EffectComponent) {
         console.warn(`Effect '${effect}' not found, falling back to Ken Burns.`);
         const Fallback = IMAGE_EFFECTS['ken-burns'];
-        return <Fallback { ...props } />;
+        return <Fallback {...props} />;
     }
 
-    return <EffectComponent { ...props } />;
+    return <EffectComponent {...props} />;
 };
