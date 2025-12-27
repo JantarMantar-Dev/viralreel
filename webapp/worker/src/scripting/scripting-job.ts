@@ -51,10 +51,11 @@ export class ScriptingJob implements ScriptingJobInterface {
         }
 
         const idea = metadata?.scriptIdea || v.description || 'No idea provided';
-        const duration = metadata?.duration || 60;
+        const durationMinutes = metadata?.duration || 1;
+        const durationSeconds = durationMinutes * 60;
 
         // Construct the initial user prompt
-        const prompt = `Idea: ${idea}. \nNiche: ${nicheName || 'General'}. \nTarget Duration: ${duration} seconds.`;
+        const prompt = `Idea: ${idea}. \nNiche: ${nicheName || 'General'}. \nTarget Duration: ${durationSeconds} seconds.`;
 
         // 2. Instantiate ADK Runner
         const orchestrator = createScriptingOrchestrator();
