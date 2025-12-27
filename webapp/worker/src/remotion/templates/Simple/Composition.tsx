@@ -3,6 +3,7 @@ import React from 'react';
 import { z } from 'zod';
 import { ImageWithEffect } from '../../effects/index.js';
 import { ImageEffectType } from '../../effects/types.js';
+import { VideoRendererInput } from '../../../types.js';
 
 export const SimpleCompositionSchema = z.object({
     audioUrl: z.string(),
@@ -25,7 +26,7 @@ export const SimpleCompositionSchema = z.object({
     subtitleStyle: z.record(z.string(), z.union([z.string(), z.number()])).optional(), // CSS properties
 });
 
-export const SimpleComposition: React.FC<z.infer<typeof SimpleCompositionSchema>> = ({
+export const SimpleComposition: React.FC<VideoRendererInput> = ({
     audioUrl,
     segments,
     subtitleStyle,

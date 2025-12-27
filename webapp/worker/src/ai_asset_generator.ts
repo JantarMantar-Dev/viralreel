@@ -15,6 +15,7 @@ import { script, video } from './db/schema.js';
 import { ImageGenerator } from './ai/image_generator.js';
 import { inArray } from 'drizzle-orm';
 import * as fs from 'fs/promises';
+import { ScriptContent, ScriptSegment, VideoRendererInput, VideoSegment } from './types.js';
 
 const imageGenerator = new ImageGenerator();
 
@@ -33,7 +34,7 @@ async function processAiGen(job: typeof renderJob.$inferSelect) {
         }
 
         const currentScript = scriptData[0];
-        const content = currentScript.content as any;
+        const content: ScriptContent = currentScript.content as any;
 
         if (!content || !content.segments) {
             throw new Error(`Invalid script content for video ${job.videoId}`);
@@ -58,7 +59,7 @@ async function processAiGen(job: typeof renderJob.$inferSelect) {
         await fs.mkdir(assetsDir, { recursive: true });
 
         // 3. Generate Images for Each Segment
-        const updatedSegments = [];
+        const updatedSegments: ScriptSegment[] = [];
         for (let i = 0; i < content.segments.length; i++) {
             const segment = content.segments[i];
             const segmentIndex = i;
@@ -122,9 +123,29 @@ async function processAiGen(job: typeof renderJob.$inferSelect) {
         if (videoData.length > 0) {
             const v = videoData[0];
             const meta = v.metadata as any || {};
+
+            // Transform ScriptContent to VideoRendererInput
+            const rendererInput: VideoRendererInput = {
+                audioUrl: content.audioUrl || "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3", // Default/Fallback
+                segments: updatedSegments.map(s => ({
+                    image: s.imageAssetPath || "", // Should be populated now
+                    duration: s.duration || 5, // Default duration
+                    subtitles: [], // TODO: Generate subtitles from dialogue
+                    imageEffect: (s.imageEffect as any) || 'ken-burns'
+                })),
+                subtitleStyle: meta.subtitleStyle || { // Use style from video metadata if available
+                    color: 'white',
+                    fontSize: 50
+                }
+            };
+
             await db.update(video)
                 .set({
-                    metadata: { ...meta, script: updatedContent },
+                    metadata: {
+                        ...meta,
+                        script: updatedContent,
+                        inputProps: rendererInput
+                    },
                     updatedAt: new Date()
                 })
                 .where(eq(video.id, job.videoId));

@@ -8,6 +8,7 @@ import { renderMedia, selectComposition } from '@remotion/renderer';
 import path from 'path';
 import fs from 'fs';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { VideoRendererInput } from './types.js';
 
 dotenv.config();
 
@@ -62,8 +63,9 @@ async function processJob(job: typeof renderJob.$inferSelect) {
         }
 
         // Use metadata for inputProps if available, otherwise use mock default
+        // Use metadata for inputProps if available, otherwise use mock default
         const metadata = videoData.metadata as any;
-        const inputProps = metadata?.inputProps || {
+        const inputProps: VideoRendererInput = metadata?.inputProps || {
             audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
             subtitleStyle: {
                 color: 'yellow',
@@ -121,7 +123,7 @@ async function processJob(job: typeof renderJob.$inferSelect) {
         const composition = await selectComposition({
             serveUrl: bundleLocation,
             id: templateId,
-            inputProps,
+            inputProps: inputProps as any,
         });
 
         // 4. Render
@@ -139,7 +141,7 @@ async function processJob(job: typeof renderJob.$inferSelect) {
             serveUrl: bundleLocation,
             codec: 'h264',
             outputLocation,
-            inputProps,
+            inputProps: inputProps as any,
             dumpBrowserLogs: true,
         });
         console.log(`Rendered to ${outputLocation}`);
