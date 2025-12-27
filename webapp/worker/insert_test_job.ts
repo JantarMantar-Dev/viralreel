@@ -50,45 +50,6 @@ async function insertJob() {
         updatedAt: new Date()
     });
     console.log("Created render job", jobId);
-
-    // 4. Poll for completion
-    console.log("Waiting for job completion...");
-    let attempts = 0;
-    while (true) {
-        const job = await db.query.renderJob.findFirst({
-            where: eq(renderJob.id, jobId)
-        });
-
-        if (!job) {
-            console.error("Job disappeared!");
-            process.exit(1);
-        }
-
-        console.log(`Status: ${job.status} (Progress: ${job.progress}%)`);
-
-        if (job.status === 'COMPLETED') {
-            console.log("\nJob Completed Successfully!");
-            // console.log("Output URL:", job.outputUrl); // Schema check needed if we added it back to renderJob, but it's on video usually.
-
-            // Check video table for output
-            const vid = await db.query.video.findFirst({ where: eq(video.id, videoId) });
-            console.log("Video Output URL:", vid?.outputUrl);
-
-            break;
-        } else if (job.status === 'FAILED') {
-            console.error("\nJob Failed:", job.error);
-            process.exit(1);
-        }
-
-        attempts++;
-        if (attempts > 60) { // 2 minutes timeout (assuming 2s interval)
-            console.error("\nTimeout waiting for job completion");
-            process.exit(1);
-        }
-
-        await new Promise(resolve => setTimeout(resolve, 2000));
-    }
-
     process.exit(0);
 }
 
