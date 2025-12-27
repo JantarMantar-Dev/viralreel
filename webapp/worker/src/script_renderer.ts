@@ -9,15 +9,16 @@ dotenv.config();
 const WORKER_ID = `script-worker-${Math.random().toString(36).substring(7)}`;
 const POLLING_INTERVAL = 5000;
 
+import { ScriptingJob } from './scripting/index.js';
+
+const scriptingJob = new ScriptingJob();
+
 async function processScripting(job: typeof renderJob.$inferSelect) {
     console.log(`[${WORKER_ID}] Scripting Job ID: ${job.id} for Video ID: ${job.videoId}`);
 
     try {
-        // --- Placeholder Logic ---
-        console.log("Hello World from Script Renderer!");
-        // Simulate work
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        // --- End Placeholder ---
+        await scriptingJob.init(job.videoId);
+        await scriptingJob.run();
 
         // Update status to SCRIPT_READY
         await db.update(renderJob)

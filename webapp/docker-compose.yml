@@ -65,18 +65,55 @@ services:
     networks:
       - webapp-network
 
-  worker:
+  worker-script:
     build:
       context: ./worker
       dockerfile: Dockerfile.dev
-    container_name: webapp-worker
+    container_name: webapp-worker-script
+    volumes:
+      - ./worker:/app
+      - /app/node_modules
+    environment:
+      - DATABASE_URL=postgresql://user:password@postgres:5432/webapp
+      - SCRIPT_WORKER_SIZE=1
+    command: npx tsx watch src/script_renderer.ts
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - webapp-network
+
+  worker-ai:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile.dev
+    container_name: webapp-worker-ai
+    volumes:
+      - ./worker:/app
+      - /app/node_modules
+    environment:
+      - DATABASE_URL=postgresql://user:password@postgres:5432/webapp
+      - AI_GEN_WORKER_SIZE=1
+    command: npx tsx watch src/ai_asset_generator.ts
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - webapp-network
+
+  worker-video:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile.dev
+    container_name: webapp-worker-video
     volumes:
       - ./worker:/app
       - /app/node_modules
     environment:
       - DATABASE_URL=postgresql://user:password@postgres:5432/webapp
       - VIDEO_WORK_DIR=${VIDEO_WORK_DIR:-/app/out}
-    command: npx tsx watch src/index.ts
+      - VIDEO_WORKER_SIZE=1
+    command: npx tsx watch src/video_renderer.ts
     depends_on:
       postgres:
         condition: service_healthy
