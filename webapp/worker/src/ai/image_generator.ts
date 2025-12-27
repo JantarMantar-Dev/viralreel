@@ -42,15 +42,27 @@ export class ImageGenerator {
      */
     async generateAndSave(prompt: string, outputPath: string, aspectRatio: string = "16:9", style?: string): Promise<void> {
         try {
+            // Map common aspect ratio aliases to numerical values expected by Gemini/Imagen
+            const arMap: Record<string, string> = {
+                "portrait": "9:16",
+                "landscape": "16:9",
+                "square": "1:1"
+            };
+            const mappedAR = arMap[aspectRatio.toLowerCase()] || aspectRatio;
+
             // Append style description if provided and valid
             let stylePrompt = "";
-            if (style && IMAGE_STYLES[style.toLowerCase()]) {
-                stylePrompt = ` Style: ${IMAGE_STYLES[style.toLowerCase()]}.`;
+            if (style) {
+                // Try matching with spaces instead of hyphens for robustness
+                const normalizedStyle = style.toLowerCase().replace(/-/g, ' ');
+                if (IMAGE_STYLES[normalizedStyle]) {
+                    stylePrompt = ` Style: ${IMAGE_STYLES[normalizedStyle]}.`;
+                }
             }
 
             // Append orientation to prompt as per user request
-            const augmentedPrompt = `${prompt}${stylePrompt} --aspect_ratio ${aspectRatio}`;
-            console.log(`[ImageGenerator] Generating image for prompt: "${augmentedPrompt.substring(0, 50)}..." with AR: ${aspectRatio}`);
+            const augmentedPrompt = `${prompt}${stylePrompt} --aspect_ratio ${mappedAR}`;
+            console.log(`[ImageGenerator] Generating image for prompt: "${augmentedPrompt.substring(0, 50)}..." with AR: ${mappedAR}`);
 
             // Using generateContent endpoint which is standard for Gemini models
             const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.modelName}:generateContent?key=${this.apiKey}`;
@@ -81,6 +93,10 @@ export class ImageGenerator {
 
             if (!response.ok) {
                 const errorText = await response.text();
+                console.error(`[ImageGenerator] API Error Details:`);
+                console.error(`URL: ${url}`);
+                console.error(`Payload:`, JSON.stringify(payload, null, 2));
+                console.error(`Args - Prompt: "${prompt}", AR: "${aspectRatio}", Style: "${style}"`);
                 throw new Error(`API request failed with status ${response.status}: ${errorText}`);
             }
 
