@@ -6,6 +6,8 @@ import { ScriptingJobInterface } from './types.js';
 import { createScriptingOrchestrator } from './agents.js';
 import { InMemoryRunner } from '@google/adk';
 import { nanoid } from 'nanoid';
+import * as fs from 'fs/promises';
+import * as path from 'path';
 import { ScriptContent } from './types.js';
 
 export class ScriptingJob implements ScriptingJobInterface {
@@ -108,6 +110,24 @@ export class ScriptingJob implements ScriptingJobInterface {
 
         if (!finalScriptContent) {
             throw new Error('[ScriptingJob] Failed to generate valid script content from agents.');
+        }
+
+        // 3.5 Save to Local File System
+        try {
+            // Define work dir relative to CWD (webapp/worker based on how it's run, or absolute)
+            // Using process.cwd() ensures we are relative to where the process started.
+            // Assuming worker is started from 'webapp/worker' or root.
+            // Let's use an absolute path validation or relative to 'webapp/worker/work_dirs' logic.
+            // Better to just ensure the folder exists relative to where this code runs.
+            const workDir = path.resolve(process.cwd(), 'work_dir', this.videoId);
+            await fs.mkdir(workDir, { recursive: true });
+
+            const scriptPath = path.join(workDir, 'script.json');
+            await fs.writeFile(scriptPath, JSON.stringify(finalScriptContent, null, 2));
+            console.log(`[ScriptingJob] Saved local script to: ${scriptPath}`);
+        } catch (err) {
+            console.error(`[ScriptingJob] Failed to save local script file:`, err);
+            // Non-blocking error
         }
 
         // 4. Save to Script Table
