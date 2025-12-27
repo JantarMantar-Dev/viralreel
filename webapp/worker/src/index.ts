@@ -110,6 +110,8 @@ async function processJob(job: typeof renderJob.$inferSelect) {
 
         // 4. Render
         console.log("Rendering...");
+        console.log("Input Props being sent to render:", JSON.stringify(inputProps, null, 2));
+
         const outputLocation = path.join(process.cwd(), 'out', `${job.id}.mp4`);
         await renderMedia({
             composition,
@@ -117,6 +119,7 @@ async function processJob(job: typeof renderJob.$inferSelect) {
             codec: 'h264',
             outputLocation,
             inputProps,
+            dumpBrowserLogs: true,
         });
         console.log(`Rendered to ${outputLocation}`);
 
@@ -201,4 +204,11 @@ async function startWorker() {
     }
 }
 
-startWorker();
+const WORKER_SIZE = parseInt(process.env.WORKER_SIZE || '1', 10);
+console.log(`Starting ${WORKER_SIZE} worker threads...`);
+
+for (let i = 0; i < WORKER_SIZE; i++) {
+    startWorker().catch(err => {
+        console.error(`Worker thread ${i} failed:`, err);
+    });
+}

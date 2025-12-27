@@ -31,6 +31,8 @@ export const MyComposition: React.FC<z.infer<typeof MyCompositionSchema>> = ({
     const frame = useCurrentFrame();
     const { fps } = useVideoConfig();
 
+    // console.log(`[Frame ${frame}] Segments:`, JSON.stringify(segments.map(s => ({ img: s.image, duration: s.duration })), null, 2));
+
     const segmentStartFrames = React.useMemo(() => {
         let accumulated = 0;
         return segments.map(segment => {

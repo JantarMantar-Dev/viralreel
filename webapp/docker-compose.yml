@@ -65,6 +65,23 @@ services:
     networks:
       - webapp-network
 
+  worker:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile.dev
+    container_name: webapp-worker
+    volumes:
+      - ./worker:/app
+      - /app/node_modules
+    environment:
+      - DATABASE_URL=postgresql://user:password@postgres:5432/webapp
+    command: npx tsx watch src/index.ts
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - webapp-network
+
 networks:
   webapp-network:
     driver: bridge
