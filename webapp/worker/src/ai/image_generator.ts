@@ -3,6 +3,21 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
+// Visual Style Definitions
+export const IMAGE_STYLES: Record<string, string> = {
+    "comic": "Bold comic-book style, thick outlines",
+    "creepy comic": "Horror-comic style, exaggerated shades",
+    "painting": "Detailed traditional painting style",
+    "ghibli": "Studio Ghibli-inspired, soft colors",
+    "anime": "Clean anime style, sharp linework",
+    "dark fantasy": "Moody atmosphere, dark colors",
+    "lego": "Plastic texture, LEGO figure style",
+    "polaroid": "Vintage Polaroid style, soft glow",
+    "disney": "Classic animation style, soft curves",
+    "realism": "Ultra-realistic photographic style",
+    "fantastic": "Vibrant magical fantasy style"
+};
+
 export class ImageGenerator {
     private apiKey: string;
     private modelName: string;
@@ -23,11 +38,18 @@ export class ImageGenerator {
      * @param prompt The visual description of the image.
      * @param outputPath The absolute path where the image should be saved.
      * @param aspectRatio The aspect ratio for the image (e.g., "16:9", "9:16").
+     * @param style Optional visual style to apply to the image.
      */
-    async generateAndSave(prompt: string, outputPath: string, aspectRatio: string = "16:9"): Promise<void> {
+    async generateAndSave(prompt: string, outputPath: string, aspectRatio: string = "16:9", style?: string): Promise<void> {
         try {
+            // Append style description if provided and valid
+            let stylePrompt = "";
+            if (style && IMAGE_STYLES[style.toLowerCase()]) {
+                stylePrompt = ` Style: ${IMAGE_STYLES[style.toLowerCase()]}.`;
+            }
+
             // Append orientation to prompt as per user request
-            const augmentedPrompt = `${prompt} --aspect_ratio ${aspectRatio}`;
+            const augmentedPrompt = `${prompt}${stylePrompt} --aspect_ratio ${aspectRatio}`;
             console.log(`[ImageGenerator] Generating image for prompt: "${augmentedPrompt.substring(0, 50)}..." with AR: ${aspectRatio}`);
 
             // Using generateContent endpoint which is standard for Gemini models

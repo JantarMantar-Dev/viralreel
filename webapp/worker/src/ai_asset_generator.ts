@@ -81,12 +81,13 @@ async function processAiGen(job: typeof renderJob.$inferSelect) {
             const outputPath = path.join(assetsDir, fileName);
 
             try {
-                // Get aspect ratio from metadata, default to 16:9
+                // Get aspect ratio and visual style from metadata
                 const meta = (await db.select().from(video).where(eq(video.id, job.videoId)).limit(1))[0]?.metadata as any;
                 const aspectRatio = meta?.aspectRatio || "16:9";
+                const visualStyle = meta?.visualStyle;
 
                 // Generate
-                await imageGenerator.generateAndSave(prompt, outputPath, aspectRatio);
+                await imageGenerator.generateAndSave(prompt, outputPath, aspectRatio, visualStyle);
 
                 // Update segment
                 updatedSegments.push({

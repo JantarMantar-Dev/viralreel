@@ -27,6 +27,16 @@ async function setupTestJob() {
     const testVideo = videos[0];
     console.log(`Found video: ${testVideo.id}`);
 
+    // Inject visual style
+    const currentMeta = testVideo.metadata as any || {};
+    await db.update(video)
+        .set({
+            metadata: { ...currentMeta, visualStyle: 'comic' },
+            updatedAt: new Date()
+        })
+        .where(eq(video.id, testVideo.id));
+    console.log("Injected visualStyle: 'comic' into metadata");
+
     // 2. Ensure it has a script entry
     const scripts = await db.select().from(script).where(eq(script.videoId, testVideo.id));
     if (scripts.length === 0) {

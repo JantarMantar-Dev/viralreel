@@ -33,6 +33,7 @@ export async function createVideoJob({ userId, body, existingSeriesId, isDraft =
         scriptIdea: body.scriptIdea,
         nicheId: body.nicheId ?? undefined,
         aspectRatio: body.aspectRatio || "portrait",
+        templateId: "simple",
     };
 
     let seriesId: string | null = existingSeriesId || null;
@@ -240,6 +241,7 @@ export async function updateVideoMetadata(videoId: string, userId: string, body:
         scriptIdea: body.scriptIdea,
         nicheId: body.nicheId ?? undefined,
         aspectRatio: body.aspectRatio || "portrait",
+        templateId: "simple",
     };
 
     await db.update(video)
