@@ -3,4 +3,4 @@ dist
 out
 .env
 work_dir/
-build/work_dirs/
+build/
