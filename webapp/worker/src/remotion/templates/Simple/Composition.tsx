@@ -1,13 +1,15 @@
-
-import { AbsoluteFill, Audio, Img, Sequence, useCurrentFrame, useVideoConfig } from 'remotion';
+import { AbsoluteFill, Audio, Sequence, useCurrentFrame, useVideoConfig } from 'remotion';
 import React from 'react';
 import { z } from 'zod';
+import { ImageWithEffect } from '../../effects/index.js';
+import { ImageEffectType } from '../../effects/types.js';
 
 export const SimpleCompositionSchema = z.object({
     audioUrl: z.string(),
     segments: z.array(z.object({
         image: z.string(),
-        duration: z.number(), // Duration in seconds
+        imageEffect: z.enum(['ken-burns', 'zoom-in', 'shine', 'grayscale-to-color', 'blur-to-focus', 'tilt-3d', 'pan', 'circular-morph', 'glitch', 'curtain'] as [string, ...string[]]).optional(),
+        duration: z.number(),
         subtitles: z.array(z.object({
             text: z.string(),
             start: z.number(),
@@ -54,16 +56,15 @@ export const SimpleComposition: React.FC<z.infer<typeof SimpleCompositionSchema>
 
                 return (
                     <Sequence key={`img-${index}`} from={fromFrame} durationInFrames={durationInFrames}>
-                        <AbsoluteFill>
-                            <Img
-                                src={segment.image}
-                                style={{
-                                    width: '100%',
-                                    height: '100%',
-                                    objectFit: 'cover'
-                                }}
-                            />
-                        </AbsoluteFill>
+                        <ImageWithEffect
+                            src={segment.image}
+                            effect={segment.imageEffect as ImageEffectType}
+                            durationInFrames={durationInFrames}
+                            style={{
+                                width: '100%',
+                                height: '100%',
+                            }}
+                        />
                     </Sequence>
                 );
             })}

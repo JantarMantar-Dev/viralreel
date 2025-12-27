@@ -61,9 +61,9 @@ async function processJob(job: typeof renderJob.$inferSelect) {
             throw new Error(`Video not found for ID: ${job.videoId}`);
         }
 
-        // Mocking props for now based on what we expected in metadata
-        // In reality, we'd parse videoData.metadata to extract script, audio, images
-        const inputProps = {
+        // Use metadata for inputProps if available, otherwise use mock default
+        const metadata = videoData.metadata as any;
+        const inputProps = metadata?.inputProps || {
             audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
             subtitleStyle: {
                 color: 'yellow',
@@ -74,6 +74,7 @@ async function processJob(job: typeof renderJob.$inferSelect) {
                 {
                     image: "https://picsum.photos/id/10/1080/1920",
                     duration: 5,
+                    imageEffect: 'ken-burns',
                     subtitles: [
                         { text: "Welcome", start: 0, end: 30 },
                         { text: "to", start: 30, end: 45 },
