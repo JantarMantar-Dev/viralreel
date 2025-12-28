@@ -62,21 +62,39 @@ export class ScriptingJob implements ScriptingJobInterface {
 
         // 3. (Files are saved internally in runScriptingAndAudioFlow)
 
-        // 4. Save to Script Table
-        const scriptId = nanoid();
-        await db.insert(script).values({
-            id: scriptId,
+        // 4. Save to Script Table (Upsert Logic)
+        const existingScript = await db.select()
+            .from(script)
+            .where(eq(script.videoId, this.videoId))
+            .limit(1);
+
+        let finalScriptId: string;
+        const scriptContentToSave = {
+            id: existingScript.length > 0 ? existingScript[0].id : nanoid(),
             videoId: this.videoId,
             content: finalScriptContent,
             rawText: finalScriptContent.segments.map((s: any) => s.dialogue).join('\n'),
             isApproved: true,
-        });
+            updatedAt: new Date(),
+        };
+
+        if (existingScript.length > 0) {
+            finalScriptId = existingScript[0].id;
+            await db.update(script)
+                .set(scriptContentToSave)
+                .where(eq(script.id, finalScriptId));
+            console.log(`[ScriptingJob] Updated existing script ${finalScriptId} for video ${this.videoId}`);
+        } else {
+            finalScriptId = scriptContentToSave.id;
+            await db.insert(script).values(scriptContentToSave);
+            console.log(`[ScriptingJob] Created new script ${finalScriptId} for video ${this.videoId}`);
+        }
 
         // 5. Update Video Status and METADATA
         const updatedMetadata = {
             ...metadata,
             script: finalScriptContent,
-            genScriptId: scriptId,
+            genScriptId: finalScriptId,
         };
 
         await db.update(video)
