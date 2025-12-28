@@ -161,7 +161,7 @@ async function generateNewVideo(options: { segments: number, duration: number, s
             segments: options.segments,
             visualFormat: "image",
             visualStyle: randomImageStyle.id,
-            subtitleTemplateId: randomSubtitleStyle.id,
+            subtitleStyleId: randomSubtitleStyle.id,
             scriptIdea: options.scriptIdea,
             nicheId: randomNiche.id,
             voiceId: "Zephyr", // Default handled by worker
