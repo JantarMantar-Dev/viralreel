@@ -1,5 +1,5 @@
-
-import { SimpleComposition, SimpleCompositionSchema } from './Simple/Composition.js';
+import { SimpleComposition, SimpleCompositionSchema } from './Simple/Composition';
+import { TailwindTest, TailwindTestSchema } from './tests/TailwindTest';
 import { z } from 'zod';
 
 export const TEMPLATES = {
@@ -36,6 +36,16 @@ export const TEMPLATES = {
             }, 0);
             return durationInFrames || 300;
         }
+    },
+    'tailwind-test': {
+        component: TailwindTest,
+        schema: TailwindTestSchema,
+        defaultProps: {
+            css: "font-sans font-black text-white stroke-black drop-shadow-[0_2px_0_rgba(0,0,0,1)] uppercase text-4xl tracking-tight leading-none",
+            previewText: "TESTING",
+            name: "Default Style"
+        },
+        calculateDuration: () => 30 // 1 second is enough
     }
 } as const;
 

@@ -1,14 +1,14 @@
-import { ImageEffectType, ImageEffectProps } from './types.js';
-import { KenBurnsEffect } from './implementations/KenBurns.js';
-import { ZoomInEffect } from './implementations/ZoomIn.js';
-import { ShineEffect } from './implementations/Shine.js';
-import { GrayscaleToColorEffect } from './implementations/GrayscaleToColor.js';
-import { BlurToFocusEffect } from './implementations/BlurToFocus.js';
-import { Tilt3DEffect } from './implementations/Tilt3D.js';
-import { PanEffect } from './implementations/Pan.js';
-import { CircularMorphEffect } from './implementations/CircularMorph.js';
-import { GlitchEffect } from './implementations/Glitch.js';
-import { CurtainEffect } from './implementations/Curtain.js';
+import { ImageEffectType, ImageEffectProps } from './types';
+import { KenBurnsEffect } from './implementations/KenBurns';
+import { ZoomInEffect } from './implementations/ZoomIn';
+import { ShineEffect } from './implementations/Shine';
+import { GrayscaleToColorEffect } from './implementations/GrayscaleToColor';
+import { BlurToFocusEffect } from './implementations/BlurToFocus';
+import { Tilt3DEffect } from './implementations/Tilt3D';
+import { PanEffect } from './implementations/Pan';
+import { CircularMorphEffect } from './implementations/CircularMorph';
+import { GlitchEffect } from './implementations/Glitch';
+import { CurtainEffect } from './implementations/Curtain';
 
 export const IMAGE_EFFECTS: Record<ImageEffectType, React.FC<ImageEffectProps>> = {
     'ken-burns': KenBurnsEffect,

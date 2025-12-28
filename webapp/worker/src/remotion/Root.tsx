@@ -1,6 +1,6 @@
 
 import { Composition, registerRoot } from 'remotion';
-import { TEMPLATES } from './templates/index.js';
+import { TEMPLATES } from './templates/index';
 import './style.css';
 
 export const RemotionRoot: React.FC = () => {
@@ -13,18 +13,11 @@ export const RemotionRoot: React.FC = () => {
                         key={String(id)}
                         id={String(id)}
                         component={template.component as any}
-                        schema={template.schema as any}
-                        durationInFrames={300} // Initial default
+                        durationInFrames={template.calculateDuration(template.defaultProps as any)}
                         fps={30}
                         width={1080}
                         height={1920}
-                        calculateMetadata={async ({ props }: { props: any }) => {
-                            const durationInFrames = template.calculateDuration(props);
-                            return {
-                                durationInFrames,
-                                props
-                            };
-                        }}
+                        schema={template.schema as any}
                         defaultProps={template.defaultProps as any}
                     />
                 );

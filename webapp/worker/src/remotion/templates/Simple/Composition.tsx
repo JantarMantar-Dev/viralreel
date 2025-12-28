@@ -1,8 +1,8 @@
 import { AbsoluteFill, Audio, Sequence, useCurrentFrame, useVideoConfig } from 'remotion';
 import React from 'react';
 import { z } from 'zod';
-import { ImageWithEffect } from '../../effects/index.js';
-import { ImageEffectType } from '../../effects/types.js';
+import { ImageWithEffect } from '../../effects/index';
+import { ImageEffectType } from '../../effects/types';
 import { VideoRendererInput } from '../../../types.js';
 
 export const SimpleCompositionSchema = z.object({
