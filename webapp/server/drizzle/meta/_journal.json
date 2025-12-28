@@ -71,6 +71,13 @@
       "when": 1766782905749,
       "tag": "0009_safe_eternals",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1766952126808,
+      "tag": "0010_smart_scorpion",
+      "breakpoints": true
     }
   ]
 }
