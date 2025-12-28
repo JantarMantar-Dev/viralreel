@@ -64,8 +64,8 @@ Your task is to:
    - 'start': The 'start' timestamp of the first word in the segment.
    - 'end': The 'end' timestamp of the last word in the segment.
 5. **Pacing Constraints**:
-   - For approximately 30 seconds of total audio, aim for a maximum of 4 segments.
-   - For approximately 60 seconds of total audio, aim for a maximum of 8 segments.
+   - For approximately 30 seconds of total audio, aim for a maximum of 5 segments.
+   - For approximately 60 seconds of total audio, aim for a maximum of 10 segments.
    Ensure each segment feels substantial and avoids rapid-fire cuts unless the narrative demands it.
 
 Output a JSON object with a 'segments' array following the requested schema.`,
@@ -80,8 +80,14 @@ export const createVisualizer = () => {
         description: "Generates visual prompts for script segments.",
         instruction: `You are a creative visual director for AI video generation.
 Review the segmented script provided.
-For each segment, generate a 'visualPrompt' that describes the scene.
-Ensure the visual flow builds on the previous storytelling and remains consistent.
+For each segment, generate a detailed 'visualPrompt' that describes the scene.
+
+Your task is to:
+1. **Identify Key Elements**: Extract several narrative elements, characters, or objects from the dialogue and embed them vividly into the description.
+2. **Visual Composition**: Create cinematic, high-quality prompts.
+3. **Split Compositions**: If the scene benefits from showing two related but distinct concepts simultaneously, you may describe a split-screen or dual-part composition within the prompt.
+4. **Continuity**: Ensure the visual flow builds on the previous storytelling and remains consistent.
+
 Output the full segments with dialogue, duration, and the new visualPrompt.`,
         outputSchema: zodObjectToSchema(VisualizerOutputSchema)
     });
