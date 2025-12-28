@@ -229,7 +229,14 @@ export const generateAudio = async (text: string, voiceId: string, videoId?: str
             const pcmBuffer = Buffer.from(finalAudioBase64, 'base64');
             const wavBuffer = addWavHeader(pcmBuffer, 24000, 1, 16);
 
-            const audioPath = await writeToFile(workDir, 'audio.wav', wavBuffer);
+            const audioPath = path.join(workDir, 'audio.wav');
+            try {
+                await fs.promises.unlink(audioPath);
+            } catch (err) {
+                // Ignore if file doesn't exist
+            }
+
+            await writeToFile(workDir, 'audio.wav', wavBuffer);
             console.log(`[ScriptingFlow] Saved local audio to: ${audioPath}`);
 
             wavBase64 = wavBuffer.toString('base64');
@@ -356,6 +363,18 @@ export const runContentPipeline = async (videoId: string, prompt: string, voiceI
         // Force first segment to start at 0
         segments[0].start = 0;
 
+        // Bridge gaps between segments to ensure continuous video flow
+        for (let i = 0; i < segments.length - 1; i++) {
+            const currentSeg = segments[i];
+            const nextSeg = segments[i + 1];
+
+            // If there is a gap (or slight overlap), snap current end to next start
+            // This ensures no duration is lost to silence between segments
+            if (currentSeg.end < nextSeg.start) {
+                currentSeg.end = nextSeg.start;
+            }
+        }
+
         // Adjust last segment to match total audio duration + buffer
         const lastSegment = segments[segments.length - 1];
 
@@ -365,7 +384,7 @@ export const runContentPipeline = async (videoId: string, prompt: string, voiceI
         // Add missing frames + 15 extra frames for safety trimming
         lastSegment.end += missingFrames + 15;
 
-        // Recalculate durations using (end - start) / 30
+        // Recalculate durations for all segments (including the expanded last segment)
         segments = segments.map(s => {
             const duration = (s.end - s.start) / 30;
             return {
@@ -373,6 +392,9 @@ export const runContentPipeline = async (videoId: string, prompt: string, voiceI
                 duration: parseFloat(duration.toFixed(2))
             };
         });
+
+        const finalLastSeg = segments[segments.length - 1];
+        console.log(`[ContentPipeline] Refined Last Segment: end=${finalLastSeg.end}, duration=${finalLastSeg.duration}s`);
     }
 
     // Map simplified segments to ScriptSegment type (add empty visualPrompt)
@@ -406,7 +428,15 @@ export const runContentPipeline = async (videoId: string, prompt: string, voiceI
     // Save final script
     try {
         const workDir = await resolveWorkDir(videoId);
-        const scriptPath = await writeToFile(workDir, 'script.json', JSON.stringify(scriptContent, null, 2));
+        const scriptPath = path.join(workDir, 'script.json');
+
+        try {
+            await fs.promises.unlink(scriptPath);
+        } catch (err) {
+            // Ignore if file doesn't exist
+        }
+
+        await writeToFile(workDir, 'script.json', JSON.stringify(scriptContent, null, 2));
         console.log(`[ContentPipeline] Saved local script to: ${scriptPath}`);
     } catch (err) {
         console.error(`[ContentPipeline] Failed to save local script file:`, err);
