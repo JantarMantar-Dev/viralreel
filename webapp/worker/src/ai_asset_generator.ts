@@ -81,6 +81,13 @@ async function processAiGen(job: typeof renderJob.$inferSelect) {
             const fileName = `segment_${segmentIndex}.png`;
             const outputPath = path.join(assetsDir, fileName);
 
+            // Ensure fresh generation by deleting if file exists
+            try {
+                await fs.unlink(outputPath);
+            } catch (err) {
+                // Ignore if file doesn't exist
+            }
+
             try {
                 // Get aspect ratio and visual style from metadata
                 const meta = (await db.select().from(video).where(eq(video.id, job.videoId)).limit(1))[0]?.metadata as any;
