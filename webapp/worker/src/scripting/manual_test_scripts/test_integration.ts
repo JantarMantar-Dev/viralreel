@@ -1,15 +1,13 @@
 
-import { generateSubtitles } from './agents.js';
+import { generateSubtitles } from '../agents.js';
 import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 
 // Load environment variables
-dotenv.config();
-
-const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.resolve(__dirname, '../../../../.env') });
 
 async function main() {
     console.log("Starting Integration Test for Direct Groq Generation...");

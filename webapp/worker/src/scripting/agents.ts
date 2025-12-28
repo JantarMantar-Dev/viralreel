@@ -7,8 +7,8 @@ import {
     LLMRegistry,
     InMemoryRunner
 } from '@google/adk';
-import { ScriptWriterOutputSchema, SegmenterOutputSchema, VisualizerOutputSchema, ScriptContent, SubtitlesOutputSchema } from './types.js';
-import { resolveWorkDir, writeToFile, addWavHeader } from './utils.js';
+import { ScriptWriterOutputSchema, SegmenterOutputSchema, VisualizerOutputSchema, ScriptContent, SubtitlesOutputSchema, ScriptWriterOutput, SegmenterOutput, VisualizerOutput } from './types.js';
+import { resolveWorkDir, writeToFile, addWavHeader, reconstructStoryFromSubtitles } from './utils.js';
 import { CustomGeminiTTS } from './custom_tts_model.js';
 import dotenv from 'dotenv';
 import Groq from 'groq-sdk';
@@ -19,7 +19,6 @@ dotenv.config();
 
 const MODEL_NAME = process.env.GOOGLE_SCRIPT_MODEL || 'gemini-3-flash-preview';
 const TTS_MODEL_NAME = process.env.GOOGLE_TTS_MODEL || 'gemini-2.0-flash-exp';
-const SUBTITLE_MODEL_NAME = process.env.GOOGLE_SCRIPT_MODEL || 'gemini-3-flash-preview';
 const DEFAULT_VOICE = process.env.GOOGLE_TTS_VOICE || 'Zephyr';
 const API_KEY = process.env.GOOGLE_API_KEY;
 
@@ -27,58 +26,53 @@ const API_KEY = process.env.GOOGLE_API_KEY;
 LLMRegistry.register(Gemini);
 LLMRegistry.register(CustomGeminiTTS);
 
-export const createScriptingOrchestrator = () => {
+function getGeminiModel() {
     if (!API_KEY) {
         throw new Error("GOOGLE_API_KEY not found in environment variables");
     }
-    const geminiModel = new Gemini({ model: MODEL_NAME, apiKey: API_KEY });
+    return new Gemini({ model: MODEL_NAME, apiKey: API_KEY });
+}
 
-    // Agent 1: Script Writer
-    const scriptWriter = new LlmAgent({
+// --- Individual Agent Creators ---
+
+export const createScriptWriter = () => {
+    return new LlmAgent({
         name: "script_writer",
-        model: geminiModel,
+        model: getGeminiModel(),
         description: "Writes a narrative story based on a topic.",
         instruction: `You are a professional video script writer. 
 Your sole job is to write a compelling story for the requested video topic and duration. 
 Focus only on the narrative text.`,
         outputSchema: zodObjectToSchema(ScriptWriterOutputSchema)
     });
+};
 
-    // Agent 2: Segmenter
-    const segmenter = new LlmAgent({
+export const createSegmenter = () => {
+    return new LlmAgent({
         name: "segmenter",
-        model: geminiModel,
+        model: getGeminiModel(),
         description: "Breaks down a story into segments with durations.",
         instruction: `You are an expert video editor and script segmenter. 
-Review the story provided by the previous agent.
+Review the story provided.
 Break strictly that story down into logical segments.
 Each segment must have 'dialogue' and 'duration'.
-The sum of durations should be approximately the target duration mentioned in the request.`,
+The sum of durations should be approximately the lengths inferred from the text.`,
         outputSchema: zodObjectToSchema(SegmenterOutputSchema)
     });
+};
 
-    // Agent 3: Visualizer
-    const visualizer = new LlmAgent({
+export const createVisualizer = () => {
+    return new LlmAgent({
         name: "visualizer",
-        model: geminiModel,
+        model: getGeminiModel(),
         description: "Generates visual prompts for script segments.",
         instruction: `You are a creative visual director for AI video generation.
-Review the segmented script provided by the previous agent.
+Review the segmented script provided.
 For each segment, generate a 'visualPrompt' that describes the scene.
 Ensure the visual flow builds on the previous storytelling and remains consistent.
 Output the full segments with dialogue, duration, and the new visualPrompt.`,
         outputSchema: zodObjectToSchema(VisualizerOutputSchema)
     });
-
-
-    // Orchestrator: Sequential execution
-    const orchestrator = new SequentialAgent({
-        name: "scripting_orchestrator",
-        description: "Orchestrates the creation of a video script.",
-        subAgents: [scriptWriter, segmenter, visualizer]
-    });
-
-    return orchestrator;
 };
 
 export const createAudioGenerator = (options?: { ttsVoice?: string }) => {
@@ -130,54 +124,44 @@ Ensure the frames align perfectly with the voice sections.`,
     });
 };
 
-/**
- * Linked flow for generating script and then audio.
- */
-/**
- * Step 1: Generate Script
- */
-export const generateScript = async (prompt: string): Promise<ScriptContent> => {
-    console.log(`[ScriptingFlow] Generating script...`);
-    const orchestrator = createScriptingOrchestrator();
-    const scriptRunner = new InMemoryRunner({
-        agent: orchestrator,
-        appName: 'scripting-flow'
-    });
 
-    const scriptSession = await scriptRunner.sessionService.createSession({
-        appName: 'scripting-flow',
+// --- Execution Helpers ---
+
+async function runSingleAgent<T>(agent: LlmAgent, input: string): Promise<T> {
+    const runner = new InMemoryRunner({
+        agent: agent,
+        appName: 'single-agent-runner'
+    });
+    const session = await runner.sessionService.createSession({
+        appName: 'single-agent-runner',
         userId: 'system'
     });
-
-    const scriptEventGenerator = scriptRunner.runAsync({
-        userId: scriptSession.userId,
-        sessionId: scriptSession.id,
-        newMessage: { role: 'user', parts: [{ text: prompt }] }
+    const eventGenerator = runner.runAsync({
+        userId: session.userId,
+        sessionId: session.id,
+        newMessage: { role: 'user', parts: [{ text: input }] }
     });
 
-    let finalScriptContent: ScriptContent | null = null;
-    for await (const event of scriptEventGenerator) {
-        if (event.author === 'visualizer' && event.content?.parts) {
+    let finalOutput: T | null = null;
+    for await (const event of eventGenerator) {
+        if (event.author === agent.name && event.content?.parts) {
             const text = event.content.parts.map((p: any) => p.text).join('');
             try {
                 if (text.trim().startsWith('{')) {
                     const parsed = JSON.parse(text);
-                    if (parsed.segments && Array.isArray(parsed.segments)) {
-                        finalScriptContent = parsed as ScriptContent;
-                    }
+                    // Allow for some flexibility in checking keys, but usually invalid JSON fails parse first
+                    finalOutput = parsed as T;
                 }
             } catch (e) {
                 // Ignore partials
             }
         }
     }
-
-    if (!finalScriptContent) {
-        throw new Error('[ScriptingFlow] Failed to get valid script content from agents');
+    if (!finalOutput) {
+        throw new Error(`Agent ${agent.name} failed to produce valid JSON output.`);
     }
-
-    return finalScriptContent;
-};
+    return finalOutput;
+}
 
 /**
  * Step 2: Generate Audio
@@ -310,33 +294,63 @@ export const generateSubtitles = async (videoId: string): Promise<any> => {
 };
 
 /**
- * Orchestrator Pipeline
+ * Orchestrator Pipeline - New Flow
  */
 export const runContentPipeline = async (videoId: string, prompt: string, voiceId: string = DEFAULT_VOICE) => {
     console.log(`[ContentPipeline] Starting flow for Video ${videoId}`);
 
-    // 1. Script
-    const scriptContent = await generateScript(prompt);
+    // 1. Generate Story
+    console.log(`[ContentPipeline] 1. Generating Story...`);
+    const scriptWriter = createScriptWriter();
+    const scriptWriterOutput = await runSingleAgent<ScriptWriterOutput>(scriptWriter, prompt);
+    const story = scriptWriterOutput.story;
+    console.log(`[ContentPipeline] Story generated: ${story.substring(0, 50)}...`);
 
-    // 2. Audio
-    const fullDialogue = scriptContent.segments.map((s: any) => s.dialogue).join(' ');
-    // We pass videoId so it saves the audio file internally
-    const { audioBase64, wavBase64 } = await generateAudio(fullDialogue, voiceId, videoId);
+    // 2. Generate Audio
+    console.log(`[ContentPipeline] 2. Generating Audio...`);
+    await generateAudio(story, voiceId, videoId);
 
-    // 3. Subtitles
+    // 3. Generate Subtitles
+    console.log(`[ContentPipeline] 3. Generating Subtitles...`);
     const subtitles = await generateSubtitles(videoId);
-    if (subtitles) {
-        scriptContent.subtitles = subtitles;
 
-        // Align durations
-        try {
-            console.log(`[ContentPipeline] Aligning segment durations with subtitles...`);
-            const { alignSegmentsWithSubtitles } = await import('./alignment.js');
-            scriptContent.segments = alignSegmentsWithSubtitles(scriptContent.segments, subtitles);
-        } catch (err) {
-            console.error(`[ContentPipeline] alignment failed:`, err);
-        }
-    }
+    // 4. Reconstruct Story from Subtitles (Ground Truth)
+    const groundTruthStory = reconstructStoryFromSubtitles(subtitles);
+    console.log(`[ContentPipeline] 4. Reconstructed Story: ${groundTruthStory.substring(0, 50)}...`);
+
+    // 5. Segment Story
+    console.log(`[ContentPipeline] 5. Segmenting Story...`);
+    const segmenter = createSegmenter();
+    const segmenterOutput = await runSingleAgent<SegmenterOutput>(segmenter, groundTruthStory);
+
+    // 6. Visualizer
+    let segments = segmenterOutput.segments;
+    // Map simplified segments to ScriptSegment type (add empty visualPrompt)
+    let scriptSegments = segments.map(s => ({
+        ...s,
+        visualPrompt: ""
+    }));
+    console.log(`[ContentPipeline] 6. Generating Visuals...`);
+    const visualizer = createVisualizer();
+    // Pass the aligned segments to the visualizer so it knows the context for each scene.
+    // We strictly ask it to output the inputs with visual prompts added.
+    const visualizerOutput = await runSingleAgent<VisualizerOutput>(visualizer, JSON.stringify({ segments: scriptSegments }));
+
+    // Merge visual prompts back into our aligned segments (preserving the aligned durations!)
+    // We assume the visualizer returns segments in the same order.
+    const finalSegments = scriptSegments.map((seg, index) => {
+        const visualSeg = visualizerOutput.segments[index];
+        return {
+            ...seg,
+            visualPrompt: visualSeg ? visualSeg.visualPrompt : "Cinematic scene matching the dialogue."
+        };
+    });
+
+    const scriptContent: ScriptContent = {
+        title: "",
+        segments: finalSegments,
+        subtitles: subtitles || []
+    };
 
     // Save final script
     try {
@@ -352,5 +366,4 @@ export const runContentPipeline = async (videoId: string, prompt: string, voiceI
     };
 };
 
-// Exporting types for use in other files
 export { LlmAgent, SequentialAgent };

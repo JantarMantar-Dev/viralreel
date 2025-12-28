@@ -5,11 +5,10 @@ import Groq from "groq-sdk";
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 
-// Load environment variables
-dotenv.config();
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+dotenv.config({ path: path.resolve(__dirname, '../../../../.env') });
 
 // Initialize the Groq client
 const apiKey = process.env.GROQ_TTS_KEY || process.env.GROQ_API_KEY;

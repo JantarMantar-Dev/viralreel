@@ -256,6 +256,11 @@ async function processJob(job: typeof renderJob.$inferSelect) {
         }
 
         const outputLocation = path.join(workDir, `${job.id}.mp4`);
+        // Delete file if it exists we are re-rendering
+        if (fs.existsSync(outputLocation)) {
+            // delete file
+            fs.unlinkSync(outputLocation);
+        }
         await renderMedia({
             composition,
             serveUrl: bundleLocation,
