@@ -14,12 +14,13 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const MODEL_NAME = process.env.GOOGLE_SCRIPT_MODEL || 'gemini-1.5-flash';
-const TTS_MODEL_NAME = process.env.GOOGLE_TTS_MODEL || 'gemini-1.5-flash';
+const TTS_MODEL_NAME = process.env.GOOGLE_TTS_MODEL || 'gemini-2.0-flash-exp';
 const DEFAULT_VOICE = process.env.GOOGLE_TTS_VOICE || 'Zephyr';
 const API_KEY = process.env.GOOGLE_API_KEY;
 
 // Ensure the Gemini model is registered
 LLMRegistry.register(Gemini);
+LLMRegistry.register(CustomGeminiTTS);
 
 export const createScriptingOrchestrator = () => {
     if (!API_KEY) {

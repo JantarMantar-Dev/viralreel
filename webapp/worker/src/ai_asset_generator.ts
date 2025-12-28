@@ -219,7 +219,8 @@ const AI_GEN_WORKER_SIZE = parseInt(process.env.AI_GEN_WORKER_SIZE || '1', 10);
 console.log(`Starting ${AI_GEN_WORKER_SIZE} AI gen worker threads...`);
 
 for (let i = 0; i < AI_GEN_WORKER_SIZE; i++) {
-    startWorker().catch(err => {
-        console.error(`AI gen worker thread ${i} failed:`, err);
-    });
+    console.log(`Starting AI gen worker thread ${i}...`);
+    // startWorker().catch(err => {
+    //     console.error(`AI gen worker thread ${i} failed:`, err);
+    // });
 }

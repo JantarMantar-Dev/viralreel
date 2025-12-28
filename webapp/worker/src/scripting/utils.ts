@@ -36,3 +36,41 @@ export async function resolveWorkDir(videoId: string): Promise<string> {
 
     return path.resolve(baseDir, videoId);
 }
+
+/**
+ * Adds a WAV header to the PCM data.
+ * @param pcmData Raw PCM buffer
+ * @param sampleRate Sample rate in Hz (e.g., 24000)
+ * @param numChannels Number of channels (e.g., 1 for mono)
+ * @param bitsPerSample Bits per sample (e.g., 16)
+ */
+export function addWavHeader(pcmData: Buffer, sampleRate: number, numChannels: number, bitsPerSample: number): Buffer {
+    const byteRate = (sampleRate * numChannels * bitsPerSample) / 8;
+    const blockAlign = (numChannels * bitsPerSample) / 8;
+    const dataSize = pcmData.length;
+    const headerSize = 44;
+    const totalSize = headerSize + dataSize;
+
+    const header = Buffer.alloc(headerSize);
+
+    // RIFF chunk descriptor
+    header.write('RIFF', 0); // ChunkID
+    header.writeUInt32LE(totalSize - 8, 4); // ChunkSize
+    header.write('WAVE', 8); // Format
+
+    // fmt sub-chunk
+    header.write('fmt ', 12); // Subchunk1ID
+    header.writeUInt32LE(16, 16); // Subchunk1Size (16 for PCM)
+    header.writeUInt16LE(1, 20); // AudioFormat (1 for PCM)
+    header.writeUInt16LE(numChannels, 22); // NumChannels
+    header.writeUInt32LE(sampleRate, 24); // SampleRate
+    header.writeUInt32LE(byteRate, 28); // ByteRate
+    header.writeUInt16LE(blockAlign, 32); // BlockAlign
+    header.writeUInt16LE(bitsPerSample, 34); // BitsPerSample
+
+    // data sub-chunk
+    header.write('data', 36); // Subchunk2ID
+    header.writeUInt32LE(dataSize, 40); // Subchunk2Size
+
+    return Buffer.concat([header, pcmData]);
+}

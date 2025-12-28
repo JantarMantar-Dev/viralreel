@@ -4,7 +4,7 @@ import { video, contentNiche, script } from '../db/schema.js';
 import { eq } from 'drizzle-orm';
 import { ScriptingJobInterface } from './types.js';
 import { runScriptingAndAudioFlow } from './agents.js';
-import { resolveWorkDir, writeToFile } from './utils.js';
+import { resolveWorkDir, writeToFile, addWavHeader } from './utils.js';
 import { nanoid } from 'nanoid';
 
 export class ScriptingJob implements ScriptingJobInterface {
@@ -68,7 +68,11 @@ export class ScriptingJob implements ScriptingJobInterface {
             console.log(`[ScriptingJob] Saved local script to: ${scriptPath}`);
 
             if (finalAudioBase64) {
-                const audioPath = await writeToFile(workDir, 'audio.mp3', Buffer.from(finalAudioBase64, 'base64'));
+                const pcmBuffer = Buffer.from(finalAudioBase64, 'base64');
+                // Google Gemini TTS Output is typically 24kHz, 1 channel, 16-bit PCM (based on MIME type audio/L16;rate=24000)
+                const wavBuffer = addWavHeader(pcmBuffer, 24000, 1, 16);
+
+                const audioPath = await writeToFile(workDir, 'audio.wav', wavBuffer);
                 console.log(`[ScriptingJob] Saved local audio to: ${audioPath}`);
             } else {
                 console.warn(`[ScriptingJob] No audio data received from flow.`);

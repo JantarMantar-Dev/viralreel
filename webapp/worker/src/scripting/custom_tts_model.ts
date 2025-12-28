@@ -6,8 +6,18 @@ import { Gemini, LlmRequest, LlmResponse } from '@google/adk';
  * Uses direct REST API calls for robust audio generation.
  */
 export class CustomGeminiTTS extends Gemini {
-    constructor(config: { model: string; apiKey: string }) {
-        super(config);
+    static readonly supportedModels = [
+        'gemini-2.0-flash-exp',
+        'gemini-2.5-pro-preview-tts',
+        'gemini-2.5-flash-preview-tts',
+        /gemini-.*-tts/
+    ];
+
+    constructor(config: { model: string; apiKey?: string }) {
+        super({
+            model: config.model,
+            apiKey: config.apiKey || process.env.GOOGLE_API_KEY || ''
+        });
     }
 
     async *generateContentAsync(
@@ -15,10 +25,25 @@ export class CustomGeminiTTS extends Gemini {
         options?: any
     ): AsyncGenerator<LlmResponse, void, unknown> {
 
-        const textParts = request.contents.flatMap(c => c.parts?.filter(p => p.text).map(p => p.text) || []).join(" ");
+        let textParts = request.contents.flatMap(c => c.parts?.filter(p => p.text).map(p => p.text) || []).join(" ");
 
-        const modelName = this.model || (this as any).name || 'gemini-2.5-pro-preview-tts';
+        // Try to parse as JSON if it looks like a script script output
+        try {
+            if (textParts.trim().startsWith('{')) {
+                const parsed = JSON.parse(textParts);
+                if (parsed.segments && Array.isArray(parsed.segments)) {
+                    textParts = parsed.segments.map((s: any) => s.dialogue).join(" ");
+                    console.log(`[CustomGeminiTTS] Extracted dialogue from ${parsed.segments.length} segments`);
+                }
+            }
+        } catch (e) {
+            // Not JSON or failed to parse, use raw text
+        }
+
+        const modelName = this.model || (this as any).name || 'gemini-2.0-flash-exp';
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${(this as any).apiKey}`;
+
+        console.log(`[CustomGeminiTTS] Calling Gemini API for model: ${modelName}`);
 
         let voiceName = 'Zephyr';
         const config = request.config as any;
