@@ -58,28 +58,9 @@ export class ScriptingJob implements ScriptingJobInterface {
         const prompt = `Idea: ${idea}. \nNiche: ${nicheName || 'General'}. \nTarget Duration: ${durationSeconds} seconds. \nVoice: ${voiceId}.`;
 
         // 2. Run the Linked Flow
-        const { script: finalScriptContent, audioBase64: finalAudioBase64 } = await runScriptingAndAudioFlow(prompt, voiceId);
+        const { script: finalScriptContent } = await runScriptingAndAudioFlow(this.videoId, prompt, voiceId);
 
-        // 3. Save to Local File System using utilities
-        try {
-            const workDir = await resolveWorkDir(this.videoId);
-
-            const scriptPath = await writeToFile(workDir, 'script.json', JSON.stringify(finalScriptContent, null, 2));
-            console.log(`[ScriptingJob] Saved local script to: ${scriptPath}`);
-
-            if (finalAudioBase64) {
-                const pcmBuffer = Buffer.from(finalAudioBase64, 'base64');
-                // Google Gemini TTS Output is typically 24kHz, 1 channel, 16-bit PCM (based on MIME type audio/L16;rate=24000)
-                const wavBuffer = addWavHeader(pcmBuffer, 24000, 1, 16);
-
-                const audioPath = await writeToFile(workDir, 'audio.wav', wavBuffer);
-                console.log(`[ScriptingJob] Saved local audio to: ${audioPath}`);
-            } else {
-                console.warn(`[ScriptingJob] No audio data received from flow.`);
-            }
-        } catch (err) {
-            console.error(`[ScriptingJob] Failed to save local script/audio file:`, err);
-        }
+        // 3. (Files are saved internally in runScriptingAndAudioFlow)
 
         // 4. Save to Script Table
         const scriptId = nanoid();

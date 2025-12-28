@@ -7,14 +7,16 @@ import {
     LLMRegistry,
     InMemoryRunner
 } from '@google/adk';
-import { ScriptWriterOutputSchema, SegmenterOutputSchema, VisualizerOutputSchema, ScriptContent } from './types.js';
+import { ScriptWriterOutputSchema, SegmenterOutputSchema, VisualizerOutputSchema, ScriptContent, SubtitlesOutputSchema } from './types.js';
+import { resolveWorkDir, writeToFile, addWavHeader } from './utils.js';
 import { CustomGeminiTTS } from './custom_tts_model.js';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-const MODEL_NAME = process.env.GOOGLE_SCRIPT_MODEL || 'gemini-1.5-flash';
+const MODEL_NAME = process.env.GOOGLE_SCRIPT_MODEL || 'gemini-3-flash-preview';
 const TTS_MODEL_NAME = process.env.GOOGLE_TTS_MODEL || 'gemini-2.0-flash-exp';
+const SUBTITLE_MODEL_NAME = process.env.GOOGLE_SCRIPT_MODEL || 'gemini-3-flash-preview';
 const DEFAULT_VOICE = process.env.GOOGLE_TTS_VOICE || 'Zephyr';
 const API_KEY = process.env.GOOGLE_API_KEY;
 
@@ -103,11 +105,33 @@ Do not add any additional commentary or text, just generate the audio for the di
     });
 };
 
+export const createSubtitleGenerator = () => {
+    if (!API_KEY) {
+        throw new Error("GOOGLE_API_KEY not found in environment variables");
+    }
+    // Using Gemini 1.5 Pro as it supports audio input well.
+    const subtitleModel = new Gemini({ model: SUBTITLE_MODEL_NAME, apiKey: API_KEY });
+
+    return new LlmAgent({
+        name: "subtitle_generator",
+        model: subtitleModel,
+        description: "Generates word-level subtitles from audio.",
+        instruction: `Analyze the provided audio file and generate a word-by-word breakdown of the spoken text.
+Output a JSON object with a 'subtitles' array.
+Each item must have:
+- 'text': The spoken word.
+- 'start': The start time in video frames (assuming 30fps).
+- 'end': The end time in video frames (assuming 30fps).
+Ensure the frames align perfectly with the voice sections.`,
+        outputSchema: zodObjectToSchema(SubtitlesOutputSchema)
+    });
+};
+
 /**
  * Linked flow for generating script and then audio.
  */
-export const runScriptingAndAudioFlow = async (prompt: string, voiceId: string = DEFAULT_VOICE) => {
-    console.log(`[ScriptingFlow] Starting flow with Voice: ${voiceId}`);
+export const runScriptingAndAudioFlow = async (videoId: string, prompt: string, voiceId: string = DEFAULT_VOICE) => {
+    console.log(`[ScriptingFlow] Starting flow for Video ${videoId} with Voice: ${voiceId}`);
 
     // 1. Scripting Orchestrator
     const orchestrator = createScriptingOrchestrator();
@@ -173,15 +197,13 @@ export const runScriptingAndAudioFlow = async (prompt: string, voiceId: string =
         console.log(`[ScriptingFlow] Audio Event: Author=${event.author}, Type=${(event as any).type}`);
 
         if (event.author === 'audio_generator') {
-            console.log(`[ScriptingFlow] Full Audio Event:`, JSON.stringify(event, null, 2));
+            // console.log(`[ScriptingFlow] Full Audio Event:`, JSON.stringify(event, null, 2));
             if (event.content?.parts) {
-                console.log(`[ScriptingFlow] Audio Content Parts:`, JSON.stringify(event.content.parts, null, 2));
+                // console.log(`[ScriptingFlow] Audio Content Parts:`, JSON.stringify(event.content.parts, null, 2));
                 for (const part of event.content.parts as any[]) {
                     if (part.inlineData?.data) {
                         console.log(`[ScriptingFlow] Found inlineData.data (length: ${part.inlineData.data.length})`);
                         finalAudioBase64 = part.inlineData.data;
-                    } else if (part.fileData) {
-                        console.log(`[ScriptingFlow] Found fileData:`, part.fileData);
                     }
                 }
             }
@@ -190,11 +212,89 @@ export const runScriptingAndAudioFlow = async (prompt: string, voiceId: string =
 
     if (!finalAudioBase64) {
         console.warn(`[ScriptingFlow] No finalAudioBase64 was captured in the loop.`);
+        throw new Error('[ScriptingFlow] No finalAudioBase64 was captured in the loop.');
+    }
+
+    // 3. Save audio.wav with header
+    let wavBase64 = finalAudioBase64;
+    try {
+        const workDir = await resolveWorkDir(videoId);
+        const pcmBuffer = Buffer.from(finalAudioBase64, 'base64');
+        const wavBuffer = addWavHeader(pcmBuffer, 24000, 1, 16);
+
+        const audioPath = await writeToFile(workDir, 'audio.wav', wavBuffer);
+        console.log(`[ScriptingFlow] Saved local audio to: ${audioPath}`);
+
+        wavBase64 = wavBuffer.toString('base64');
+    } catch (err) {
+        console.error(`[ScriptingFlow] Failed to save local audio file:`, err);
+        // Fallback to original if saving fails, though adding header is crucial for some players/models
+    }
+
+    // 4. Subtitle Generator (using WAV audio)
+
+    const subtitleGenerator = createSubtitleGenerator();
+    const subtitleRunner = new InMemoryRunner({
+        agent: subtitleGenerator,
+        appName: 'subtitle-flow'
+    });
+
+    const subtitleSession = await subtitleRunner.sessionService.createSession({
+        appName: 'subtitle-flow',
+        userId: 'system'
+    });
+
+    const subtitleEventGenerator = subtitleRunner.runAsync({
+        userId: subtitleSession.userId,
+        sessionId: subtitleSession.id,
+        newMessage: {
+            role: 'user',
+            parts: [
+                {
+                    inlineData: {
+                        mimeType: 'audio/wav',
+                        data: wavBase64
+                    }
+                },
+                { text: "Generate subtitles for this audio." }
+            ]
+        }
+    });
+
+    let finalSubtitles: any = null;
+    console.log(`[ScriptingFlow] Waiting for subtitle events...`);
+    for await (const event of subtitleEventGenerator) {
+        if (event.author === 'subtitle_generator' && event.content?.parts) {
+            const text = event.content.parts.map((p: any) => p.text).join('');
+            try {
+                if (text.trim().startsWith('{')) {
+                    const parsed = JSON.parse(text);
+                    if (parsed.subtitles && Array.isArray(parsed.subtitles)) {
+                        finalSubtitles = parsed.subtitles;
+                    }
+                }
+            } catch (e) {
+                // Ignore partials
+            }
+        }
+    }
+
+    // Attach subtitles to script content if found
+    if (finalSubtitles && finalScriptContent) {
+        finalScriptContent.subtitles = finalSubtitles;
+    }
+
+    // 5. Save final script
+    try {
+        const workDir = await resolveWorkDir(videoId);
+        const scriptPath = await writeToFile(workDir, 'script.json', JSON.stringify(finalScriptContent, null, 2));
+        console.log(`[ScriptingFlow] Saved local script to: ${scriptPath}`);
+    } catch (err) {
+        console.error(`[ScriptingFlow] Failed to save local script file:`, err);
     }
 
     return {
         script: finalScriptContent,
-        audioBase64: finalAudioBase64
     };
 };
 
