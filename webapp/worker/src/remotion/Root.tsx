@@ -19,6 +19,11 @@ export const RemotionRoot: React.FC = () => {
                         height={1920}
                         schema={template.schema as any}
                         defaultProps={template.defaultProps as any}
+                        calculateMetadata={async ({ props }) => {
+                            return {
+                                durationInFrames: template.calculateDuration(props as any),
+                            };
+                        }}
                     />
                 );
             })}
