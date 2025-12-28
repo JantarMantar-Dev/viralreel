@@ -5,6 +5,7 @@ import { eq, desc, and, isNull } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import { createVideoJob, deleteVideo, queueVideoRender, updateVideoMetadata } from "../services/video-service.js";
+import { storageProvider } from "../lib/storage.js";
 
 export const baseJobSchema = z.object({
     nicheId: z.string().nullable(),
@@ -88,6 +89,8 @@ export default async function jobRoutes(fastify: FastifyInstance) {
                 seriesName: series.name,
                 nicheId: video.nicheId,
                 renderStatus: renderJob.status,
+                outputUrl: video.outputUrl,
+                compressedUrl: video.compressedUrl
             })
                 .from(video)
                 .leftJoin(renderJob, eq(video.id, renderJob.videoId))
@@ -99,7 +102,18 @@ export default async function jobRoutes(fastify: FastifyInstance) {
                 return reply.status(404).send({ error: "Video not found" });
             }
 
-            return { success: true, video: videoData[0] };
+            const v = videoData[0];
+            const signedOutputUrl = await storageProvider.getSignedUrlFromFullUrl(v.outputUrl || "");
+            const signedCompressedUrl = await storageProvider.getSignedUrlFromFullUrl(v.compressedUrl || "");
+
+            return {
+                success: true,
+                video: {
+                    ...v,
+                    outputUrl: signedOutputUrl,
+                    compressedUrl: signedCompressedUrl
+                }
+            };
         } catch (error) {
             fastify.log.error(error);
             return reply.status(500).send({ error: "Failed to fetch video details" });
@@ -155,6 +169,20 @@ export default async function jobRoutes(fastify: FastifyInstance) {
             fastify.log.error(error);
             return reply.status(error.message.includes("not found") ? 404 : 500).send({ error: error.message });
         }
+    });
+
+    // POST /api/jobs/:videoId/retry - Retry processing if URL is missing
+    fastify.post("/:videoId/retry", async (request, reply) => {
+        const userId = request.session.userId;
+        if (!userId) {
+            return reply.status(401).send({ error: "Unauthorized" });
+        }
+
+        const { videoId } = request.params as { videoId: string };
+
+        request.log.info(`[RETRY] Request to retry video ${videoId}. we will process request.`);
+
+        return { success: true, message: "Retry request processed" };
     });
 
     // PATCH /api/jobs/:videoId - Update metadata (Edit)

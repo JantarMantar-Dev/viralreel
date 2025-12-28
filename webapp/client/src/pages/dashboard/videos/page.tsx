@@ -15,7 +15,8 @@ import {
     Loader2,
     Trash2,
     Zap,
-    Edit
+    Edit,
+    Download
 } from "lucide-react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
@@ -40,6 +41,7 @@ import { Separator } from "@/components/ui/separator"
 import { VideosEmptyState } from "./components/videos-empty-state"
 import { API_BASE_URL } from "@/lib/config"
 import { formatRelativeDate } from "@/lib/date-utils"
+import { VideoPlayerDialog } from "./components/video-player-dialog"
 
 // --- Types ---
 
@@ -55,6 +57,9 @@ interface Project {
     duration?: string
     isHd?: boolean
     is4k?: boolean
+    outputUrl?: string
+    compressedUrl?: string
+    aspectRatio?: "portrait" | "landscape"
 }
 
 // --- Components ---
@@ -101,7 +106,7 @@ function VideoTypeBadge({ type, count }: { type: Project["type"], count?: number
     return null
 }
 
-function VideoCard({ project, onClick, onDelete, onRender }: { project: Project, onClick: () => void, onDelete: () => void, onRender?: () => void }) {
+function VideoCard({ project, onClick, onDelete, onRender, onOpen }: { project: Project, onClick: () => void, onDelete: () => void, onRender?: () => void, onOpen?: () => void }) {
     return (
         <Card
             onClick={onClick}
@@ -179,6 +184,22 @@ function VideoCard({ project, onClick, onDelete, onRender }: { project: Project,
                                     </>
                                 )}
                             </DropdownMenuItem>
+                            {project.type === "Single Video" && (
+                                <>
+                                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onOpen?.(); }}>
+                                        <Play className="h-4 w-4 mr-2" />
+                                        Open
+                                    </DropdownMenuItem>
+                                    {project.outputUrl && (
+                                        <DropdownMenuItem asChild>
+                                            <a href={project.outputUrl} download target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+                                                <Download className="h-4 w-4 mr-2" />
+                                                Download
+                                            </a>
+                                        </DropdownMenuItem>
+                                    )}
+                                </>
+                            )}
                             {project.type === "Single Video" && project.status === "Draft" && onRender && (
                                 <DropdownMenuItem
                                     className="text-purple-600 font-medium"
@@ -238,9 +259,10 @@ interface VideoListViewProps {
     isLoading: boolean
     onDelete: (project: Project) => void
     onRender: (project: Project) => void
+    onOpen: (project: Project) => void
 }
 
-function VideoListView({ filter, setFilter, navigate, projects, isLoading, onDelete, onRender }: VideoListViewProps) {
+function VideoListView({ filter, setFilter, navigate, projects, isLoading, onDelete, onRender, onOpen }: VideoListViewProps) {
     return (
         <div className="flex flex-col w-full h-full">
             {/* Top Bar (Search & Actions) - Full Width Header */}
@@ -356,6 +378,7 @@ function VideoListView({ filter, setFilter, navigate, projects, isLoading, onDel
                                         }}
                                         onDelete={() => onDelete(project)}
                                         onRender={() => onRender(project)}
+                                        onOpen={() => onOpen(project)}
                                     />
                                 ))}
                         </div>
@@ -370,6 +393,7 @@ export default function MyVideosPage() {
     const navigate = useNavigate()
     const [filter, setFilter] = useState<"All" | "Single" | "Series">("All")
     const [deleteTarget, setDeleteTarget] = useState<Project | null>(null)
+    const [playerProject, setPlayerProject] = useState<Project | null>(null)
     const queryClient = useQueryClient()
 
     const { data: response, isLoading } = useQuery({
@@ -401,7 +425,10 @@ export default function MyVideosPage() {
         date: formatRelativeDate(j.date),
         duration: j.duration ? `${j.duration}:00` : undefined,
         isHd: true,
-        videoCount: j.videoCount
+        videoCount: j.videoCount,
+        outputUrl: j.outputUrl,
+        compressedUrl: j.compressedUrl,
+        aspectRatio: j.aspectRatio
     }))
 
     // Sort by date (assuming id or createdAt is comparable, technically createdAt string needs parsing but fine for now)
@@ -468,6 +495,14 @@ export default function MyVideosPage() {
                 isLoading={isLoading}
                 onDelete={(p) => setDeleteTarget(p)}
                 onRender={(p) => renderProject(p)}
+                onOpen={(p) => setPlayerProject(p)}
+            />
+
+            {/* Video Player Dialog */}
+            <VideoPlayerDialog
+                project={playerProject}
+                open={!!playerProject}
+                onOpenChange={(open) => !open && setPlayerProject(null)}
             />
 
             {/* Delete Confirmation Dialog */}

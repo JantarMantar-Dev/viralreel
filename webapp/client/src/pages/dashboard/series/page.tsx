@@ -16,7 +16,8 @@ import {
     List,
     Trash2,
     Edit,
-    Zap
+    Zap,
+    Download
 } from "lucide-react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
@@ -40,6 +41,7 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { API_BASE_URL } from "@/lib/config"
 import { formatRelativeDate } from "@/lib/date-utils"
+import { VideoPlayerDialog } from "../videos/components/video-player-dialog"
 
 // --- Types ---
 
@@ -52,6 +54,9 @@ interface Episode {
     episodeNumber: number
     date: string
     duration?: number
+    outputUrl?: string
+    compressedUrl?: string
+    aspectRatio?: "portrait" | "landscape"
 }
 
 interface SeriesDetails {
@@ -101,6 +106,7 @@ export default function SeriesDetailsPage() {
     const navigate = useNavigate()
     const [searchQuery, setSearchQuery] = useState("")
     const [deleteId, setDeleteId] = useState<string | null>(null)
+    const [playerEpisode, setPlayerEpisode] = useState<Episode | null>(null)
 
     const queryClient = useQueryClient()
 
@@ -335,6 +341,18 @@ export default function SeriesDetailsPage() {
                                             </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
+                                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setPlayerEpisode(ep); }}>
+                                                <Play className="h-4 w-4 mr-2" />
+                                                Open
+                                            </DropdownMenuItem>
+                                            {ep.outputUrl && (
+                                                <DropdownMenuItem asChild>
+                                                    <a href={ep.outputUrl} download target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+                                                        <Download className="h-4 w-4 mr-2" />
+                                                        Download
+                                                    </a>
+                                                </DropdownMenuItem>
+                                            )}
                                             {ep.status === "Draft" && (
                                                 <DropdownMenuItem onClick={(e) => { e.stopPropagation(); renderEpisode(ep.id); }}>
                                                     <Zap className="h-4 w-4 mr-2 text-yellow-500" />
@@ -413,6 +431,13 @@ export default function SeriesDetailsPage() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* Video Player Dialog */}
+            <VideoPlayerDialog
+                project={playerEpisode}
+                open={!!playerEpisode}
+                onOpenChange={(open) => !open && setPlayerEpisode(null)}
+            />
         </div>
     )
 }

@@ -5,6 +5,7 @@ import { eq, desc, and, isNull, sql, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { deleteSeries } from "../services/video-service.js";
+import { storageProvider } from "../lib/storage.js";
 
 // --- Helper Functions ---
 
@@ -91,7 +92,9 @@ async function fetchVideoProjects(userId: string) {
         createdAt: video.createdAt,
         status: video.status,
         metadata: video.metadata,
-        renderStatus: renderJob.status
+        renderStatus: renderJob.status,
+        outputUrl: video.outputUrl,
+        compressedUrl: video.compressedUrl
     })
         .from(video)
         .leftJoin(renderJob, eq(video.id, renderJob.videoId))
@@ -103,7 +106,7 @@ async function fetchVideoProjects(userId: string) {
         )
         .orderBy(desc(video.createdAt));
 
-    return videos.map(v => {
+    return Promise.all(videos.map(async v => {
         // Map status
         // Priority: Render Job Status > Video Status
         let status = "Completed";
@@ -117,6 +120,9 @@ async function fetchVideoProjects(userId: string) {
             status = "Draft"; // or Failed
         }
 
+        const signedOutputUrl = await storageProvider.getSignedUrlFromFullUrl(v.outputUrl || "");
+        const signedCompressedUrl = await storageProvider.getSignedUrlFromFullUrl(v.compressedUrl || "");
+
         return {
             id: v.id,
             title: v.title,
@@ -129,9 +135,12 @@ async function fetchVideoProjects(userId: string) {
             duration: (v.metadata as any)?.duration,
             isSd: false,
             isHd: true,
-            is4k: false
+            is4k: false,
+            outputUrl: signedOutputUrl,
+            compressedUrl: signedCompressedUrl,
+            aspectRatio: (v.metadata as any)?.aspectRatio || "portrait"
         };
-    });
+    }));
 }
 
 // --- Routes ---
@@ -227,14 +236,16 @@ const projectsRoutes: FastifyPluginAsync = async (fastify) => {
                 status: video.status,
                 metadata: video.metadata,
                 episodeNumber: video.episodeNumber,
-                renderStatus: renderJob.status
+                renderStatus: renderJob.status,
+                outputUrl: video.outputUrl,
+                compressedUrl: video.compressedUrl
             })
                 .from(video)
                 .leftJoin(renderJob, eq(video.id, renderJob.videoId))
                 .where(eq(video.seriesId, seriesId))
                 .orderBy(video.episodeNumber);
 
-            const formattedEpisodes = episodes.map(v => {
+            const formattedEpisodes = await Promise.all(episodes.map(async v => {
                 let status = "Completed";
                 if (v.renderStatus === "QUEUED" || v.renderStatus === "PROCESSING") {
                     status = "Rendering";
@@ -246,6 +257,9 @@ const projectsRoutes: FastifyPluginAsync = async (fastify) => {
                     status = "Draft";
                 }
 
+                const signedOutputUrl = await storageProvider.getSignedUrlFromFullUrl(v.outputUrl || "");
+                const signedCompressedUrl = await storageProvider.getSignedUrlFromFullUrl(v.compressedUrl || "");
+
                 return {
                     id: v.id,
                     title: v.title,
@@ -254,9 +268,12 @@ const projectsRoutes: FastifyPluginAsync = async (fastify) => {
                     status,
                     episodeNumber: v.episodeNumber,
                     date: v.createdAt,
-                    duration: (v.metadata as any)?.duration
+                    duration: (v.metadata as any)?.duration,
+                    outputUrl: signedOutputUrl,
+                    compressedUrl: signedCompressedUrl,
+                    aspectRatio: (v.metadata as any)?.aspectRatio || "portrait"
                 };
-            });
+            }));
 
             return {
                 success: true,
