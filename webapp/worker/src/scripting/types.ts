@@ -5,6 +5,7 @@ export const ScriptSegmentSchema = z.object({
     dialogue: z.string(),
     visualPrompt: z.string(),
     duration: z.number(),
+    oldDuration: z.number().optional(),
 });
 
 export const SubtitleWordSchema = z.object({

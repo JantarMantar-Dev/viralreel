@@ -327,6 +327,15 @@ export const runContentPipeline = async (videoId: string, prompt: string, voiceI
     const subtitles = await generateSubtitles(videoId);
     if (subtitles) {
         scriptContent.subtitles = subtitles;
+
+        // Align durations
+        try {
+            console.log(`[ContentPipeline] Aligning segment durations with subtitles...`);
+            const { alignSegmentsWithSubtitles } = await import('./alignment.js');
+            scriptContent.segments = alignSegmentsWithSubtitles(scriptContent.segments, subtitles);
+        } catch (err) {
+            console.error(`[ContentPipeline] alignment failed:`, err);
+        }
     }
 
     // Save final script
