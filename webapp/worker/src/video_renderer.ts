@@ -138,6 +138,7 @@ async function processJob(job: typeof renderJob.$inferSelect) {
         let customSubtitleStyle: any = {};
 
         const styleId = metadata?.subtitleStyleId;
+        let subtitleTemplateId: string | undefined = undefined;
         if (styleId) {
             const style = await db.query.subtitleStyle.findFirst({
                 where: eq(subtitleStyle.id, styleId)
@@ -145,6 +146,8 @@ async function processJob(job: typeof renderJob.$inferSelect) {
             if (style) {
                 console.log(`Using Subtitle Style: ${style.name}`);
                 subtitleClassName = style.css || "";
+                // Convert name to our slug format for standard CSS lookup
+                subtitleTemplateId = style.name.toLowerCase().replace(/\s+/g, '-');
                 // Backward compatibility if needed
                 customSubtitleStyle = {
                     color: style.fontColor || 'white',
@@ -204,6 +207,7 @@ async function processJob(job: typeof renderJob.$inferSelect) {
             subtitleClassName,
             subtitleStyle: customSubtitleStyle,
             subtitleLocation: metadata?.subtitleLocation || 'center',
+            subtitleTemplateId,
             segments: segments.map(s => ({
                 ...s,
                 imageAssetPath: toLocalUrl(s.imageAssetPath)

@@ -3,7 +3,7 @@ import { bundle } from '@remotion/bundler';
 import { getCompositions, renderStill } from '@remotion/renderer';
 import path from 'path';
 import fs from 'fs';
-import { SUBTITLE_STYLES } from '../src/remotion/templates/tests/styles';
+import { SUBTITLE_STYLES } from '../src/remotion/templates/styles';
 
 const main = async () => {
     console.log("🚀 Starting Subtitle Style Test...");
@@ -32,13 +32,13 @@ const main = async () => {
 
     console.log(`Found composition ${composition.id}. Rendering styles...`);
 
-    for (const styleName of Object.keys(SUBTITLE_STYLES)) {
-        const style = SUBTITLE_STYLES[styleName];
-        console.log(`Rendering style: ${style.name}...`);
+    for (const styleId of Object.keys(SUBTITLE_STYLES)) {
+        const style = SUBTITLE_STYLES[styleId];
+        console.log(`Rendering style: ${style.name} (${styleId})...`);
 
         try {
             const inputProps = {
-                style: style.style,
+                subtitleTemplateId: styleId,
                 previewText: style.previewText,
                 name: style.name
             };
@@ -46,7 +46,7 @@ const main = async () => {
             await renderStill({
                 composition,
                 serveUrl: bundleLocation,
-                output: path.join(outputDir, `${style.name.replace(/\s+/g, '-').toLowerCase()}.png`),
+                output: path.join(outputDir, `${styleId}.png`),
                 inputProps,
             });
             console.log(`✅ Rendered ${style.name}`);

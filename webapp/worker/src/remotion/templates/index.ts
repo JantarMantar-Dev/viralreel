@@ -27,7 +27,8 @@ export const TEMPLATES = {
             subtitleStyle: {
                 color: 'white',
                 fontSize: 50
-            }
+            },
+            subtitleTemplateId: 'classic-capcut'
         },
         calculateDuration: (props: z.infer<typeof SimpleCompositionSchema>) => {
             const fps = 30;
@@ -41,7 +42,7 @@ export const TEMPLATES = {
         component: TailwindTest,
         schema: TailwindTestSchema,
         defaultProps: {
-            css: "font-sans font-black text-white stroke-black drop-shadow-[0_2px_0_rgba(0,0,0,1)] uppercase text-4xl tracking-tight leading-none",
+            subtitleTemplateId: "classic-capcut",
             previewText: "TESTING",
             name: "Default Style"
         },

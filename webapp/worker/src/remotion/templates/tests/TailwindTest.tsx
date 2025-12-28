@@ -1,15 +1,17 @@
-
 import React, { CSSProperties } from 'react';
 import { AbsoluteFill, useVideoConfig } from 'remotion';
 import { z } from 'zod';
+import { SUBTITLE_STYLES } from '../styles';
 
 export const TailwindTestSchema = z.object({
-    style: z.any().optional(),
+    subtitleTemplateId: z.string().optional(),
     previewText: z.string().optional(),
     name: z.string().optional(),
+    style: z.any().optional(),
 });
 
 export const TailwindTest: React.FC<z.infer<typeof TailwindTestSchema>> = ({
+    subtitleTemplateId,
     style = {},
     previewText = "TESTING",
     name = "Default Style"
@@ -35,9 +37,17 @@ export const TailwindTest: React.FC<z.infer<typeof TailwindTestSchema>> = ({
         textTransform: 'uppercase'
     };
 
-    const finalStyle: CSSProperties = (inputProps.style as CSSProperties) || style || defaultStyle;
+    const finalSubtitleTemplateId = inputProps.subtitleTemplateId ?? subtitleTemplateId;
+    const templateStyle = finalSubtitleTemplateId ? SUBTITLE_STYLES[finalSubtitleTemplateId]?.style || {} : {};
+
+    const finalStyle: CSSProperties = {
+        ...defaultStyle,
+        ...templateStyle,
+        ...(inputProps.style || style || {})
+    };
+
     const finalPreviewText = inputProps.previewText ?? previewText;
-    const finalName = inputProps.name ?? name;
+    const finalName = inputProps.name ?? (finalSubtitleTemplateId ? SUBTITLE_STYLES[finalSubtitleTemplateId]?.name : name);
 
     const { width, height } = useVideoConfig();
 

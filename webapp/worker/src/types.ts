@@ -24,6 +24,7 @@ export interface VideoRendererInput {
     subtitleStyle?: React.CSSProperties;
     subtitleClassName?: string; // For Tailwind classes
     subtitleLocation?: 'top' | 'center' | 'bottom';
+    subtitleTemplateId?: string;
 }
 
 // --- Script/Generation Types ---

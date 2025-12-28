@@ -1,9 +1,10 @@
 import { AbsoluteFill, Audio, Sequence, useCurrentFrame, useVideoConfig } from 'remotion';
 import React from 'react';
 import { z } from 'zod';
+import { SUBTITLE_STYLES } from '../styles';
 import { ImageWithEffect } from '../../effects/index';
 import { ImageEffectType } from '../../effects/types';
-import { VideoRendererInput } from '../../../types.js';
+import { VideoRendererInput } from '../../../types';
 
 export const SimpleCompositionSchema = z.object({
     audioUrl: z.string(),
@@ -17,9 +18,10 @@ export const SimpleCompositionSchema = z.object({
         start: z.number(),
         end: z.number(),
     })).optional(),
-    subtitleStyle: z.record(z.string(), z.union([z.string(), z.number()])).optional(), // CSS properties
+    subtitleStyle: z.any().optional(), // CSS properties
     subtitleClassName: z.string().optional(),
     subtitleLocation: z.enum(['top', 'center', 'bottom']).optional(),
+    subtitleTemplateId: z.string().optional(),
 });
 
 export const SimpleComposition: React.FC<VideoRendererInput> = ({
@@ -28,10 +30,13 @@ export const SimpleComposition: React.FC<VideoRendererInput> = ({
     subtitles,
     subtitleStyle,
     subtitleClassName,
-    subtitleLocation
+    subtitleLocation,
+    subtitleTemplateId
 }) => {
     const frame = useCurrentFrame();
     const { fps } = useVideoConfig();
+
+    const templateStyle = subtitleTemplateId ? SUBTITLE_STYLES[subtitleTemplateId]?.style || {} : {};
 
     const segmentStartFrames = React.useMemo(() => {
         let accumulated = 0;
@@ -68,36 +73,34 @@ export const SimpleComposition: React.FC<VideoRendererInput> = ({
             })}
 
             {/* Subtitles Overlay */}
-            <AbsoluteFill style={{
-                justifyContent: subtitleLocation === 'top' ? 'flex-start' : subtitleLocation === 'bottom' ? 'flex-end' : 'center',
-                alignItems: 'center',
-                paddingTop: subtitleLocation === 'top' ? 150 : 0,
-                paddingBottom: subtitleLocation === 'bottom' ? 150 : 0,
-            }}>
-                {subtitles && subtitles.map((subtitle, index) => {
-                    return (
-                        <Sequence
-                            key={`top-sub-${index}`}
-                            from={subtitle.start}
-                            durationInFrames={Math.max(1, subtitle.end - subtitle.start)}
-                        >
+            {subtitles && subtitles.map((subtitle, index) => {
+                return (
+                    <Sequence
+                        key={`top-sub-${index}`}
+                        from={subtitle.start}
+                        durationInFrames={Math.max(1, subtitle.end - subtitle.start)}
+                    >
+                        <AbsoluteFill style={{
+                            justifyContent: subtitleLocation === 'top' ? 'flex-start' : subtitleLocation === 'bottom' ? 'flex-end' : 'center',
+                            alignItems: 'center',
+                            paddingTop: subtitleLocation === 'top' ? 250 : 0,
+                            paddingBottom: subtitleLocation === 'bottom' ? 250 : 0,
+                        }}>
                             <div
                                 className={subtitleClassName}
                                 style={{
-                                    fontSize: 50,
-                                    color: 'white',
-                                    fontFamily: 'sans-serif',
-                                    textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
                                     textAlign: 'center',
+                                    maxWidth: '85%',
+                                    ...templateStyle,
                                     ...subtitleStyle
                                 }}
                             >
                                 {subtitle.text}
                             </div>
-                        </Sequence>
-                    );
-                })}
-            </AbsoluteFill>
+                        </AbsoluteFill>
+                    </Sequence>
+                );
+            })}
         </AbsoluteFill>
     );
 };
