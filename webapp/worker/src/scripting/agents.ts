@@ -130,10 +130,11 @@ Ensure the frames align perfectly with the voice sections.`,
 /**
  * Linked flow for generating script and then audio.
  */
-export const runScriptingAndAudioFlow = async (videoId: string, prompt: string, voiceId: string = DEFAULT_VOICE) => {
-    console.log(`[ScriptingFlow] Starting flow for Video ${videoId} with Voice: ${voiceId}`);
-
-    // 1. Scripting Orchestrator
+/**
+ * Step 1: Generate Script
+ */
+export const generateScript = async (prompt: string): Promise<ScriptContent> => {
+    console.log(`[ScriptingFlow] Generating script...`);
     const orchestrator = createScriptingOrchestrator();
     const scriptRunner = new InMemoryRunner({
         agent: orchestrator,
@@ -172,8 +173,14 @@ export const runScriptingAndAudioFlow = async (videoId: string, prompt: string, 
         throw new Error('[ScriptingFlow] Failed to get valid script content from agents');
     }
 
-    // 2. Audio Generator
-    const fullDialogue = finalScriptContent.segments.map((s: any) => s.dialogue).join(' ');
+    return finalScriptContent;
+};
+
+/**
+ * Step 2: Generate Audio
+ */
+export const generateAudio = async (text: string, voiceId: string, videoId?: string): Promise<{ audioBase64: string, wavBase64: string }> => {
+    console.log(`[ScriptingFlow] Generating audio with Voice: ${voiceId}`);
     const audioGenerator = createAudioGenerator({ ttsVoice: voiceId });
     const audioRunner = new InMemoryRunner({
         agent: audioGenerator,
@@ -188,21 +195,16 @@ export const runScriptingAndAudioFlow = async (videoId: string, prompt: string, 
     const audioEventGenerator = audioRunner.runAsync({
         userId: audioSession.userId,
         sessionId: audioSession.id,
-        newMessage: { role: 'user', parts: [{ text: fullDialogue }] }
+        newMessage: { role: 'user', parts: [{ text: text }] }
     });
 
     let finalAudioBase64: string | null = null;
     console.log(`[ScriptingFlow] Waiting for audio events...`);
     for await (const event of audioEventGenerator) {
-        console.log(`[ScriptingFlow] Audio Event: Author=${event.author}, Type=${(event as any).type}`);
-
         if (event.author === 'audio_generator') {
-            // console.log(`[ScriptingFlow] Full Audio Event:`, JSON.stringify(event, null, 2));
             if (event.content?.parts) {
-                // console.log(`[ScriptingFlow] Audio Content Parts:`, JSON.stringify(event.content.parts, null, 2));
                 for (const part of event.content.parts as any[]) {
                     if (part.inlineData?.data) {
-                        console.log(`[ScriptingFlow] Found inlineData.data (length: ${part.inlineData.data.length})`);
                         finalAudioBase64 = part.inlineData.data;
                     }
                 }
@@ -211,28 +213,34 @@ export const runScriptingAndAudioFlow = async (videoId: string, prompt: string, 
     }
 
     if (!finalAudioBase64) {
-        console.warn(`[ScriptingFlow] No finalAudioBase64 was captured in the loop.`);
         throw new Error('[ScriptingFlow] No finalAudioBase64 was captured in the loop.');
     }
 
-    // 3. Save audio.wav with header
     let wavBase64 = finalAudioBase64;
-    try {
-        const workDir = await resolveWorkDir(videoId);
-        const pcmBuffer = Buffer.from(finalAudioBase64, 'base64');
-        const wavBuffer = addWavHeader(pcmBuffer, 24000, 1, 16);
+    // Save locally if videoId provided
+    if (videoId) {
+        try {
+            const workDir = await resolveWorkDir(videoId);
+            const pcmBuffer = Buffer.from(finalAudioBase64, 'base64');
+            const wavBuffer = addWavHeader(pcmBuffer, 24000, 1, 16);
 
-        const audioPath = await writeToFile(workDir, 'audio.wav', wavBuffer);
-        console.log(`[ScriptingFlow] Saved local audio to: ${audioPath}`);
+            const audioPath = await writeToFile(workDir, 'audio.wav', wavBuffer);
+            console.log(`[ScriptingFlow] Saved local audio to: ${audioPath}`);
 
-        wavBase64 = wavBuffer.toString('base64');
-    } catch (err) {
-        console.error(`[ScriptingFlow] Failed to save local audio file:`, err);
-        // Fallback to original if saving fails, though adding header is crucial for some players/models
+            wavBase64 = wavBuffer.toString('base64');
+        } catch (err) {
+            console.error(`[ScriptingFlow] Failed to save local audio file:`, err);
+        }
     }
 
-    // 4. Subtitle Generator (using WAV audio)
+    return { audioBase64: finalAudioBase64, wavBase64 };
+};
 
+/**
+ * Step 3: Generate Subtitles
+ */
+export const generateSubtitles = async (wavBase64: string): Promise<any> => {
+    console.log(`[ScriptingFlow] Generating subtitles...`);
     const subtitleGenerator = createSubtitleGenerator();
     const subtitleRunner = new InMemoryRunner({
         agent: subtitleGenerator,
@@ -262,7 +270,6 @@ export const runScriptingAndAudioFlow = async (videoId: string, prompt: string, 
     });
 
     let finalSubtitles: any = null;
-    console.log(`[ScriptingFlow] Waiting for subtitle events...`);
     for await (const event of subtitleEventGenerator) {
         if (event.author === 'subtitle_generator' && event.content?.parts) {
             const text = event.content.parts.map((p: any) => p.text).join('');
@@ -278,23 +285,40 @@ export const runScriptingAndAudioFlow = async (videoId: string, prompt: string, 
             }
         }
     }
+    return finalSubtitles;
+};
 
-    // Attach subtitles to script content if found
-    if (finalSubtitles && finalScriptContent) {
-        finalScriptContent.subtitles = finalSubtitles;
+/**
+ * Orchestrator Pipeline
+ */
+export const runContentPipeline = async (videoId: string, prompt: string, voiceId: string = DEFAULT_VOICE) => {
+    console.log(`[ContentPipeline] Starting flow for Video ${videoId}`);
+
+    // 1. Script
+    const scriptContent = await generateScript(prompt);
+
+    // 2. Audio
+    const fullDialogue = scriptContent.segments.map((s: any) => s.dialogue).join(' ');
+    // We pass videoId so it saves the audio file internally
+    const { audioBase64, wavBase64 } = await generateAudio(fullDialogue, voiceId, videoId);
+
+    // 3. Subtitles
+    const subtitles = await generateSubtitles(wavBase64);
+    if (subtitles) {
+        scriptContent.subtitles = subtitles;
     }
 
-    // 5. Save final script
+    // Save final script
     try {
         const workDir = await resolveWorkDir(videoId);
-        const scriptPath = await writeToFile(workDir, 'script.json', JSON.stringify(finalScriptContent, null, 2));
-        console.log(`[ScriptingFlow] Saved local script to: ${scriptPath}`);
+        const scriptPath = await writeToFile(workDir, 'script.json', JSON.stringify(scriptContent, null, 2));
+        console.log(`[ContentPipeline] Saved local script to: ${scriptPath}`);
     } catch (err) {
-        console.error(`[ScriptingFlow] Failed to save local script file:`, err);
+        console.error(`[ContentPipeline] Failed to save local script file:`, err);
     }
 
     return {
-        script: finalScriptContent,
+        script: scriptContent,
     };
 };
 

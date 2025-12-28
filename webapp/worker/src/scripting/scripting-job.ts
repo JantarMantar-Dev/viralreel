@@ -3,7 +3,7 @@ import { db } from '../db/index.js';
 import { video, contentNiche, script } from '../db/schema.js';
 import { eq } from 'drizzle-orm';
 import { ScriptingJobInterface } from './types.js';
-import { runScriptingAndAudioFlow } from './agents.js';
+import { runContentPipeline } from './agents.js';
 import { resolveWorkDir, writeToFile, addWavHeader } from './utils.js';
 import { nanoid } from 'nanoid';
 
@@ -58,7 +58,7 @@ export class ScriptingJob implements ScriptingJobInterface {
         const prompt = `Idea: ${idea}. \nNiche: ${nicheName || 'General'}. \nTarget Duration: ${durationSeconds} seconds. \nVoice: ${voiceId}.`;
 
         // 2. Run the Linked Flow
-        const { script: finalScriptContent } = await runScriptingAndAudioFlow(this.videoId, prompt, voiceId);
+        const { script: finalScriptContent } = await runContentPipeline(this.videoId, prompt, voiceId);
 
         // 3. (Files are saved internally in runScriptingAndAudioFlow)
 
