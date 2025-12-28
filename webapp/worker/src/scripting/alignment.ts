@@ -12,6 +12,57 @@ function normalizeText(text: string): string[] {
 }
 
 /**
+ * Calculates Levenshtein distance between two strings
+ */
+function levenshteinDistance(a: string, b: string): number {
+    if (a.length === 0) return b.length;
+    if (b.length === 0) return a.length;
+
+    const matrix = [];
+
+    // increment along the first column of each row
+    for (let i = 0; i <= b.length; i++) {
+        matrix[i] = [i];
+    }
+
+    // increment each column in the first row
+    for (let j = 0; j <= a.length; j++) {
+        matrix[0][j] = j;
+    }
+
+    // Fill in the rest of the matrix
+    for (let i = 1; i <= b.length; i++) {
+        for (let j = 1; j <= a.length; j++) {
+            if (b.charAt(i - 1) === a.charAt(j - 1)) {
+                matrix[i][j] = matrix[i - 1][j - 1];
+            } else {
+                matrix[i][j] = Math.min(
+                    matrix[i - 1][j - 1] + 1, // substitution
+                    Math.min(
+                        matrix[i][j - 1] + 1, // insertion
+                        matrix[i - 1][j] + 1 // deletion
+                    )
+                );
+            }
+        }
+    }
+
+    return matrix[b.length][a.length];
+}
+
+/**
+ * Checks if two words are similar enough (fuzzy match)
+ */
+function isSimilar(word1: string, word2: string): boolean {
+    if (!word1 || !word2) return false;
+    // Allow 30-40% diff matches. e.g. "Dialog" vs "Dialogue" (distance 2, len 8 = 25%)
+    // "Te" vs "The" (distance 1, len 3 = 33%)
+    // "Sphinxs" vs "Sphinx" (distance 1, len 7 = 14%)
+    const maxDist = Math.max(2, Math.floor(Math.max(word1.length, word2.length) * 0.4));
+    return levenshteinDistance(word1, word2) <= maxDist;
+}
+
+/**
  * Aligns script segments with generated subtitles to fix duration discrepancies.
  * 
  * @param segments The original script segments with estimated durations
@@ -60,12 +111,13 @@ export function alignSegmentsWithSubtitles(
 
         for (let j = currentSubtitleIndex; j < searchLimit; j++) {
             const subWord = normalizeText(subtitles[j].text)[0];
-            if (subWord === segmentWords[0]) {
+            // Uses fuzzy match
+            if (isSimilar(subWord, segmentWords[0])) {
                 // Potential match, let's verify a bit more if possible
                 // If segment has > 1 word, check 2nd word too
                 if (segmentWords.length > 1 && j + 1 < subtitles.length) {
                     const nextSubWord = normalizeText(subtitles[j + 1].text)[0];
-                    if (nextSubWord === segmentWords[1]) {
+                    if (isSimilar(nextSubWord, segmentWords[1])) {
                         bestMatchStartIndex = j;
                         foundStart = true;
                         break;
@@ -96,19 +148,20 @@ export function alignSegmentsWithSubtitles(
 
         // Start searching for the end word from (start + length - margin)
         let searchEndStart = Math.max(bestMatchStartIndex, bestMatchStartIndex + segmentWords.length - 5);
+
+        // Ensure start is not negative or before start index
+        if (searchEndStart < bestMatchStartIndex) searchEndStart = bestMatchStartIndex;
+
         let searchEndLimit = Math.min(subtitles.length, bestMatchStartIndex + segmentWords.length + 20); // Allow some extra words
 
         let foundEnd = false;
 
         for (let j = searchEndStart; j < searchEndLimit; j++) {
             const subWord = normalizeText(subtitles[j].text)[0];
-            if (subWord === lastSegmentWord) {
+            if (isSimilar(subWord, lastSegmentWord)) {
                 bestMatchEndIndex = j;
                 foundEnd = true;
-                // Don't break immediately, maybe there's a better match further?
-                // Actually for "end", the first match after the expected length is usually good?
-                // Or the last match within reasonable range?
-                // Let's take the first match that satisfies minimal length constraint
+                break; // Found first matching end word in expected range
             }
         }
 
