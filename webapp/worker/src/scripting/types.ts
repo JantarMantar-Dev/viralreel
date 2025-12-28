@@ -4,7 +4,7 @@ import { z } from 'zod';
 export const ScriptSegmentSchema = z.object({
     dialogue: z.string(),
     visualPrompt: z.string(),
-    durationSeconds: z.number(),
+    duration: z.number(),
 });
 
 export const SubtitleWordSchema = z.object({
@@ -31,7 +31,7 @@ export const ScriptWriterOutputSchema = z.object({
 export const SegmenterOutputSchema = z.object({
     segments: z.array(z.object({
         dialogue: z.string(),
-        durationSeconds: z.number(),
+        duration: z.number(),
     })),
 });
 
@@ -39,7 +39,7 @@ export const VisualizerOutputSchema = z.object({
     segments: z.array(z.object({
         dialogue: z.string(),
         visualPrompt: z.string(),
-        durationSeconds: z.number(),
+        duration: z.number(),
     })),
 });
 

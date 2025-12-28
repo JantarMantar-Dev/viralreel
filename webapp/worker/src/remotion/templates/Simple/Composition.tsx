@@ -36,7 +36,7 @@ export const SimpleComposition: React.FC<VideoRendererInput> = ({
     const frame = useCurrentFrame();
     const { fps } = useVideoConfig();
 
-    const templateStyle = subtitleTemplateId ? SUBTITLE_STYLES[subtitleTemplateId]?.style || {} : {};
+    const templateStyle = subtitleTemplateId ? SUBTITLE_STYLES[subtitleTemplateId]?.style || {} : subtitleStyle;
 
     const segmentStartFrames = React.useMemo(() => {
         let accumulated = 0;
@@ -92,7 +92,6 @@ export const SimpleComposition: React.FC<VideoRendererInput> = ({
                                     textAlign: 'center',
                                     maxWidth: '85%',
                                     ...templateStyle,
-                                    ...subtitleStyle
                                 }}
                             >
                                 {subtitle.text}

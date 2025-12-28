@@ -52,7 +52,7 @@ Focus only on the narrative text.`,
         instruction: `You are an expert video editor and script segmenter. 
 Review the story provided by the previous agent.
 Break strictly that story down into logical segments.
-Each segment must have 'dialogue' and 'durationSeconds'.
+Each segment must have 'dialogue' and 'duration'.
 The sum of durations should be approximately the target duration mentioned in the request.`,
         outputSchema: zodObjectToSchema(SegmenterOutputSchema)
     });

@@ -210,7 +210,8 @@ async function processJob(job: typeof renderJob.$inferSelect) {
             subtitleTemplateId,
             segments: segments.map(s => ({
                 ...s,
-                imageAssetPath: toLocalUrl(s.imageAssetPath)
+                imageAssetPath: toLocalUrl(s.imageAssetPath),
+                duration: s.duration
             })),
             subtitles: topLevelSubtitles
         };
