@@ -63,6 +63,10 @@ Your task is to:
    - 'dialogue': The combined text of all words in this segment.
    - 'start': The 'start' timestamp of the first word in the segment.
    - 'end': The 'end' timestamp of the last word in the segment.
+5. **Pacing Constraints**:
+   - For approximately 30 seconds of total audio, aim for a maximum of 4 segments.
+   - For approximately 60 seconds of total audio, aim for a maximum of 8 segments.
+   Ensure each segment feels substantial and avoids rapid-fire cuts unless the narrative demands it.
 
 Output a JSON object with a 'segments' array following the requested schema.`,
         outputSchema: zodObjectToSchema(SegmenterOutputSchema)
@@ -174,7 +178,7 @@ async function runSingleAgent<T>(agent: LlmAgent, input: string): Promise<T> {
 /**
  * Step 2: Generate Audio
  */
-export const generateAudio = async (text: string, voiceId: string, videoId?: string): Promise<{ audioBase64: string, wavBase64: string }> => {
+export const generateAudio = async (text: string, voiceId: string, videoId?: string): Promise<{ audioBase64: string, wavBase64: string, durationFrames: number }> => {
     console.log(`[ScriptingFlow] Generating audio with Voice: ${voiceId}`);
     const audioGenerator = createAudioGenerator({ ttsVoice: voiceId });
     const audioRunner = new InMemoryRunner({
@@ -228,7 +232,13 @@ export const generateAudio = async (text: string, voiceId: string, videoId?: str
         }
     }
 
-    return { audioBase64: finalAudioBase64, wavBase64 };
+    // Calculate total duration in frames (assumes 24kHz, 1 channel, 16-bit = 2 bytes/sample)
+    // 24000 samples/sec * 2 bytes/sample = 48000 bytes/sec
+    const audioBuffer = Buffer.from(finalAudioBase64, 'base64');
+    const durationSeconds = audioBuffer.length / 48000;
+    const durationFrames = Math.ceil(durationSeconds * 30);
+
+    return { audioBase64: finalAudioBase64, wavBase64, durationFrames };
 };
 
 /**
@@ -316,7 +326,7 @@ export const runContentPipeline = async (videoId: string, prompt: string, voiceI
 
     // 2. Generate Audio
     console.log(`[ContentPipeline] 2. Generating Audio...`);
-    await generateAudio(story, voiceId, videoId);
+    const { durationFrames: audioDurationFrames } = await generateAudio(story, voiceId, videoId);
 
     // 3. Generate Subtitles
     console.log(`[ContentPipeline] 3. Generating Subtitles...`);
@@ -340,10 +350,16 @@ export const runContentPipeline = async (videoId: string, prompt: string, voiceI
         // Force first segment to start at 0
         segments[0].start = 0;
 
-        // Pad last segment with extra 30 frames (1 second)
-        segments[segments.length - 1].end += 30;
+        // Adjust last segment to match total audio duration + buffer
+        const lastSegment = segments[segments.length - 1];
 
-        // Recalculate durations
+        // Calculate missing frames from end of last segment to end of audio
+        const missingFrames = Math.max(0, audioDurationFrames - lastSegment.end);
+
+        // Add missing frames + 15 extra frames for safety trimming
+        lastSegment.end += missingFrames + 15;
+
+        // Recalculate durations using (end - start) / 30
         segments = segments.map(s => {
             const duration = (s.end - s.start) / 30;
             return {

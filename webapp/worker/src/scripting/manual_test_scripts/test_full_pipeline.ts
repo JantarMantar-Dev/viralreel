@@ -36,6 +36,9 @@ async function main() {
             console.warn("WARN: First segment duration is 0 or negative.");
         } else {
             console.log(`PASS: First segment duration: ${firstSeg.duration}s`);
+
+            const lastSeg = result.script.segments[result.script.segments.length - 1];
+            console.log(`PASS: Last segment duration: ${lastSeg.duration}s`);
         }
 
     } catch (e) {
