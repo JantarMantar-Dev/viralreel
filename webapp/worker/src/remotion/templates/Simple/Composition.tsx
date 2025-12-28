@@ -19,6 +19,7 @@ export const SimpleCompositionSchema = z.object({
     })).optional(),
     subtitleStyle: z.record(z.string(), z.union([z.string(), z.number()])).optional(), // CSS properties
     subtitleClassName: z.string().optional(),
+    subtitleLocation: z.enum(['top', 'center', 'bottom']).optional(),
 });
 
 export const SimpleComposition: React.FC<VideoRendererInput> = ({
@@ -26,7 +27,8 @@ export const SimpleComposition: React.FC<VideoRendererInput> = ({
     segments,
     subtitles,
     subtitleStyle,
-    subtitleClassName
+    subtitleClassName,
+    subtitleLocation
 }) => {
     const frame = useCurrentFrame();
     const { fps } = useVideoConfig();
@@ -66,7 +68,12 @@ export const SimpleComposition: React.FC<VideoRendererInput> = ({
             })}
 
             {/* Subtitles Overlay */}
-            <AbsoluteFill style={{ justifyContent: 'center', alignItems: 'center', bottom: 100, top: undefined, height: 150 }}>
+            <AbsoluteFill style={{
+                justifyContent: subtitleLocation === 'top' ? 'flex-start' : subtitleLocation === 'bottom' ? 'flex-end' : 'center',
+                alignItems: 'center',
+                paddingTop: subtitleLocation === 'top' ? 150 : 0,
+                paddingBottom: subtitleLocation === 'bottom' ? 150 : 0,
+            }}>
                 {subtitles && subtitles.map((subtitle, index) => {
                     return (
                         <Sequence

@@ -103,6 +103,7 @@ async function processJob(job: typeof renderJob.$inferSelect) {
             audioUrl: metadata?.inputProps?.audioUrl || path.join(workDir, 'audio.wav'),
             subtitleClassName,
             subtitleStyle: customSubtitleStyle,
+            subtitleLocation: metadata?.subtitleLocation || 'center',
             segments,
             subtitles: topLevelSubtitles
         };

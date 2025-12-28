@@ -23,6 +23,7 @@ export interface VideoRendererInput {
     subtitles?: SubtitleSegment[]; // Top-level word-level subtitles
     subtitleStyle?: React.CSSProperties;
     subtitleClassName?: string; // For Tailwind classes
+    subtitleLocation?: 'top' | 'center' | 'bottom';
 }
 
 // --- Script/Generation Types ---
