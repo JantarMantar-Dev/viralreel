@@ -76,6 +76,8 @@ services:
     environment:
       - DATABASE_URL=postgresql://user:password@postgres:5432/webapp
       - SCRIPT_WORKER_SIZE=1
+      - VIDEO_WORK_DIR=/app/work_dir
+    env_file: .env
     command: npx tsx watch src/script_renderer.ts
     depends_on:
       postgres:
@@ -94,6 +96,8 @@ services:
     environment:
       - DATABASE_URL=postgresql://user:password@postgres:5432/webapp
       - AI_GEN_WORKER_SIZE=1
+      - VIDEO_WORK_DIR=/app/work_dir
+    env_file: .env
     command: npx tsx watch src/ai_asset_generator.ts
     depends_on:
       postgres:
@@ -111,8 +115,9 @@ services:
       - /app/node_modules
     environment:
       - DATABASE_URL=postgresql://user:password@postgres:5432/webapp
-      - VIDEO_WORK_DIR=${VIDEO_WORK_DIR:-/app/out}
+      - VIDEO_WORK_DIR=/app/work_dir
       - VIDEO_WORKER_SIZE=1
+    env_file: .env
     command: npx tsx watch src/video_renderer.ts
     depends_on:
       postgres:
