@@ -1,6 +1,6 @@
 
 import { db } from './db/index.js';
-import { renderJob, video } from './db/schema.js';
+import { renderJob, video, subtitleStyle } from './db/schema.js';
 import { eq, and, sql } from 'drizzle-orm';
 import dotenv from 'dotenv';
 import { bundle } from '@remotion/bundler';
@@ -8,7 +8,7 @@ import { renderMedia, selectComposition } from '@remotion/renderer';
 import path from 'path';
 import fs from 'fs';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
-import { VideoRendererInput } from './types.js';
+import { VideoRendererInput, SubtitleSegment } from './types.js';
 
 dotenv.config();
 
@@ -62,37 +62,49 @@ async function processJob(job: typeof renderJob.$inferSelect) {
             throw new Error(`Video not found for ID: ${job.videoId}`);
         }
 
-        // Use metadata for inputProps if available, otherwise use mock default
-        // Use metadata for inputProps if available, otherwise use mock default
+        // Fetch Subtitle Style if available
         const metadata = videoData.metadata as any;
-        const inputProps: VideoRendererInput = metadata?.inputProps || {
-            audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
-            subtitleStyle: {
-                color: 'yellow',
-                fontSize: 60,
-                textTransform: 'uppercase'
-            },
-            segments: [
-                {
-                    image: "https://picsum.photos/id/10/1080/1920",
-                    duration: 5,
-                    imageEffect: 'ken-burns',
-                    subtitles: [
-                        { text: "Welcome", start: 0, end: 30 },
-                        { text: "to", start: 30, end: 45 },
-                        { text: "ViralReel", start: 45, end: 90 }
-                    ]
-                },
-                {
-                    image: "https://picsum.photos/id/11/1080/1920",
-                    duration: 5,
-                    subtitles: [
-                        { text: "Create", start: 0, end: 30 },
-                        { text: "amazing", start: 30, end: 60 },
-                        { text: "videos", start: 60, end: 90 }
-                    ]
-                }
-            ]
+        let subtitleClassName = "";
+        let customSubtitleStyle: any = {};
+
+        const styleId = metadata?.subtitleStyleId;
+        if (styleId) {
+            const style = await db.query.subtitleStyle.findFirst({
+                where: eq(subtitleStyle.id, styleId)
+            });
+            if (style) {
+                console.log(`Using Subtitle Style: ${style.name}`);
+                subtitleClassName = style.css || "";
+                // Backward compatibility if needed
+                customSubtitleStyle = {
+                    color: style.fontColor || 'white',
+                    fontSize: style.fontSize || 50,
+                    fontFamily: style.fontName || 'sans-serif',
+                };
+            }
+        }
+
+        // Read Script Data (for top-level subtitles and segments)
+        let topLevelSubtitles: SubtitleSegment[] = [];
+        let segments: any[] = [];
+        const workDir = process.env.VIDEO_WORK_DIR || path.join(process.cwd(), 'work_dir', job.videoId);
+        const scriptPath = path.join(workDir, 'script.json');
+
+        if (fs.existsSync(scriptPath)) {
+            const scriptJson = JSON.parse(fs.readFileSync(scriptPath, 'utf-8'));
+            topLevelSubtitles = scriptJson.subtitles || [];
+            segments = scriptJson.segments || [];
+        } else {
+            console.warn(`[VideoRenderer] script.json not found at ${scriptPath}. Using metadata segments.`);
+            segments = metadata?.inputProps?.segments || [];
+        }
+
+        const inputProps: VideoRendererInput = {
+            audioUrl: metadata?.inputProps?.audioUrl || path.join(workDir, 'audio.wav'),
+            subtitleClassName,
+            subtitleStyle: customSubtitleStyle,
+            segments,
+            subtitles: topLevelSubtitles
         };
 
         // 2. Bundle Remotion (This usually happens once or cached, but doing per-job for simplicity)
@@ -130,7 +142,6 @@ async function processJob(job: typeof renderJob.$inferSelect) {
         console.log("Rendering...");
         console.log("Input Props being sent to render:", JSON.stringify(inputProps, null, 2));
 
-        const workDir = process.env.VIDEO_WORK_DIR || path.join(process.cwd(), 'out');
         if (!fs.existsSync(workDir)) {
             fs.mkdirSync(workDir, { recursive: true });
         }

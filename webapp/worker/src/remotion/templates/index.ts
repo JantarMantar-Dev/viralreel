@@ -12,19 +12,17 @@ export const TEMPLATES = {
                 {
                     image: "https://picsum.photos/id/237/1080/1920",
                     duration: 5,
-                    subtitles: [
-                        { text: "Hello", start: 0, end: 30 },
-                        { text: "World", start: 30, end: 60 }
-                    ]
                 },
                 {
                     image: "https://picsum.photos/id/238/1080/1920",
                     duration: 5,
-                    subtitles: [
-                        { text: "Remotion", start: 0, end: 30 },
-                        { text: "Is Cool", start: 30, end: 60 }
-                    ]
                 }
+            ],
+            subtitles: [
+                { text: "Hello", start: 0, end: 30 },
+                { text: "World", start: 30, end: 60 },
+                { text: "Remotion", start: 150, end: 180 },
+                { text: "Is Cool", start: 180, end: 210 }
             ],
             subtitleStyle: {
                 color: 'white',

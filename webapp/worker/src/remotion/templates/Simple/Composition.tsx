@@ -11,30 +11,25 @@ export const SimpleCompositionSchema = z.object({
         image: z.string(),
         imageEffect: z.enum(['ken-burns', 'zoom-in', 'shine', 'grayscale-to-color', 'blur-to-focus', 'tilt-3d', 'pan', 'circular-morph', 'glitch', 'curtain'] as [string, ...string[]]).optional(),
         duration: z.number(),
-        subtitles: z.array(z.object({
-            text: z.string(),
-            start: z.number(),
-            end: z.number(),
-        }))
-    }).refine((segment) => {
-        // Validation: Subtitles must not exceed segment duration
-        const maxDurationFrames = segment.duration * 30; // Assuming 30fps
-        return segment.subtitles.every(sub => sub.end <= maxDurationFrames);
-    }, {
-        message: "Subtitle end time cannot exceed segment duration"
     })),
+    subtitles: z.array(z.object({
+        text: z.string(),
+        start: z.number(),
+        end: z.number(),
+    })).optional(),
     subtitleStyle: z.record(z.string(), z.union([z.string(), z.number()])).optional(), // CSS properties
+    subtitleClassName: z.string().optional(),
 });
 
 export const SimpleComposition: React.FC<VideoRendererInput> = ({
     audioUrl,
     segments,
+    subtitles,
     subtitleStyle,
+    subtitleClassName
 }) => {
     const frame = useCurrentFrame();
     const { fps } = useVideoConfig();
-
-    // console.log(`[Frame ${frame}] Segments:`, JSON.stringify(segments.map(s => ({ img: s.image, duration: s.duration })), null, 2));
 
     const segmentStartFrames = React.useMemo(() => {
         let accumulated = 0;
@@ -70,34 +65,30 @@ export const SimpleComposition: React.FC<VideoRendererInput> = ({
                 );
             })}
 
-            {/* Segments: Subtitles */}
+            {/* Subtitles Overlay */}
             <AbsoluteFill style={{ justifyContent: 'center', alignItems: 'center', bottom: 100, top: undefined, height: 150 }}>
-                {segments.map((segment, index) => {
-                    const segmentStartFrame = segmentStartFrames[index];
-
-                    return segment.subtitles.map((subtitle, subIndex) => {
-                        const absStart = segmentStartFrame + subtitle.start;
-                        const absEnd = segmentStartFrame + subtitle.end;
-
-                        return (
-                            <Sequence
-                                key={`sub-${index}-${subIndex}`}
-                                from={absStart}
-                                durationInFrames={absEnd - absStart}
-                            >
-                                <div style={{
+                {subtitles && subtitles.map((subtitle, index) => {
+                    return (
+                        <Sequence
+                            key={`top-sub-${index}`}
+                            from={subtitle.start}
+                            durationInFrames={Math.max(1, subtitle.end - subtitle.start)}
+                        >
+                            <div
+                                className={subtitleClassName}
+                                style={{
                                     fontSize: 50,
                                     color: 'white',
                                     fontFamily: 'sans-serif',
                                     textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
                                     textAlign: 'center',
                                     ...subtitleStyle
-                                }}>
-                                    {subtitle.text}
-                                </div>
-                            </Sequence>
-                        );
-                    });
+                                }}
+                            >
+                                {subtitle.text}
+                            </div>
+                        </Sequence>
+                    );
                 })}
             </AbsoluteFill>
         </AbsoluteFill>

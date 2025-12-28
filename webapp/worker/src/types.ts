@@ -14,14 +14,15 @@ export interface SubtitleSegment {
 export interface VideoSegment {
     image: string;
     duration: number; // seconds
-    subtitles: SubtitleSegment[];
     imageEffect?: ImageEffectType;
 }
 
 export interface VideoRendererInput {
     audioUrl: string;
     segments: VideoSegment[];
+    subtitles?: SubtitleSegment[]; // Top-level word-level subtitles
     subtitleStyle?: React.CSSProperties;
+    subtitleClassName?: string; // For Tailwind classes
 }
 
 // --- Script/Generation Types ---

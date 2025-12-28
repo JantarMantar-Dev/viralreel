@@ -1,6 +1,7 @@
 
 import { Composition, registerRoot } from 'remotion';
 import { TEMPLATES } from './templates/index.js';
+import './style.css';
 
 export const RemotionRoot: React.FC = () => {
     return (
