@@ -11,6 +11,9 @@ import { ScriptWriterOutputSchema, SegmenterOutputSchema, VisualizerOutputSchema
 import { resolveWorkDir, writeToFile, addWavHeader } from './utils.js';
 import { CustomGeminiTTS } from './custom_tts_model.js';
 import dotenv from 'dotenv';
+import Groq from 'groq-sdk';
+import fs from 'fs';
+import path from 'path';
 
 dotenv.config();
 
@@ -109,8 +112,8 @@ export const createSubtitleGenerator = () => {
     if (!API_KEY) {
         throw new Error("GOOGLE_API_KEY not found in environment variables");
     }
-    // Using Gemini 1.5 Pro as it supports audio input well.
-    const subtitleModel = new Gemini({ model: SUBTITLE_MODEL_NAME, apiKey: API_KEY });
+    // Using CustomGeminiTTS (Groq) for robust transcription
+    const subtitleModel = new CustomGeminiTTS({ model: 'groq-whisper', apiKey: API_KEY });
 
     return new LlmAgent({
         name: "subtitle_generator",
@@ -239,53 +242,53 @@ export const generateAudio = async (text: string, voiceId: string, videoId?: str
 /**
  * Step 3: Generate Subtitles
  */
-export const generateSubtitles = async (wavBase64: string): Promise<any> => {
-    console.log(`[ScriptingFlow] Generating subtitles...`);
-    const subtitleGenerator = createSubtitleGenerator();
-    const subtitleRunner = new InMemoryRunner({
-        agent: subtitleGenerator,
-        appName: 'subtitle-flow'
-    });
+export const generateSubtitles = async (videoId: string): Promise<any> => {
+    console.log(`[ScriptingFlow] Generating subtitles for Video ${videoId}...`);
 
-    const subtitleSession = await subtitleRunner.sessionService.createSession({
-        appName: 'subtitle-flow',
-        userId: 'system'
-    });
+    // Resolve workDir to find audio.wav
+    const workDir = await resolveWorkDir(videoId);
+    const audioPath = path.resolve(workDir, 'audio.wav');
 
-    const subtitleEventGenerator = subtitleRunner.runAsync({
-        userId: subtitleSession.userId,
-        sessionId: subtitleSession.id,
-        newMessage: {
-            role: 'user',
-            parts: [
-                {
-                    inlineData: {
-                        mimeType: 'audio/wav',
-                        data: wavBase64
-                    }
-                },
-                { text: "Generate subtitles for this audio." }
-            ]
-        }
-    });
-
-    let finalSubtitles: any = null;
-    for await (const event of subtitleEventGenerator) {
-        if (event.author === 'subtitle_generator' && event.content?.parts) {
-            const text = event.content.parts.map((p: any) => p.text).join('');
-            try {
-                if (text.trim().startsWith('{')) {
-                    const parsed = JSON.parse(text);
-                    if (parsed.subtitles && Array.isArray(parsed.subtitles)) {
-                        finalSubtitles = parsed.subtitles;
-                    }
-                }
-            } catch (e) {
-                // Ignore partials
-            }
-        }
+    if (!fs.existsSync(audioPath)) {
+        console.warn(`[ScriptingFlow] Audio file not found at ${audioPath}. Skipping subtitles.`);
+        return null;
     }
-    return finalSubtitles;
+
+    const apiKey = process.env.GROQ_TTS_KEY || process.env.GROQ_API_KEY;
+    if (!apiKey) {
+        throw new Error("GROQ_TTS_KEY not found in environment variables");
+    }
+
+    const groq = new Groq({ apiKey });
+
+    try {
+        console.log(`[ScriptingFlow] Transcribing ${audioPath} with Groq...`);
+        const transcription = await groq.audio.transcriptions.create({
+            file: fs.createReadStream(audioPath),
+            model: "whisper-large-v3-turbo",
+            response_format: "verbose_json",
+            timestamp_granularities: ["word"],
+            language: "en",
+        });
+
+        if ('words' in transcription && Array.isArray((transcription as any).words)) {
+            const subtitles = (transcription as any).words.map((w: any) => ({
+                text: w.word,
+                start: w.start * 30, // Convert seconds to frames (Assuming 30fps)
+                end: w.end * 30
+            }));
+            console.log(`[ScriptingFlow] Generated ${subtitles.length} subtitle words.`);
+            return subtitles;
+        } else {
+            console.warn("[ScriptingFlow] No words found in Groq response.");
+            return null;
+        }
+
+    } catch (error) {
+        console.error("[ScriptingFlow] Groq Transcription Error:", error);
+        // Don't crash the pipeline, just return null for subtitles
+        return null;
+    }
 };
 
 /**
@@ -303,7 +306,7 @@ export const runContentPipeline = async (videoId: string, prompt: string, voiceI
     const { audioBase64, wavBase64 } = await generateAudio(fullDialogue, voiceId, videoId);
 
     // 3. Subtitles
-    const subtitles = await generateSubtitles(wavBase64);
+    const subtitles = await generateSubtitles(videoId);
     if (subtitles) {
         scriptContent.subtitles = subtitles;
     }
