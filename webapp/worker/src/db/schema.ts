@@ -190,6 +190,7 @@ export const video = pgTable("video", {
 
     // Output
     outputUrl: text("output_url"), // Final S3 URL
+    compressedUrl: text("compressed_url"), // Compressed S3 URL
     thumbnailUrl: text("thumbnail_url"),
 
     createdAt: timestamp("created_at").defaultNow(),
@@ -241,6 +242,11 @@ export const renderJob = pgTable("render_job", {
 
     progress: integer("progress").default(0), // 0-100
     error: text("error"), // Error message if failed
+
+    originalUrl: text("original_url"),
+    compressedUrl: text("compressed_url"),
+    retryCount: integer("retry_count").default(0),
+    metadata: json("metadata"), // Future proofing
 
     startedAt: timestamp("started_at"),
     completedAt: timestamp("completed_at"),
