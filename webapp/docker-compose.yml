@@ -26,9 +26,10 @@ services:
     volumes:
       - ./server:/app
       - /app/node_modules
-    command: sh -c "npm run db:migrate && npm run dev"
+    command: sh -c "npm run db:generate && npm run db:migrate && npm run dev"
     environment:
       - PORT=3000
+      - NODE_ENV=development
       - CLIENT_URL=http://localhost:5173
       - DATABASE_URL=postgresql://user:password@postgres:5432/webapp
       - BETTER_AUTH_SECRET=placeholder_secret_replace_me_in_prod_1234567890
@@ -55,11 +56,72 @@ services:
       - ./client:/app
       - /app/node_modules
     environment:
+      - NODE_ENV=development
       - VITE_API_URL=http://localhost:3000
       - VITE_LENDING_URL=${VITE_LENDING_URL:-http://localhost:3001}
     command: npm run dev -- --host
     depends_on:
       - server
+    networks:
+      - webapp-network
+
+  worker-script:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile.dev
+    container_name: webapp-worker-script
+    volumes:
+      - ./worker:/app
+      - /app/node_modules
+    environment:
+      - DATABASE_URL=postgresql://user:password@postgres:5432/webapp
+      - SCRIPT_WORKER_SIZE=1
+      - VIDEO_WORK_DIR=/app/work_dir
+    env_file: .env
+    command: npx tsx watch src/script_renderer.ts
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - webapp-network
+
+  worker-ai:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile.dev
+    container_name: webapp-worker-ai
+    volumes:
+      - ./worker:/app
+      - /app/node_modules
+    environment:
+      - DATABASE_URL=postgresql://user:password@postgres:5432/webapp
+      - AI_GEN_WORKER_SIZE=1
+      - VIDEO_WORK_DIR=/app/work_dir
+    env_file: .env
+    command: npx tsx watch src/ai_asset_generator.ts
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - webapp-network
+
+  worker-video:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile.dev
+    container_name: webapp-worker-video
+    volumes:
+      - ./worker:/app
+      - /app/node_modules
+    environment:
+      - DATABASE_URL=postgresql://user:password@postgres:5432/webapp
+      - VIDEO_WORK_DIR=/app/work_dir
+      - VIDEO_WORKER_SIZE=1
+    env_file: .env
+    command: npx tsx watch src/video_renderer.ts
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
       - webapp-network
 

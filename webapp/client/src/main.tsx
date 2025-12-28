@@ -15,12 +15,14 @@ posthog.init('phc_Pvxpy70enymJ3fGuvqBDIkZu2G2lbIXqap2uwMHdmdl', {
 const queryClient = new QueryClient({
   queryCache: new QueryCache({
     onError: (error) => {
-      toast.error(`API Error: ${error.message || 'Something went wrong'}`)
+      const message = error instanceof Error ? error.message : 'Something went wrong';
+      toast.error(message);
     },
   }),
   mutationCache: new MutationCache({
     onError: (error) => {
-      toast.error(`Error: ${error.message || 'Action failed'}`)
+      const message = error instanceof Error ? error.message : 'Action failed';
+      toast.error(message);
     },
   }),
 })

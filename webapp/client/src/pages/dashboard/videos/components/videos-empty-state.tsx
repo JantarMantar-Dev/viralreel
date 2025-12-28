@@ -1,11 +1,17 @@
-import { Plus, Sparkles, Video, FileText, ShoppingBag } from "lucide-react"
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Layers, Play, Plus, Sparkles, Video, ShoppingBag } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 interface VideosEmptyStateProps {
-    onCreateNew: () => void
+    onTypeSelect: (type: "series" | "video") => void
 }
 
-export function VideosEmptyState({ onCreateNew }: VideosEmptyStateProps) {
+export function VideosEmptyState({ onTypeSelect }: VideosEmptyStateProps) {
     return (
         <div className="flex flex-1 flex-col items-center justify-center p-8 text-center bg-[radial-gradient(circle_at_center,rgba(124,58,237,0.03)_0%,transparent_70%)] min-h-[calc(100vh-4rem)]">
             {/* Illustration */}
@@ -34,13 +40,32 @@ export function VideosEmptyState({ onCreateNew }: VideosEmptyStateProps) {
                 You haven't created any videos yet. Let's create some! Start your first AI video project now.
             </p>
 
-            <Button
-                onClick={onCreateNew}
-                className="bg-purple-600 hover:bg-purple-700 text-white h-14 px-8 rounded-2xl shadow-lg shadow-purple-200 transition-all transform hover:scale-[1.02] flex items-center gap-2 text-lg font-semibold mb-16"
-            >
-                <Plus className="w-6 h-6" />
-                Create New
-            </Button>
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button
+                        className="bg-purple-600 hover:bg-purple-700 text-white h-14 px-8 rounded-2xl shadow-lg shadow-purple-200 transition-all transform hover:scale-[1.02] flex items-center gap-2 text-lg font-semibold mb-16"
+                    >
+                        <Plus className="w-6 h-6" />
+                        Create New
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="center" className="min-w-[200px] p-2 rounded-xl">
+                    <DropdownMenuItem onClick={() => onTypeSelect("series")} className="py-3 px-4 rounded-lg cursor-pointer">
+                        <Layers className="mr-3 h-5 w-5 text-purple-600" />
+                        <div className="flex flex-col">
+                            <span className="font-bold">Create Series</span>
+                            <span className="text-xs text-slate-500 font-normal">Maintain consistency across episodes</span>
+                        </div>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onTypeSelect("video")} className="py-3 px-4 rounded-lg cursor-pointer mt-1">
+                        <Play className="mr-3 h-5 w-5 text-purple-600" />
+                        <div className="flex flex-col">
+                            <span className="font-bold">Single Video</span>
+                            <span className="text-xs text-slate-500 font-normal">One-off content generation</span>
+                        </div>
+                    </DropdownMenuItem>
+                </DropdownMenuContent>
+            </DropdownMenu>
 
             <div className="flex flex-col items-center w-full">
                 <div className="flex items-center gap-3 mb-8">

@@ -3,10 +3,6 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { db } from "../db/index.js";
 import * as schema from "../db/schema.js";
 
-console.log("BETTER_AUTH_URL:", process.env.BETTER_AUTH_URL);
-console.log("GOOGLE_CLIENT_ID:", process.env.GOOGLE_CLIENT_ID);
-console.log("GOOGLE_CLIENT_SECRET:", process.env.GOOGLE_CLIENT_SECRET);
-
 export const auth = betterAuth({
     database: drizzleAdapter(db, {
         provider: "pg",
@@ -15,17 +11,43 @@ export const auth = betterAuth({
     baseURL: process.env.BETTER_AUTH_URL,
     emailAndPassword: {
         enabled: true,
+        sendResetPassword: async ({ user, url }) => {
+            const { sendResetPasswordEmail } = await import("./email.js");
+            await sendResetPasswordEmail(user.email, url, user.name);
+        },
     },
     emailVerification: {
         sendOnSignUp: true,
         autoSignInAfterVerification: true,
         sendVerificationEmail: async ({ user, url }) => {
-            const { sendVerifyEmail } = await import("./email.js");
-            await sendVerifyEmail(user.email, url);
+            const { sendVerifyEmail, sendWelcomeEmail } = await import("./email.js");
+            // Send both verification and welcome emails
+            await Promise.all([
+                sendVerifyEmail(user.email, url, user.name),
+                sendWelcomeEmail(user.email, user.name || "there")
+            ]);
         },
     },
     plugins: [
-        // Add any other plugins here 
+        {
+            id: "password-change-notifier",
+            hooks: {
+                after: [
+                    {
+                        matcher: (context) => context.path?.includes("/change-password") && context.method === "POST",
+                        handler: async (ctx: any) => {
+                            const user = ctx.context?.user || ctx.user || ctx.context?.session?.user || ctx.context?.newSession?.user;
+
+                            if (user && user.email) {
+                                const { sendPasswordChangedEmail } = await import("./email.js");
+                                await sendPasswordChangedEmail(user.email, user.name);
+                            }
+                            return ctx;
+                        }
+                    }
+                ]
+            }
+        }
     ],
     socialProviders: {
         google: {

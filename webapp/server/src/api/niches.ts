@@ -1,7 +1,7 @@
 import { FastifyInstance } from "fastify";
 import { db } from "../db/index.js";
 import { contentNiche } from "../db/schema.js";
-import { eq, or } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { requireAuth } from "../middleware/auth.js";
@@ -40,6 +40,29 @@ export default async function nicheRoutes(fastify: FastifyInstance) {
         }
     });
 
+    // GET /api/niches/check-name - Check if a niche name is available for the user
+    fastify.get("/check-name", { preHandler: [requireAuth] }, async (request, reply) => {
+        try {
+            const { name } = request.query as { name: string };
+            if (!name) return { isAvailable: true };
+
+            const existing = await db.select()
+                .from(contentNiche)
+                .where(
+                    and(
+                        eq(contentNiche.userId, request.user.id),
+                        eq(contentNiche.name, name.trim())
+                    )
+                )
+                .limit(1);
+
+            return { isAvailable: existing.length === 0 };
+        } catch (error) {
+            fastify.log.error(error);
+            return reply.status(500).send({ error: "Failed to check niche name" });
+        }
+    });
+
     // POST /api/niches - Create a new niche
     fastify.post("/", { preHandler: [requireAuth] }, async (request, reply) => {
         try {
@@ -52,9 +75,25 @@ export default async function nicheRoutes(fastify: FastifyInstance) {
             }
 
             const body = validation.data;
+
+            // Check for duplicate name for this user
+            const existing = await db.select()
+                .from(contentNiche)
+                .where(
+                    and(
+                        eq(contentNiche.userId, request.user.id),
+                        eq(contentNiche.name, body.name.trim())
+                    )
+                )
+                .limit(1);
+
+            if (existing.length > 0) {
+                return reply.status(409).send({ error: "A niche with this name already exists in your account." });
+            }
+
             const newNiche = {
                 id: randomUUID(),
-                name: body.name,
+                name: body.name.trim(),
                 userId: request.user.id,
                 description: body.description || null,
                 iconUrl: body.iconUrl || null,

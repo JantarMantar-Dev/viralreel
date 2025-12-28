@@ -1,0 +1,211 @@
+First prompt (For creating the initial photo / scene / vibe) 
+
+
+
+
+
+Show me a high fashion photoshoot image of the model wearing the Supreme sweater and watch, the image should show the a full body shot of the subject. The model is looking past the camera slightly bored expression and eyebrows raised. They have one hand raised with two fingers tapping the side of the glasses. The setting is a studio environment with a blue background. The model is wearing fashionable, dark grey baggy cotton pants. The sweater is extremely, almost comically oversized on the model.
+
+
+
+The image is from a low angle looking up at the subject.
+
+
+
+The image is shot on fuji velvia film on a 55mm prime lens with a hard flash, the light is concentrated on the subject and fades slightly toward the edges of the frame. The image is over exposed showing significant film grain and is oversaturated. The skin appears shiny (almost oily), and there are harsh white reflections on the glasses frames.
+
+
+
+3:2 aspect ratio
+
+
+
+Second prompt (For creating the grid of the 6 scenes) 
+
+
+
+Analyze the input image and silently inventory all fashion-critical details: the subject(s), exact wardrobe pieces, materials, colors, textures, accessories, hair, makeup, body proportions, environment, set geometry, light direction, and shadow quality.
+
+
+
+All wardrobe, styling, hair, makeup, lighting, environment, and color grade must remain 100% unchanged across all frames.
+
+
+
+Do not add or remove anything. Do not reinterpret materials or colors. Do not output any reasoning.
+
+
+
+Perfectly replicate the exact facial features of the model.
+
+
+
+Your visible output must be:
+
+
+
+One 2×3 contact sheet image (6 frames).
+
+
+
+Then a keyframe breakdown for each frame.
+
+
+
+Each frame must represent a resting point after a dramatic camera move — only describe the final camera position and what the subject is doing, never the motion itself.
+
+
+
+The six frames must be spatially dynamic, non-linear, and visually distinct.
+
+
+
+Required 6-Frame Shot List
+
+1. High-Fashion Beauty Portrait (Close, Editorial, Intimate)
+
+
+
+Camera positioned very close to the subject's face, slightly above or slightly below eye level, using an elegant offset angle that enhances bone structure and highlights key wardrobe elements near the neckline. Shallow depth of field, flawless texture rendering, and a sculptural fashion-forward composition.
+
+
+
+2. High-Angle Three-Quarter Frame
+
+
+
+Camera positioned overhead but off-center, capturing the subject from a diagonal downward angle.
+
+This frame should create strong shape abstraction and reveal wardrobe details from above.
+
+
+
+3. Low-Angle Oblique Full-Body Frame
+
+
+
+Camera positioned low to the ground and angled obliquely toward the subject.
+
+This elongates the silhouette, emphasizes footwear, and creates a dramatic perspective distinct from Frames 1 and 2.
+
+
+
+4. Side-On Compression Frame (Long Lens)
+
+
+
+Camera placed far to one side of the subject, using a tighter focal length to compress space.
+
+The subject appears in clean profile or near-profile, showcasing garment structure in a flattened, editorial manner.
+
+
+
+5. Intimate Close Portrait From an Unexpected Height
+
+
+
+Camera positioned very close to the subject's face (or upper torso) but slightly above or below eye level.
+
+The angle should feel fashion-editorial, not conventional — offset, elegant, and expressive.
+
+
+
+6. Extreme Detail Frame From a Non-Intuitive Angle
+
+
+
+Camera positioned extremely close to a wardrobe detail, accessory, or texture, but from an unusual spatial direction (e.g., from below, from behind, from the side of a neckline).
+
+This must be a striking, abstract, editorial detail frame.
+
+
+
+Continuity & Technical Requirements
+
+
+
+Maintain perfect wardrobe fidelity in every frame: exact garment type, silhouette, material, color, texture, stitching, accessories, closures, jewelry, shoes, hair, and makeup.
+
+
+
+Environment, textures, and lighting must remain consistent.
+
+
+
+Depth of field shifts naturally with focal length (deep for distant shots, shallow for close/detail shots).
+
+
+
+Photoreal textures and physically plausible light behavior required.
+
+
+
+Frames must feel like different camera placements within the same scene, not different scenes.
+
+
+
+All keyframes must be the exact same aspect ratio, and exactly 6 keyframes should be output. Maintain the exact visual style in all keyframes, where the image is shot on fuji velvia film with a hard flash, the light is concentrated on the subject and fades slightly toward the edges of the frame. The image is over exposed showing significant film grain and is oversaturated. The skin appears shiny (almost oily), and there are harsh white reflections on the glasses frames.
+
+
+
+Output Format
+
+A) 2×3 Contact Sheet Image (Mandatory)
+
+
+
+Third prompt (For extracting and upscaling each image from the grid scene) 
+
+
+
+“Review the grid of six images. I want you to isolate and upscale the first image in the first row of images. Do not change the pose or any details of the model; match the high angle and shot distance perfectly. It is critical that you only output a single image from the six-image grid.”
+
+
+
+
+
+Fourth prompt (For creating the wrist shot) 
+
+
+
+
+
+Show me a wide angle close up of the model. The model is holding one wrist vertically in front of him, the opposite hand is pulling down the sleeve of the hoodie to display the watch. The hand that is pulling down the sleeve has a four finger ring on his hand with the letters ‘D.O.G.E’ encrusted into the front face.
+
+
+
+
+
+
+
+Fifth prompt (For creating the standing / shoe focused shot)
+
+
+
+“Show me a wide angle worms eye view of the model standing, his right foot is extended in front of him, showing he is wearing the shoes in the reference image. Maintain the setting perfectly, include the D.O.G.E finger ring on the model's hand, and have his foot angled slightly to the side to highlight the detailing of the shoes.”
+
+
+
+6th prompt (For creating the Gameboy shot)
+
+
+
+“Tight shot of the model standing and reaching into the side of his cargo pants and partially showing the gameboy advance.” He is still wearing the DOGE ring on his right hand (The one he's reaching into his pockets with)
+
+
+
+
+
+7th prompt (For creating the grills smile shot)
+
+
+
+The model is smiling showing the grills on his teeth 
+
+
+
+8th prompt (For creating the pistol / gang sign shot)
+
+
+
+The model is standing making a gangster pose with his hands as if he's shooting a gun

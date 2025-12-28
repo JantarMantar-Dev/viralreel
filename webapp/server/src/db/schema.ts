@@ -6,6 +6,7 @@ export const user = pgTable("user", {
     email: text("email").notNull().unique(),
     emailVerified: boolean("email_verified").notNull(),
     image: text("image"),
+    stripeCustomerId: text("stripe_customer_id").unique(),
     createdAt: timestamp("created_at").notNull(),
     updatedAt: timestamp("updated_at").notNull(),
 });
@@ -59,7 +60,7 @@ export const verification = pgTable("verification", {
  */
 export const contentNiche = pgTable("content_niche", {
     id: text("id").primaryKey(), // UUID
-    name: text("name").notNull().unique(), // Unique identifier name for the niche
+    name: text("name").notNull(), // identifier name for the niche
     description: text("description"), // Human-readable description
     iconUrl: text("icon_url"), // URL to an icon representing this niche
     iconName: text("icon_name"), // Lucide icon name for frontend mapping
@@ -95,7 +96,14 @@ export const imageStyle = pgTable("image_style", {
 export const subtitleStyle = pgTable("subtitle_style", {
     id: text("id").primaryKey(), // UUID
     name: text("name").notNull().unique(), // Display name of the style
+    description: text("description"), // Description of the subtitle style
+    previewText: text("preview_text"), // Text to display in the preview
+    // CSS styles will be used for UI preview
+    css: text("css"), // CSS styles for the subtitle
+    isActive: boolean("is_active").default(true), // Soft delete/enable flag
 
+    // These are the properties that will be used for subtitle generation
+    // using video generation API
     fontName: text("font_name"), // Font family name
     fontSize: integer("font_size"), // Font size in pixels
     fontColor: text("font_color").default("#FFFFFF"), // Hex color code
@@ -115,8 +123,8 @@ export const musicTrack = pgTable("music_track", {
     id: text("id").primaryKey(), // UUID
     name: text("name").notNull(), // Track title
     url: text("url").notNull(), // URL to the audio file
-    mood: text("mood"), // Mood descriptor (e.g., "Upbeat", "Dark")
     durationSeconds: integer("duration_seconds"), // Length of track
+    userId: text("user_id").default("admin"), // ID of the user who created this track, or 'admin' for defaults
 
     isActive: boolean("is_active").default(true), // Soft delete/enable flag
     createdAt: timestamp("created_at").defaultNow(),
@@ -140,97 +148,171 @@ export const ttsVoice = pgTable("tts_voice", {
     createdAt: timestamp("created_at").defaultNow(),
 });
 
-// --- Core Video Models ---
+// --- Video Generation Models ---
 
 /**
- * VideoGroup
- * Represents a collection of videos, either a single video project or a series.
+ * Series
+ * Represents a collection of videos. Even a single video project can be a series of 1.
  */
-export const videoGroup = pgTable("video_group", {
+export const series = pgTable("series", {
     id: text("id").primaryKey(), // UUID
     userId: text("user_id").notNull().references(() => user.id), // Owner
-    nicheId: text("niche_id").references(() => contentNiche.id), // Configured niche
+    nicheId: text("niche_id").references(() => contentNiche.id), // Default niche for the series
 
-    name: text("name").notNull(), // Project title
-    description: text("description"), // Project description
-    groupType: text("group_type").notNull(), // Enum: 'SINGLE' or 'SERIES'
-
-    createdAt: timestamp("created_at").defaultNow(),
-    updatedAt: timestamp("updated_at").defaultNow(),
-});
-
-/**
- * VideoItem
- * An individual video episode or unit within a group.
- */
-export const videoItem = pgTable("video_item", {
-    id: text("id").primaryKey(), // UUID
-    groupId: text("group_id").notNull().references(() => videoGroup.id), // Parent group
-    nicheId: text("niche_id").references(() => contentNiche.id), // Override niche (optional)
-
-    episodeNumber: integer("episode_number").default(1), // Sequencing
-    title: text("title").notNull(), // Episode title
+    name: text("name").notNull(), // Series Title
+    description: text("description"),
+    episodeCount: integer("episode_count").default(1),
 
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 /**
- * VideoItemMetadata
- * Detailed configuration and generated parameters for a specific VideoItem.
- * Stores style selections, prompts, and output specifications.
+ * Video
+ * The primary unit of content. Can exist standalone (series_id=null or 1-video series)
+ * or as part of a larger series.
  */
-export const videoItemMetadata = pgTable("video_item_metadata", {
+export const video = pgTable("video", {
     id: text("id").primaryKey(), // UUID
-    itemId: text("item_id").notNull().unique().references(() => videoItem.id), // One-to-one with VideoItem
+    userId: text("user_id").notNull().references(() => user.id),
+    seriesId: text("series_id").references(() => series.id), // Optional parent series
+    nicheId: text("niche_id").references(() => contentNiche.id), // Specific niche (overrides series)
 
-    // Style Links
-    imageStyleId: text("image_style_id").references(() => imageStyle.id),
-    subtitleStyleId: text("subtitle_style_id").references(() => subtitleStyle.id),
-    backgroundMusicId: text("background_music_id").references(() => musicTrack.id),
-    voiceId: text("voice_id").references(() => ttsVoice.id),
+    title: text("title").notNull(),
+    description: text("description"),
+    episodeNumber: integer("episode_number").default(1), // Order in series
 
-    // Content Content
-    masterPrompt: text("master_prompt"), // The core idea user provided
-    scriptPayload: json("script_payload"), // The generated script structure
+    // Lifecycle Status
+    status: text("status").notNull().default("DRAFT"), // DRAFT, SCRIPTING, SCRIPT_READY, GENERATING, COMPLETED, FAILED
 
-    // Tech Specs
-    platform: text("platform"), // Enum: 'YOUTUBE', 'TIKTOK', etc.
-    aspectRatio: text("aspect_ratio").default("9:16"),
-    durationCategory: text("duration_category"),
-
-    // Pacing
-    subtitleWordsPerLine: integer("subtitle_words_per_line"),
+    // Configuration / Metadata (Voice, Style, Music, etc.)
+    metadata: json("metadata"),
 
     // Output
-    outputUrl: text("output_url"), // Final video URL
-
-    // internal config
-    extraParameters: json("extra_parameters"),
+    outputUrl: text("output_url"), // Final S3 URL
+    thumbnailUrl: text("thumbnail_url"),
 
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 /**
- * VideoJob
- * Tracks the async processing state of video generation.
+ * Script
+ * The textual and visual blueprint for a video.
+ * distinct from the video to allow for multiple iterations/drafts if needed.
  */
-export const videoJob = pgTable("video_job", {
+export const script = pgTable("script", {
     id: text("id").primaryKey(), // UUID
-    itemId: text("item_id").references(() => videoItem.id), // Target video
-    userId: text("user_id").notNull(), // Triggered by
+    videoId: text("video_id").notNull().references(() => video.id),
 
-    status: text("status").notNull(), // Enum: 'QUEUED', 'PROCESSING', 'COMPLETED', 'FAILED'
-    priority: integer("priority").default(0),
+    content: json("content"), // Structured script (segments, dialogue, visual prompts)
+    rawText: text("raw_text"), // Flat text representation if needed
 
-    workerId: text("worker_id"), // ID of worker processing this
+    isApproved: boolean("is_approved").default(false), // User approval flag
+
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+/**
+ * RenderJob
+ * Tracks the async GPU/Cloud generation process.
+ */
+export const renderJob = pgTable("render_job", {
+    id: text("id").primaryKey(), // UUID
+    videoId: text("video_id").notNull().references(() => video.id),
+
+    status: text("status").notNull().default("QUEUED"), // QUEUED, PROCESSING, COMPLETED, FAILED
+    workerId: text("worker_id"), // ID of the worker picking up the job
+
+    progress: integer("progress").default(0), // 0-100
+    error: text("error"), // Error message if failed
+
     startedAt: timestamp("started_at"),
     completedAt: timestamp("completed_at"),
 
-    outputUrl: text("output_url"), // Redundant but convenient ref
-    errorMessage: text("error_message"),
-
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// --- Payment & Credit System ---
+
+/**
+ * SubscriptionPlan
+ * Defines available subscription tiers and credit packs.
+ */
+export const subscriptionPlan = pgTable("subscription_plan", {
+    id: text("id").primaryKey(), // UUID
+    name: text("name").notNull(), // e.g. "Pro Monthly", "Starter Pack"
+    description: text("description"),
+    price: integer("price").notNull(), // Price in cents
+    currency: text("currency").default("usd").notNull(),
+    interval: text("interval"), // 'month', 'year', or null for one-time
+    credits: integer("credits").notNull(), // Number of credits granted
+    stripePriceId: text("stripe_price_id").unique(), // Stripe Price ID
+    isActive: boolean("is_active").default(true),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+/**
+ * UserSubscription
+ * Tracks the user's active recurring subscription.
+ */
+export const userSubscription = pgTable("user_subscription", {
+    id: text("id").primaryKey(), // UUID
+    userId: text("user_id").notNull().references(() => user.id),
+    planId: text("plan_id").notNull().references(() => subscriptionPlan.id),
+    stripeSubscriptionId: text("stripe_subscription_id").unique(),
+    status: text("status").notNull(), // active, canceled, past_due, trialing
+    currentPeriodEnd: timestamp("current_period_end"),
+    cancelAtPeriodEnd: boolean("cancel_at_period_end").default(false),
+    isCurrent: boolean("is_current").default(true),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+/**
+ * PaymentHistory
+ * Log of all charges (subscriptions and one-time purchases).
+ */
+export const paymentHistory = pgTable("payment_history", {
+    id: text("id").primaryKey(), // UUID
+    userId: text("user_id").notNull().references(() => user.id),
+    amount: integer("amount").notNull(), // Amount in cents
+    currency: text("currency").default("usd").notNull(),
+    status: text("status").notNull(), // succeeded, failed, pending
+    stripePaymentId: text("stripe_payment_id"), // PaymentIntent ID or Invoice ID
+    metadata: json("metadata"), // Arbitrary metadata from Stripe
+    createdAt: timestamp("created_at").defaultNow(),
+});
+
+/**
+ * CreditBalance (Credit Grants)
+ * Tracks available credits separated by their source (Plan vs Top-up).
+ * Allows users to know "credits against the plan".
+ */
+export const creditBalance = pgTable("credit_balance", {
+    id: text("id").primaryKey(), // UUID
+    userId: text("user_id").notNull().unique().references(() => user.id),
+    amountTotal: integer("amount_total").notNull(), // Cumulative amount granted
+    amountUsed: integer("amount_used").default(0).notNull(), // Cumulative amount consumed
+    expiresAt: timestamp("expires_at"), // Nullable
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+/**
+ * CreditTransaction
+ * Log of every credit usage, linked to specific content.
+ */
+export const creditTransaction = pgTable("credit_transaction", {
+    id: text("id").primaryKey(), // UUID
+    userId: text("user_id").notNull().references(() => user.id),
+    creditBalanceId: text("credit_balance_id").references(() => creditBalance.id), // Which grant was used
+    amount: integer("amount").notNull(), // Negative for usage, positive for refunds
+    videoId: text("video_id").references(() => video.id), // Linked content
+    seriesId: text("series_id").references(() => series.id), // Linked content
+    description: text("description"), // Audit log description
+    createdAt: timestamp("created_at").defaultNow(),
 });

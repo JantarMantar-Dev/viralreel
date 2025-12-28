@@ -18,8 +18,12 @@ import VoiceStep from "./pages/dashboard/create/steps/voice-step"
 import MusicStep from "./pages/dashboard/create/steps/music-step"
 import SubtitleStep from "./pages/dashboard/create/steps/subtitle-step"
 import ReviewStep from "./pages/dashboard/create/steps/review-step"
+import SeriesDetailsPage from "./pages/dashboard/series/page"
 import PlaceholderStep from "./pages/dashboard/create/steps/placeholder-step"
 import NotFoundPage from "./pages/dashboard/not-found"
+import PricingPage from "./pages/dashboard/settings/pricing"
+import ContactSalesPage from "./pages/dashboard/settings/contact-sales"
+import FeedbackPage from "./pages/dashboard/feedback"
 
 function App() {
   return (
@@ -35,11 +39,20 @@ function App() {
           <Route path="verify-email" element={<VerifyEmailPage />} />
         </Route>
 
-        {/* Dashboard Routes */}
-        <Route path="/dashboard" element={<DashboardLayout />}>
-          <Route index element={<DashboardPage />} />
+        {/* Dashboard Routes - No Prefix */}
+        <Route path="/" element={<DashboardLayout />}>
+          <Route index element={<Navigate to="/dashboard" replace />} />
+          <Route path="dashboard" element={<DashboardPage />} />
           <Route path="videos" element={<ProjectsPage />} />
+          <Route path="feedback" element={<FeedbackPage />} />
+          <Route path="videos/series/:id" element={<SeriesDetailsPage />} />
           <Route path="settings" element={<SettingsPage />} />
+          <Route path="settings/account" element={<SettingsPage />} />
+          <Route path="settings/billing" element={<SettingsPage />} />
+          <Route path="settings/credits" element={<SettingsPage />} />
+          <Route path="settings/social" element={<SettingsPage />} />
+          <Route path="settings/pricing" element={<PricingPage />} />
+          <Route path="settings/pricing/contact" element={<ContactSalesPage />} />
           <Route path="create" element={<CreateLayout />}>
             <Route index element={<Navigate to="niche" replace />} />
             <Route path="niche" element={<NicheStep />} />
@@ -48,9 +61,9 @@ function App() {
             {/* Removed Visuals Route */}
             <Route path="subtitles" element={<SubtitleStep />} />
             <Route path="music" element={<MusicStep />} />
-            <Route path="review" element={<ReviewStep />} /> {/* Mapped 'review' to ReviewStep */}
+            <Route path="review" element={<ReviewStep />} />
           </Route>
-          <Route path="*" element={<NotFoundPage />} />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Route>
       </Routes>
       <Toaster />

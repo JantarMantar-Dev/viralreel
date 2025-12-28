@@ -16,7 +16,10 @@ import {
     Aperture,
     PlayCircle,
     Clapperboard,
-    FileText
+    FileText,
+    Lock,
+    Smartphone,
+    Monitor
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useCreation } from "../context/creation-context"
@@ -57,13 +60,26 @@ export default function ScriptStep() {
                             <Clapperboard className="h-4 w-4 text-purple-600" />
                             {request.jobType === "series" ? "Series Name" : "Video Name"}
                         </label>
-                        <input
-                            type="text"
-                            value={request.seriesName}
-                            onChange={(e) => updateRequest({ seriesName: e.target.value })}
-                            placeholder={request.jobType === "series" ? "e.g. Unsolved Mysteries of the Deep" : "e.g. My Amazing Video"}
-                            className="w-full h-12 px-4 rounded-xl border border-slate-200 bg-slate-50/50 text-slate-900 placeholder:text-slate-400 focus:ring-4 focus:ring-purple-50 focus:border-purple-500 outline-none transition-all font-medium"
-                        />
+                        <div className="relative">
+                            <input
+                                type="text"
+                                value={request.jobType === "series" ? request.seriesName : request.episodeTitle}
+                                onChange={(e) => updateRequest({
+                                    [request.jobType === "series" ? "seriesName" : "episodeTitle"]: e.target.value
+                                })}
+                                placeholder={request.jobType === "series" ? "e.g. Unsolved Mysteries of the Deep" : "e.g. My Amazing Video"}
+                                disabled={request.jobType === "series" && !!request.seriesId}
+                                className={cn(
+                                    "w-full h-12 px-4 rounded-xl border border-slate-200 bg-slate-50/50 text-slate-900 placeholder:text-slate-400 focus:ring-4 focus:ring-purple-50 focus:border-purple-500 outline-none transition-all font-medium",
+                                    request.jobType === "series" && !!request.seriesId && "bg-slate-100 text-slate-500 cursor-not-allowed"
+                                )}
+                            />
+                            {request.jobType === "series" && !!request.seriesId && (
+                                <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">
+                                    <Lock className="h-4 w-4" />
+                                </div>
+                            )}
+                        </div>
                     </div>
                     {request.jobType === "series" && (
                         <div className="space-y-2">
@@ -73,13 +89,92 @@ export default function ScriptStep() {
                             </label>
                             <input
                                 type="text"
-                                value={request.episode1Title}
-                                onChange={(e) => updateRequest({ episode1Title: e.target.value })}
+                                value={request.episodeTitle}
+                                onChange={(e) => updateRequest({ episodeTitle: e.target.value })}
                                 placeholder="e.g. The Bermuda Triangle Secret"
                                 className="w-full h-12 px-4 rounded-xl border border-slate-200 bg-slate-50/50 text-slate-900 placeholder:text-slate-400 focus:ring-4 focus:ring-purple-50 focus:border-purple-500 outline-none transition-all font-medium"
                             />
                         </div>
                     )}
+                </div>
+            </div>
+
+            {/* Section 0.5: Aspect Ratio */}
+            <div className="bg-white rounded-3xl border border-slate-200 p-6 md:p-8 shadow-sm space-y-6">
+                <div className="flex items-start gap-4 mb-2">
+                    <div className="p-3 rounded-2xl bg-purple-50 text-purple-600">
+                        <Smartphone className="h-6 w-6" />
+                    </div>
+                    <div>
+                        <h3 className="text-xl font-bold text-slate-900">Choose Aspect Ratio</h3>
+                        <p className="text-slate-500 text-sm font-medium mt-1">
+                            Choose between portrait (perfect for Reels/Shorts) or landscape (standard video).
+                        </p>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div
+                        onClick={() => updateRequest({ aspectRatio: 'portrait' })}
+                        className={cn(
+                            "relative p-6 rounded-2xl border-2 cursor-pointer transition-all duration-300 group",
+                            request.aspectRatio === 'portrait'
+                                ? "border-purple-600 bg-purple-50/30 shadow-md ring-2 ring-purple-100"
+                                : "border-slate-100 bg-slate-50/50 hover:border-purple-200 hover:bg-white"
+                        )}
+                    >
+                        <div className="flex flex-col items-center gap-4">
+                            <div className={cn(
+                                "relative w-16 h-28 rounded-xl border-4 transition-all duration-300 flex items-center justify-center overflow-hidden",
+                                request.aspectRatio === 'portrait' ? "border-purple-600 bg-purple-100" : "border-slate-300 bg-slate-100 group-hover:border-purple-300"
+                            )}>
+                                <Smartphone className={cn("h-8 w-8", request.aspectRatio === 'portrait' ? "text-purple-600" : "text-slate-400")} />
+                                <div className="absolute bottom-2 w-4 h-1 bg-current rounded-full opacity-30" />
+                            </div>
+                            <div className="text-center">
+                                <span className={cn("font-bold block text-lg", request.aspectRatio === 'portrait' ? "text-purple-900" : "text-slate-700")}>
+                                    Portrait (9:16)
+                                </span>
+                                <span className="text-sm text-slate-500 font-medium">Perfect for Reels, Shorts & TikTok</span>
+                            </div>
+                        </div>
+                        {request.aspectRatio === 'portrait' && (
+                            <div className="absolute top-4 right-4 bg-purple-600 text-white p-1 rounded-full shadow-lg">
+                                <Check className="h-4 w-4" />
+                            </div>
+                        )}
+                    </div>
+
+                    <div
+                        onClick={() => updateRequest({ aspectRatio: 'landscape' })}
+                        className={cn(
+                            "relative p-6 rounded-2xl border-2 cursor-pointer transition-all duration-300 group",
+                            request.aspectRatio === 'landscape'
+                                ? "border-purple-600 bg-purple-50/30 shadow-md ring-2 ring-purple-100"
+                                : "border-slate-100 bg-slate-50/50 hover:border-purple-200 hover:bg-white"
+                        )}
+                    >
+                        <div className="flex flex-col items-center gap-4">
+                            <div className={cn(
+                                "relative w-28 h-18 rounded-xl border-4 transition-all duration-300 flex items-center justify-center overflow-hidden",
+                                request.aspectRatio === 'landscape' ? "border-purple-600 bg-purple-100" : "border-slate-300 bg-slate-100 group-hover:border-purple-300"
+                            )}>
+                                <Monitor className={cn("h-8 w-8", request.aspectRatio === 'landscape' ? "text-purple-600" : "text-slate-400")} />
+                                <div className="absolute bottom-2 w-2 h-2 bg-current rounded-full opacity-30" />
+                            </div>
+                            <div className="text-center">
+                                <span className={cn("font-bold block text-lg", request.aspectRatio === 'landscape' ? "text-purple-900" : "text-slate-700")}>
+                                    Landscape (16:9)
+                                </span>
+                                <span className="text-sm text-slate-500 font-medium">Best for YouTube & Standard Videos</span>
+                            </div>
+                        </div>
+                        {request.aspectRatio === 'landscape' && (
+                            <div className="absolute top-4 right-4 bg-purple-600 text-white p-1 rounded-full shadow-lg">
+                                <Check className="h-4 w-4" />
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
 

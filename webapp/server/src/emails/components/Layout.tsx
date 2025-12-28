@@ -24,13 +24,15 @@ export const EmailLayout = ({ preview, children }: EmailLayoutProps) => {
             <Body style={main}>
                 <Container style={container}>
                     <Section style={header}>
-                        <Text style={logo}>ViralReel</Text>
+                        <div style={logoContainer}>
+                            <Text style={logo}>ViralReel</Text>
+                        </div>
                     </Section>
                     <Section style={content}>{children}</Section>
                     <Hr style={hr} />
                     <Section style={footer}>
                         <Text style={footerText}>
-                            © {new Date().getFullYear()} ViralReel. All rights reserved.
+                            © {new Date().getFullYear()} ViralReel Inc. All rights reserved.
                         </Text>
                     </Section>
                 </Container>
@@ -40,42 +42,53 @@ export const EmailLayout = ({ preview, children }: EmailLayoutProps) => {
 };
 
 const main = {
-    backgroundColor: "#f6f9fc",
+    backgroundColor: "#f4f7f9",
     fontFamily:
         '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Ubuntu,sans-serif',
 };
 
 const container = {
     backgroundColor: "#ffffff",
-    margin: "0 auto",
-    padding: "20px 0 48px",
-    marginBottom: "64px",
+    margin: "40px auto",
+    padding: "0",
+    borderRadius: "12px",
+    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
+    maxWidth: "600px",
+    overflow: "hidden",
 };
 
 const header = {
-    padding: "0 48px",
+    padding: "32px 0 0",
+};
+
+const logoContainer = {
+    textAlign: "center" as const,
 };
 
 const logo = {
     fontSize: "24px",
     fontWeight: "bold",
-    color: "#333",
+    color: "#7c3aed", // Purple logo
+    margin: "0",
 };
 
 const content = {
-    padding: "0 48px",
+    padding: "0 40px 40px",
 };
 
 const hr = {
-    borderColor: "#e6ebf1",
-    margin: "20px 0",
+    borderColor: "#f0f0f0",
+    margin: "0",
 };
 
 const footer = {
-    padding: "0 48px",
+    padding: "32px 40px",
+    backgroundColor: "#fafafa",
+    textAlign: "center" as const,
 };
 
 const footerText = {
-    color: "#8898aa",
+    color: "#9ca3af",
     fontSize: "12px",
+    margin: "0",
 };

@@ -1,0 +1,1 @@
+ALTER TABLE "series" ADD COLUMN "episode_count" integer DEFAULT 1;

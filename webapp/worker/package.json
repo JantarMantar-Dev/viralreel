@@ -1,0 +1,44 @@
+{
+    "name": "worker",
+    "version": "1.0.0",
+    "description": "Remotion-based video rendering worker",
+    "main": "dist/index.js",
+    "type": "module",
+    "scripts": {
+        "start": "tsx src/video_renderer.ts",
+        "start:script": "tsx src/script_renderer.ts",
+        "start:ai": "tsx src/ai_asset_generator.ts",
+        "start:video": "tsx src/video_renderer.ts",
+        "build": "tsc",
+        "preview": "remotion preview src/remotion/index.ts"
+    },
+    "dependencies": {
+        "@aws-sdk/client-s3": "^3.958.0",
+        "@google/adk": "^0.2.1",
+        "@google/generative-ai": "^0.24.1",
+        "@remotion/bundler": "^4.0.222",
+        "@remotion/cli": "^4.0.222",
+        "@remotion/renderer": "^4.0.222",
+        "autoprefixer": "10.4.23",
+        "dotenv": "^16.4.7",
+        "drizzle-orm": "^0.41.0",
+        "groq-sdk": "^0.37.0",
+        "openai": "^6.15.0",
+        "pg": "^8.16.3",
+        "postcss": "8.5.6",
+        "react": "^19.2.3",
+        "react-dom": "^19.2.3",
+        "remotion": "^4.0.222",
+        "tailwindcss": "3.4.19",
+        "tsx": "^4.21.0",
+        "zod": "^3.24.1"
+    },
+    "devDependencies": {
+        "@types/node": "^25.0.3",
+        "@types/pg": "^8.16.0",
+        "@types/react": "^19.2.7",
+        "@types/uuid": "^10.0.0",
+        "postcss-loader": "^8.2.0",
+        "typescript": "^5.9.3"
+    }
+}

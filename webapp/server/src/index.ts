@@ -1,5 +1,9 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import fastifyStatic from '@fastify/static';
+import fastifyMultipart from '@fastify/multipart';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import WelcomeEmail from "./emails/welcome.js";
 import VerifyEmail from "./emails/verify.js";
@@ -7,10 +11,31 @@ import { auth } from './lib/auth.js';
 import { posthog } from './lib/posthog.js';
 import authMiddleware from './middleware/auth.js';
 import nicheRoutes from './api/niches.js';
+import voicesRoutes from './api/voices.js';
+import musicRoutes from './api/music.js';
+import subtitleRoutes from "./api/subtitles.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 dotenv.config();
 
+import { serializerCompiler, validatorCompiler } from "fastify-type-provider-zod";
+import fastifyRawBody from 'fastify-raw-body';
+
 const fastify = Fastify({ logger: true });
+
+// Register raw body for Stripe webhooks
+fastify.register(fastifyRawBody, {
+    field: 'rawBody', // field name to store the raw body
+    global: false,    // only active on routes that have it enabled
+    encoding: false,  // get raw buffer
+    runFirst: true,   // run before other hooks
+});
+
+// Add Zod validator and serializer
+fastify.setValidatorCompiler(validatorCompiler);
+fastify.setSerializerCompiler(serializerCompiler);
 
 // Parse trusted origins
 const trustedOrigins = (process.env.TRUSTED_ORIGINS || "")
@@ -29,6 +54,23 @@ fastify.register(cors, {
     ],
     credentials: true,
     maxAge: 86400
+});
+
+// Register static file serving
+fastify.register(fastifyStatic, {
+    root: path.join(__dirname, '../assets'),
+    prefix: '/assets/', // optional: default '/'
+});
+
+// Register multipart support for file uploads
+fastify.register(fastifyMultipart, {
+    limits: {
+        fieldNameSize: 100, // Max field name size in bytes
+        fieldSize: 100,     // Max field value size in bytes
+        fields: 10,         // Max number of non-file fields
+        fileSize: 50 * 1024 * 1024, // 50MB max file size
+        files: 1,           // Max number of file fields
+    }
 });
 
 // Register authentication endpoint
@@ -89,6 +131,15 @@ fastify.register(authMiddleware);
 
 // Register modular API routes
 fastify.register(nicheRoutes, { prefix: "/api/niches" });
+fastify.register(voicesRoutes, { prefix: "/api/voices" });
+fastify.register(musicRoutes, { prefix: "/api/music" });
+fastify.register(subtitleRoutes, { prefix: "/api/subtitles" });
+import jobRoutes from "./api/jobs.js";
+fastify.register(jobRoutes, { prefix: "/api/jobs" });
+import projectsRoutes from "./api/projects.js";
+fastify.register(projectsRoutes, { prefix: "/api/projects" });
+import paymentsRoutes from "./api/payments.js";
+fastify.register(paymentsRoutes, { prefix: "/api/payments" });
 
 // Run the server
 const start = async () => {

@@ -1,18 +1,18 @@
 import { useState, useEffect } from "react"
 import { useNavigate, useLocation, Outlet, useSearchParams } from "react-router-dom"
+import { useMutation, useQuery } from "@tanstack/react-query"
+import { toast } from "sonner"
 import {
     ChevronLeft,
     X,
     Check,
-    Wand2
+    Wand2,
+    Loader2
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { VOICES, Voice } from "./steps/voice-step"
-import { TRACKS } from "./steps/music-step"
-import { SUBTITLE_STYLES, SubtitleStyle } from "./steps/subtitle-step"
-import { Track } from "./components/music-list"
+import { API_BASE_URL } from "@/lib/config"
 import {
     CreationContext,
     VideoJobRequest,
@@ -34,8 +34,15 @@ export default function CreateVideoLayout() {
     // Initialize jobType from URL or default to "series"
     const [request, setRequest] = useState<VideoJobRequest>(() => ({
         ...INITIAL_REQUEST,
-        jobType: (searchParams.get("type") as "video" | "series") || "series"
+        jobType: (searchParams.get("type") as "video" | "series") || "series",
+        seriesId: searchParams.get("seriesId") || undefined,
+        nicheId: searchParams.get("nicheId") || null,
     }))
+    const [customNext, setCustomNext] = useState<(() => void) | undefined>()
+    const [customPrev, setCustomPrev] = useState<(() => void) | undefined>()
+    const [canContinue, setCanContinue] = useState(true)
+    const [isStepLoading, setIsStepLoading] = useState(false)
+
     const navigate = useNavigate()
     const location = useLocation()
 
@@ -43,28 +50,150 @@ export default function CreateVideoLayout() {
         setRequest(prev => ({ ...prev, ...data }))
     }
 
+    // --- Add Episode & Edit Logic ---
+    const seriesId = searchParams.get("seriesId")
+    const editVideoId = searchParams.get("editVideoId")
+
+    const { data: seriesData } = useQuery({
+        queryKey: ["series", seriesId],
+        queryFn: async () => {
+            const res = await fetch(`${API_BASE_URL}/api/projects/series/${seriesId}`, {
+                credentials: "include"
+            })
+            if (!res.ok) throw new Error("Failed to fetch series")
+            return res.json()
+        },
+        enabled: !!seriesId
+    })
+
+    const { data: editVideoResponse } = useQuery({
+        queryKey: ["editVideo", editVideoId],
+        queryFn: async () => {
+            const res = await fetch(`${API_BASE_URL}/api/jobs/${editVideoId}`, {
+                credentials: "include"
+            })
+            if (!res.ok) throw new Error("Failed to fetch video details")
+            return res.json()
+        },
+        enabled: !!editVideoId
+    })
+
+    useEffect(() => {
+        if (seriesId && seriesData?.series) {
+            const series = seriesData.series;
+            updateRequest({
+                jobType: "series",
+                seriesId: series.id,
+                seriesName: series.name,
+                nicheId: series.nicheId,
+                nicheName: series.nicheName,
+            })
+
+            // If we are on the first step (niche), skip to script step
+            if (location.pathname.endsWith("/niche") || location.pathname.endsWith("/create")) {
+                navigate("script");
+            }
+        }
+    }, [seriesId, seriesData, navigate, location.pathname])
+
+    useEffect(() => {
+        if (editVideoId && editVideoResponse?.video) {
+            const v = editVideoResponse.video;
+            const meta = v.metadata || {};
+            updateRequest({
+                jobType: v.seriesId ? "series" : "video",
+                seriesId: v.seriesId,
+                seriesName: v.seriesName || "",
+                nicheId: v.nicheId,
+                scriptIdea: meta.scriptIdea || "",
+                episodeTitle: v.title,
+                duration: meta.duration || 1,
+                segments: meta.segments || 3,
+                visualFormat: meta.visualFormat || "image",
+                visualStyle: meta.visualStyle || undefined,
+                voiceId: meta.voiceId || undefined,
+                subtitleTemplateId: meta.subtitleTemplateId || undefined,
+                musicId: meta.musicId || undefined,
+            })
+
+            // If we are on the first step (niche), skip to script step
+            if (location.pathname.endsWith("/niche") || location.pathname.endsWith("/create")) {
+                navigate("script");
+            }
+        }
+    }, [editVideoId, editVideoResponse, navigate, location.pathname])
+
     // Determine current step based on route path
-    const path = location.pathname.split("/").pop()
+    const path = location.pathname.split("/").filter(Boolean).pop()
     const currentStepIndex = STEPS.findIndex(s => s.path === path)
     const currentStep = currentStepIndex !== -1 ? currentStepIndex + 1 : 1
 
     const handleExit = () => {
-        navigate("/dashboard")
+        navigate("/videos")
     }
 
-    const nextStep = () => {
+    const { mutate: createJob, isPending } = useMutation({
+        mutationFn: async (data: VideoJobRequest) => {
+            let url = data.seriesId
+                ? `${API_BASE_URL}/api/jobs/series/${data.seriesId}/episode`
+                : `${API_BASE_URL}/api/jobs`;
+            let method = "POST";
+
+            if (editVideoId) {
+                url = `${API_BASE_URL}/api/jobs/${editVideoId}`;
+                method = "PATCH";
+            }
+
+            const response = await fetch(url, {
+                method,
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                credentials: "include",
+                body: JSON.stringify(data),
+            })
+
+            if (!response.ok) {
+                const errorData = await response.json()
+                throw new Error(errorData.error || errorData.message || "Failed to process job")
+            }
+
+            return response.json()
+        },
+        onSuccess: () => {
+            toast.success(editVideoId ? "Job updated successfully!" : "Job created successfully!")
+            navigate("/videos")
+        }
+    })
+
+    const nextStep = (bypassOverride = false) => {
+        if (customNext && !bypassOverride) {
+            customNext()
+            return
+        }
+
         if (currentStep < STEPS.length) {
-            navigate(STEPS[currentStep].path)
+            const nextPath = `/create/${STEPS[currentStep].path}`
+            navigate(nextPath)
         } else if (currentStep === STEPS.length) {
-            // Handle generation here
-            console.log("Generating series...", request)
+            createJob(request)
         }
     }
 
     const prevStep = () => {
-        if (currentStep > 1) {
-            navigate(STEPS[currentStep - 2].path)
+        if (customPrev) {
+            customPrev()
+            return
         }
+
+        if (currentStep > 1) {
+            const prevPath = `/create/${STEPS[currentStep - 2].path}`
+            navigate(prevPath)
+        }
+    }
+
+    const handleSaveDraft = () => {
+        createJob({ ...request, isDraft: true })
     }
 
     return (
@@ -73,7 +202,15 @@ export default function CreateVideoLayout() {
             updateRequest,
             nextStep,
             prevStep,
-            currentStep
+            currentStep,
+            customNext,
+            setCustomNext,
+            customPrev,
+            setCustomPrev,
+            canContinue,
+            setCanContinue,
+            isStepLoading,
+            setIsStepLoading
         }}>
             <div className="flex flex-col min-h-full bg-slate-50/50">
                 {/* Workflow Header */}
@@ -82,13 +219,13 @@ export default function CreateVideoLayout() {
                         <div className="hidden sm:flex text-sm text-slate-500 items-center gap-2">
                             <span>My Videos</span>
                             <ChevronLeft className="h-4 w-4 rotate-180" />
-                            <span className="text-slate-900 font-medium whitespace-nowrap">
-                                {request.jobType === "series" ? "Create Series" : "Create Video"}
+                            <span>
+                                {request.seriesId ? "Add Episode" : (request.jobType === "series" ? "Create Series" : "Create Video")}
                             </span>
                         </div>
                         {/* Mobile back button */}
                         <div className="flex sm:hidden">
-                            <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")} className="text-slate-500">
+                            <Button variant="ghost" size="icon" onClick={() => navigate("/videos")} className="text-slate-500">
                                 <ChevronLeft className="h-5 w-5" />
                             </Button>
                         </div>
@@ -160,38 +297,39 @@ export default function CreateVideoLayout() {
                 </main>
 
                 {/* Sticky Footer Navigation */}
-                {request.nicheId && (
+                {(request.nicheId || editVideoId || customNext) && (
                     <footer className="sticky bottom-0 z-30 w-full bg-white/80 backdrop-blur-md border-t border-slate-200 px-4 md:px-6 py-4 mt-auto">
                         <div className="max-w-6xl mx-auto w-full flex items-center justify-between gap-4">
                             <div className="flex items-center gap-6">
-                                {currentStep > 1 && (
+                                {(currentStep > 1 || !!customPrev) && (
                                     <Button
                                         variant="outline"
                                         onClick={prevStep}
+                                        disabled={isPending}
                                         className="h-12 px-6 rounded-xl border-2 border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-600 font-bold text-lg transition-all"
                                     >
                                         Back
                                     </Button>
                                 )}
 
-                                {currentStep === 3 && request.voiceId && (
+                                {currentStep === 3 && request.voiceName && (
                                     <div className="hidden sm:flex items-center gap-2 px-4 py-2 bg-purple-50 rounded-xl border border-purple-100 animate-in fade-in slide-in-from-left-4 duration-300">
                                         <span className="text-sm font-bold text-slate-500 uppercase tracking-wider">Selected:</span>
-                                        <span className="text-lg font-extrabold text-purple-600 font-display">{VOICES.find((v: Voice) => v.id === request.voiceId)?.name}</span>
+                                        <span className="text-lg font-extrabold text-purple-600 font-display">{request.voiceName}</span>
                                     </div>
                                 )}
 
-                                {currentStep === 4 && request.musicId && (
+                                {currentStep === 4 && request.musicName && (
                                     <div className="hidden lg:flex items-center gap-2 px-4 py-2 bg-purple-50 rounded-xl border border-purple-100 animate-in fade-in slide-in-from-left-4 duration-300">
-                                        <span className="text-sm font-bold text-slate-500 uppercase tracking-wider">Mood:</span>
-                                        <span className="text-lg font-extrabold text-purple-600 font-display">{TRACKS.find((t: Track) => t.id === request.musicId)?.name}</span>
+                                        <span className="text-sm font-bold text-slate-500 uppercase tracking-wider">Music:</span>
+                                        <span className="text-lg font-extrabold text-purple-600 font-display">{request.musicName}</span>
                                     </div>
                                 )}
 
-                                {currentStep === 5 && request.subtitleTemplateId && (
+                                {currentStep === 5 && request.subtitleTemplateName && (
                                     <div className="hidden lg:flex items-center gap-2 px-4 py-2 bg-purple-50 rounded-xl border border-purple-100 animate-in fade-in slide-in-from-left-4 duration-300">
                                         <span className="text-sm font-bold text-slate-500 uppercase tracking-wider">Style:</span>
-                                        <span className="text-lg font-extrabold text-purple-600 font-display">{SUBTITLE_STYLES.find((t: SubtitleStyle) => t.id === request.subtitleTemplateId)?.name}</span>
+                                        <span className="text-lg font-extrabold text-purple-600 font-display">{request.subtitleTemplateName}</span>
                                     </div>
                                 )}
                             </div>
@@ -200,16 +338,20 @@ export default function CreateVideoLayout() {
                                 {currentStep === 6 && (
                                     <Button
                                         variant="outline"
+                                        onClick={handleSaveDraft}
+                                        disabled={isPending}
                                         className="flex-1 md:w-40 h-12 rounded-xl font-bold border-2 border-slate-200 text-slate-600 hover:text-slate-900 transition-all"
                                     >
-                                        Save Draft
+                                        {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Draft"}
                                     </Button>
                                 )}
                                 <Button
-                                    onClick={nextStep}
+                                    onClick={() => nextStep()}
                                     disabled={
-                                        (currentStep === 2 && (!request.scriptIdea.trim() || !request.seriesName.trim() || (request.jobType === 'series' && !request.episode1Title.trim()))) ||
-                                        (currentStep === 5 && !request.subtitleTemplateId)
+                                        (currentStep === 1 && !canContinue) ||
+                                        (currentStep === 2 && (!request.scriptIdea.trim() || (request.jobType === 'series' && !request.seriesName.trim()) || !request.episodeTitle.trim())) ||
+                                        isPending ||
+                                        !!isStepLoading
                                     }
                                     className={cn(
                                         "w-full h-12 rounded-xl transition-all font-bold text-lg shadow-xl",
@@ -218,13 +360,15 @@ export default function CreateVideoLayout() {
                                             : "bg-purple-600 hover:bg-purple-700 text-white max-w-xs shadow-purple-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:shadow-none"
                                     )}
                                 >
-                                    {currentStep === 6 ? (
+                                    {isPending || isStepLoading ? (
+                                        <Loader2 className="h-5 w-5 animate-spin" />
+                                    ) : currentStep === 6 ? (
                                         <>
                                             <Wand2 className="mr-2 h-5 w-5" />
-                                            {request.jobType === "series" ? "Generate Series" : "Generate Video"}
+                                            {editVideoId ? "Update Episode" : (request.seriesId ? "Generate Episode" : (request.jobType === "series" ? "Generate Series" : "Generate Video"))}
                                         </>
                                     ) : (
-                                        `Continue to Step ${currentStep + 1}`
+                                        currentStep === 1 && customNext ? "Create & Continue" : `Continue to Step ${currentStep + 1}`
                                     )}
                                 </Button>
                             </div>

@@ -8,10 +8,14 @@
     "build": "tsc",
     "studio": "drizzle-kit studio",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx src/db/migrate.ts",
-    "db:migrate:prod": "node dist/db/migrate.js",
-    "db:baseline": "tsx src/db/baseline.ts",
+    "db:migrate": "drizzle-kit migrate",
+    "db:migrate:prod": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
+    "db:pull": "drizzle-kit pull",
+    "db:seed:voices": "tsx src/db/seed-voices.ts",
+    "db:seed:subtitles": "tsx src/db/seed-subtitles.ts",
+    "db:seed:plans": "tsx src/db/seed-plans.ts",
+    "test:emails": "tsx src/scripts/test-emails.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -19,7 +23,12 @@
   "license": "ISC",
   "type": "module",
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.958.0",
+    "@aws-sdk/lib-storage": "^3.958.0",
+    "@aws-sdk/s3-request-presigner": "^3.958.0",
     "@fastify/cors": "^11.2.0",
+    "@fastify/multipart": "^9.3.0",
+    "@fastify/static": "^8.3.0",
     "@react-email/components": "^1.0.2",
     "@react-email/render": "^2.0.0",
     "@types/nodemailer": "^7.0.4",
@@ -27,6 +36,10 @@
     "dotenv": "^17.2.3",
     "drizzle-orm": "^0.41.0",
     "fastify": "^5.6.2",
+    "fastify-plugin": "^5.1.0",
+    "fastify-raw-body": "^5.0.0",
+    "fastify-type-provider-zod": "^6.1.0",
+    "music-metadata": "^11.10.3",
     "nanoid": "^5.1.6",
     "node-fetch": "^3.3.2",
     "nodemailer": "^7.0.11",
@@ -35,6 +48,7 @@
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "resend": "^6.6.0",
+    "stripe": "^20.1.0",
     "tsx": "^4.21.0",
     "zod": "^4.2.1"
   },
@@ -45,6 +59,7 @@
     "@types/react-dom": "^19.2.3",
     "drizzle-kit": "^0.31.8",
     "nodemon": "^3.1.11",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.16"
   }
 }
