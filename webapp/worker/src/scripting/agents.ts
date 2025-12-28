@@ -12,6 +12,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const MODEL_NAME = process.env.GOOGLE_SCRIPT_MODEL || 'gemini-3-flash-preview';
+const TTS_MODEL_NAME = 'gemini-2.5-pro-preview-tts';
 const API_KEY = process.env.GOOGLE_API_KEY;
 
 // Ensure the Gemini model is registered
@@ -60,6 +61,7 @@ Output the full segments with dialogue, duration, and the new visualPrompt.`,
         outputSchema: zodObjectToSchema(VisualizerOutputSchema)
     });
 
+
     // Orchestrator: Sequential execution
     const orchestrator = new SequentialAgent({
         name: "scripting_orchestrator",
@@ -68,6 +70,33 @@ Output the full segments with dialogue, duration, and the new visualPrompt.`,
     });
 
     return orchestrator;
+};
+
+export const createAudioGenerator = (options?: { ttsVoice?: string }) => {
+    const ttsVoice = options?.ttsVoice || "Zephyr";
+    if (!API_KEY) {
+        throw new Error("GOOGLE_API_KEY not found in environment variables");
+    }
+    const ttsModel = new Gemini({ model: TTS_MODEL_NAME, apiKey: API_KEY });
+
+    return new LlmAgent({
+        name: "audio_generator",
+        model: ttsModel,
+        description: "Generates audio for the provided dialogue.",
+        instruction: `You are a professional voice-over artist.
+Generate high-quality audio for the provided text.
+Do not add any additional commentary or text, just generate the audio for the dialogue.`,
+        generateContentConfig: {
+            responseModalities: ["audio"],
+            speechConfig: {
+                voiceConfig: {
+                    prebuiltVoiceConfig: {
+                        voiceName: ttsVoice
+                    }
+                }
+            }
+        }
+    });
 };
 
 // Exporting types for use in other files

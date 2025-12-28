@@ -3,7 +3,7 @@ import { db } from '../db/index.js';
 import { video, contentNiche, script } from '../db/schema.js';
 import { eq } from 'drizzle-orm';
 import { ScriptingJobInterface } from './types.js';
-import { createScriptingOrchestrator } from './agents.js';
+import { createScriptingOrchestrator, createAudioGenerator } from './agents.js';
 import { InMemoryRunner } from '@google/adk';
 import { nanoid } from 'nanoid';
 import * as fs from 'fs/promises';
@@ -55,9 +55,10 @@ export class ScriptingJob implements ScriptingJobInterface {
         const idea = metadata?.scriptIdea || v.description || 'No idea provided';
         const durationMinutes = metadata?.duration || 1;
         const durationSeconds = durationMinutes * 60;
+        const voiceId = metadata?.voiceId || 'Zephyr';
 
         // Construct the initial user prompt
-        const prompt = `Idea: ${idea}. \nNiche: ${nicheName || 'General'}. \nTarget Duration: ${durationSeconds} seconds.`;
+        const prompt = `Idea: ${idea}. \nNiche: ${nicheName || 'General'}. \nTarget Duration: ${durationSeconds} seconds. \nVoice: ${voiceId}.`;
 
         // 2. Instantiate ADK Runner
         const orchestrator = createScriptingOrchestrator();
@@ -69,6 +70,7 @@ export class ScriptingJob implements ScriptingJobInterface {
         // 3. Run the Agent
         console.log(`[ScriptingJob] Running orchestrator...`);
         let finalScriptContent: ScriptContent | null = null;
+        let finalAudioBase64: string | null = null;
 
         const session = await runner.sessionService.createSession({
             appName: 'scripting-service',
@@ -91,13 +93,9 @@ export class ScriptingJob implements ScriptingJobInterface {
             if (event.author === 'visualizer' && event.content?.parts) {
                 const text = event.content.parts.map((p: any) => p.text).join('');
                 try {
-                    // Try parsing as JSON if it looks like it
-                    // The Visualizer agent uses outputSchema, so it SHOULD be valid JSON in the text
-                    // or in a state update if configured. ADK usually sends JSON as text.
                     if (text.trim().startsWith('{')) {
-                        console.log('[ScriptingJob] Received potential final output:', text.substring(0, 100) + '...');
+                        console.log('[ScriptingJob] Received potential final script:', text.substring(0, 100) + '...');
                         const parsed = JSON.parse(text);
-                        // Basic validation: check if it has "segments"
                         if (parsed.segments && Array.isArray(parsed.segments)) {
                             finalScriptContent = parsed as ScriptContent;
                         }
@@ -106,10 +104,45 @@ export class ScriptingJob implements ScriptingJobInterface {
                     // Ignore partials or non-json
                 }
             }
+
         }
 
         if (!finalScriptContent) {
             throw new Error('[ScriptingJob] Failed to generate valid script content from agents.');
+        }
+
+        // 3.2 Generate Audio with Standalone Agent
+        console.log(`[ScriptingJob] Generating audio with standalone generator...`);
+        const fullDialogue = finalScriptContent.segments.map((s: any) => s.dialogue).join(' ');
+        const audioGenerator = createAudioGenerator({ ttsVoice: voiceId });
+        const audioRunner = new InMemoryRunner({
+            agent: audioGenerator,
+            appName: 'scripting-service'
+        });
+
+        const audioSession = await audioRunner.sessionService.createSession({
+            appName: 'scripting-service',
+            userId: 'system'
+        });
+
+        const audioEventGenerator = audioRunner.runAsync({
+            userId: audioSession.userId,
+            sessionId: audioSession.id,
+            newMessage: {
+                role: 'user',
+                parts: [{ text: fullDialogue }]
+            }
+        });
+
+        for await (const event of audioEventGenerator) {
+            if (event.author === 'audio_generator' && event.content?.parts) {
+                for (const part of event.content.parts as any[]) {
+                    if (part.inlineData?.data) {
+                        console.log('[ScriptingJob] Received audio data part.');
+                        finalAudioBase64 = part.inlineData.data;
+                    }
+                }
+            }
         }
 
         // 3.5 Save to Local File System
@@ -133,8 +166,16 @@ export class ScriptingJob implements ScriptingJobInterface {
             const scriptPath = path.join(workDir, 'script.json');
             await fs.writeFile(scriptPath, JSON.stringify(finalScriptContent, null, 2));
             console.log(`[ScriptingJob] Saved local script to: ${scriptPath}`);
+
+            if (finalAudioBase64) {
+                const audioPath = path.join(workDir, 'audio.mp3');
+                await fs.writeFile(audioPath, Buffer.from(finalAudioBase64, 'base64'));
+                console.log(`[ScriptingJob] Saved local audio to: ${audioPath}`);
+            } else {
+                console.warn(`[ScriptingJob] No audio data received from audio_generator agent.`);
+            }
         } catch (err) {
-            console.error(`[ScriptingJob] Failed to save local script file:`, err);
+            console.error(`[ScriptingJob] Failed to save local script/audio file:`, err);
             // Non-blocking error
         }
 
