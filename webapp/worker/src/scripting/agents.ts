@@ -278,6 +278,24 @@ export const generateSubtitles = async (videoId: string): Promise<any> => {
                 end: w.end * 30
             }));
             console.log(`[ScriptingFlow] Generated ${subtitles.length} subtitle words.`);
+
+
+            // Fix overlaps
+            for (let i = 1; i < subtitles.length; i++) {
+                const prev = subtitles[i - 1];
+                const current = subtitles[i];
+
+                if (current.start < prev.end) {
+                    // Push out next start after 1 frame of prev end
+                    current.start = prev.end + 1;
+
+                    // Maintain at least 1 frame duration if start pushed past end
+                    if (current.end <= current.start) {
+                        current.end = current.start + 1;
+                    }
+                }
+            }
+
             return subtitles;
         } else {
             console.warn("[ScriptingFlow] No words found in Groq response.");
