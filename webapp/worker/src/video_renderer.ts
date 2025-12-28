@@ -9,6 +9,8 @@ import path from 'path';
 import fs from 'fs';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { VideoRendererInput, SubtitleSegment, VideoSegment } from './types.js';
+import http from 'http';
+import { URL, fileURLToPath } from 'url';
 
 dotenv.config();
 
@@ -46,6 +48,74 @@ async function uploadToS3(filePath: string, key: string): Promise<string> {
     } catch (err) {
         console.error("S3 Upload Error:", err);
         throw err;
+    }
+}
+
+// --- Static Server for Assets ---
+let LOCAL_SERVER_PORT = 0;
+
+function startStaticServer(rootPaths: string[]): Promise<number> {
+    return new Promise((resolve, reject) => {
+        const server = http.createServer((req, res) => {
+            if (!req.url) {
+                res.writeHead(404);
+                res.end();
+                return;
+            }
+
+            try {
+                const parsedUrl = new URL(req.url, `http://localhost`);
+                const relativePath = parsedUrl.pathname.replace(/^\//, '');
+                const filePath = path.resolve(process.cwd(), relativePath);
+
+                const ext = path.extname(filePath).toLowerCase();
+                const mimeTypes: Record<string, string> = {
+                    '.png': 'image/png',
+                    '.jpg': 'image/jpeg',
+                    '.jpeg': 'image/jpeg',
+                    '.wav': 'audio/wav',
+                    '.mp3': 'audio/mpeg',
+                    '.json': 'application/json',
+                    '.mp4': 'video/mp4'
+                };
+
+                const contentType = mimeTypes[ext] || 'application/octet-stream';
+
+                fs.stat(filePath, (err, stats) => {
+                    if (err || !stats.isFile()) {
+                        res.writeHead(404);
+                        res.end('Not Found');
+                        return;
+                    }
+
+                    res.writeHead(200, { 'Content-Type': contentType });
+                    fs.createReadStream(filePath).pipe(res);
+                });
+            } catch (e) {
+                console.error("Server Error:", e);
+                res.writeHead(500);
+                res.end();
+            }
+        });
+
+        server.listen(0, () => {
+            const address = server.address();
+            if (typeof address === 'object' && address) {
+                const port = address.port;
+                console.log(`Asset server started on port ${port}`);
+                resolve(port);
+            } else {
+                reject(new Error("Could not determine port"));
+            }
+        });
+    });
+}
+
+let serverStarted = false;
+async function ensureServer() {
+    if (!serverStarted) {
+        LOCAL_SERVER_PORT = await startStaticServer([process.cwd()]);
+        serverStarted = true;
     }
 }
 
@@ -87,7 +157,8 @@ async function processJob(job: typeof renderJob.$inferSelect) {
         // Read Script Data (for top-level subtitles and segments)
         let topLevelSubtitles: SubtitleSegment[] = [];
         let segments: VideoSegment[] = [];
-        const workDir = process.env.VIDEO_WORK_DIR || path.join(process.cwd(), 'work_dir', job.videoId);
+        const baseWorkDir = process.env.VIDEO_WORK_DIR || path.join(process.cwd(), 'work_dir');
+        const workDir = path.join(baseWorkDir, job.videoId);
 
         // Get script from script table
         const scriptData = await db.query.script.findFirst({
@@ -103,12 +174,40 @@ async function processJob(job: typeof renderJob.$inferSelect) {
         segments = scriptJson.segments || [];
 
 
+        // --- Static Server for Assets ---
+        await ensureServer();
+
+        // Helper to convert local paths to http://localhost URLs
+        const toLocalUrl = (filePath: string) => {
+            if (filePath.startsWith('http')) return filePath;
+
+            let cleanPath = filePath;
+            if (cleanPath.startsWith('file://')) {
+                try {
+                    cleanPath = fileURLToPath(cleanPath);
+                } catch (e) {
+                    cleanPath = cleanPath.replace('file://', '');
+                }
+            }
+
+            // Make relative to cwd to construct URL
+            // If path is absolute: /app/work_dir/x -> work_dir/x
+            const relPath = path.isAbsolute(cleanPath)
+                ? path.relative(process.cwd(), cleanPath)
+                : cleanPath;
+
+            return `http://localhost:${LOCAL_SERVER_PORT}/${relPath}`;
+        };
+
         const inputProps: VideoRendererInput = {
-            audioUrl: path.join(workDir, 'audio.wav'),
+            audioUrl: toLocalUrl(path.join(workDir, 'audio.wav')),
             subtitleClassName,
             subtitleStyle: customSubtitleStyle,
             subtitleLocation: metadata?.subtitleLocation || 'center',
-            segments,
+            segments: segments.map(s => ({
+                ...s,
+                imageAssetPath: toLocalUrl(s.imageAssetPath)
+            })),
             subtitles: topLevelSubtitles
         };
 
