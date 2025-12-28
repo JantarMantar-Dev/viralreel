@@ -107,10 +107,9 @@ async function processAiGen(job: typeof renderJob.$inferSelect) {
             await new Promise(r => setTimeout(r, 1000));
         }
 
-        // 4. Update Script & Video Metadata
+        // 3.5 Update Script With Assets
         const updatedContent = { ...content, segments: updatedSegments };
 
-        // Save back to script table
         await db.update(script)
             .set({
                 content: updatedContent,
@@ -118,40 +117,7 @@ async function processAiGen(job: typeof renderJob.$inferSelect) {
             })
             .where(eq(script.id, currentScript.id));
 
-        // Update video metadata as well (for renderer usage)
-        const videoData = await db.select().from(video).where(eq(video.id, job.videoId)).limit(1);
-        if (videoData.length > 0) {
-            const v = videoData[0];
-            const meta = v.metadata as any || {};
-
-            // Transform ScriptContent to VideoRendererInput
-            const rendererInput: VideoRendererInput = {
-                audioUrl: content.audioUrl || "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3", // Default/Fallback
-                segments: updatedSegments.map(s => ({
-                    image: s.imageAssetPath || "", // Should be populated now
-                    duration: s.duration || 5, // Default duration
-                    subtitles: [], // TODO: Generate subtitles from dialogue
-                    imageEffect: (s.imageEffect as any) || 'ken-burns'
-                })),
-                subtitleStyle: meta.subtitleStyle || { // Use style from video metadata if available
-                    color: 'white',
-                    fontSize: 50
-                }
-            };
-
-            await db.update(video)
-                .set({
-                    metadata: {
-                        ...meta,
-                        script: updatedContent,
-                        inputProps: rendererInput
-                    },
-                    updatedAt: new Date()
-                })
-                .where(eq(video.id, job.videoId));
-        }
-
-        // 5. Complete Job
+        // 4. Complete Job
         await db.update(renderJob)
             .set({
                 status: 'AI_ASSET_GEN_COMPLETED',
@@ -220,7 +186,7 @@ console.log(`Starting ${AI_GEN_WORKER_SIZE} AI gen worker threads...`);
 
 for (let i = 0; i < AI_GEN_WORKER_SIZE; i++) {
     console.log(`Starting AI gen worker thread ${i}...`);
-    // startWorker().catch(err => {
-    //     console.error(`AI gen worker thread ${i} failed:`, err);
-    // });
+    startWorker().catch(err => {
+        console.error(`AI gen worker thread ${i} failed:`, err);
+    });
 }

@@ -1,6 +1,6 @@
 
 import { db } from './db/index.js';
-import { renderJob, video, subtitleStyle } from './db/schema.js';
+import { renderJob, video, subtitleStyle, script } from './db/schema.js';
 import { eq, and, sql } from 'drizzle-orm';
 import dotenv from 'dotenv';
 import { bundle } from '@remotion/bundler';
@@ -8,7 +8,7 @@ import { renderMedia, selectComposition } from '@remotion/renderer';
 import path from 'path';
 import fs from 'fs';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
-import { VideoRendererInput, SubtitleSegment } from './types.js';
+import { VideoRendererInput, SubtitleSegment, VideoSegment } from './types.js';
 
 dotenv.config();
 
@@ -86,21 +86,25 @@ async function processJob(job: typeof renderJob.$inferSelect) {
 
         // Read Script Data (for top-level subtitles and segments)
         let topLevelSubtitles: SubtitleSegment[] = [];
-        let segments: any[] = [];
+        let segments: VideoSegment[] = [];
         const workDir = process.env.VIDEO_WORK_DIR || path.join(process.cwd(), 'work_dir', job.videoId);
-        const scriptPath = path.join(workDir, 'script.json');
 
-        if (fs.existsSync(scriptPath)) {
-            const scriptJson = JSON.parse(fs.readFileSync(scriptPath, 'utf-8'));
-            topLevelSubtitles = scriptJson.subtitles || [];
-            segments = scriptJson.segments || [];
-        } else {
-            console.warn(`[VideoRenderer] script.json not found at ${scriptPath}. Using metadata segments.`);
-            segments = metadata?.inputProps?.segments || [];
+        // Get script from script table
+        const scriptData = await db.query.script.findFirst({
+            where: eq(script.videoId, job.videoId)
+        });
+
+        if (!scriptData) {
+            throw new Error(`Script not found for video ${job.videoId}`);
         }
 
+        const scriptJson = scriptData.content as any;
+        topLevelSubtitles = scriptJson.subtitles || [];
+        segments = scriptJson.segments || [];
+
+
         const inputProps: VideoRendererInput = {
-            audioUrl: metadata?.inputProps?.audioUrl || path.join(workDir, 'audio.wav'),
+            audioUrl: path.join(workDir, 'audio.wav'),
             subtitleClassName,
             subtitleStyle: customSubtitleStyle,
             subtitleLocation: metadata?.subtitleLocation || 'center',

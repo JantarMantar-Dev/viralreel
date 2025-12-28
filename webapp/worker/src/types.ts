@@ -12,7 +12,7 @@ export interface SubtitleSegment {
 }
 
 export interface VideoSegment {
-    image: string;
+    imageAssetPath: string;
     duration: number; // seconds
     imageEffect?: ImageEffectType;
 }

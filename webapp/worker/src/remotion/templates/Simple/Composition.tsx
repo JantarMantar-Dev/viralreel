@@ -8,7 +8,7 @@ import { VideoRendererInput } from '../../../types.js';
 export const SimpleCompositionSchema = z.object({
     audioUrl: z.string(),
     segments: z.array(z.object({
-        image: z.string(),
+        imageAssetPath: z.string(),
         imageEffect: z.enum(['ken-burns', 'zoom-in', 'shine', 'grayscale-to-color', 'blur-to-focus', 'tilt-3d', 'pan', 'circular-morph', 'glitch', 'curtain'] as [string, ...string[]]).optional(),
         duration: z.number(),
     })),
@@ -55,7 +55,7 @@ export const SimpleComposition: React.FC<VideoRendererInput> = ({
                 return (
                     <Sequence key={`img-${index}`} from={fromFrame} durationInFrames={durationInFrames}>
                         <ImageWithEffect
-                            src={segment.image}
+                            src={segment.imageAssetPath}
                             effect={segment.imageEffect as ImageEffectType}
                             durationInFrames={durationInFrames}
                             style={{

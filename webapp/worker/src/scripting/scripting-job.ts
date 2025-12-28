@@ -60,9 +60,7 @@ export class ScriptingJob implements ScriptingJobInterface {
         // 2. Run the Linked Flow
         const { script: finalScriptContent } = await runContentPipeline(this.videoId, prompt, voiceId);
 
-        // 3. (Files are saved internally in runScriptingAndAudioFlow)
-
-        // 4. Save to Script Table (Upsert Logic)
+        // 3. Save to Script Table (Upsert Logic)
         const existingScript = await db.select()
             .from(script)
             .where(eq(script.videoId, this.videoId))
@@ -90,7 +88,7 @@ export class ScriptingJob implements ScriptingJobInterface {
             console.log(`[ScriptingJob] Created new script ${finalScriptId} for video ${this.videoId}`);
         }
 
-        // 5. Update Video Status and METADATA
+        // 4. Update Video Status and METADATA
         const updatedMetadata = {
             ...metadata,
             script: finalScriptContent,

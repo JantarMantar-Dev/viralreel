@@ -10,11 +10,11 @@ export const TEMPLATES = {
             audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
             segments: [
                 {
-                    image: "https://picsum.photos/id/237/1080/1920",
+                    imageAssetPath: "https://picsum.photos/id/237/1080/1920",
                     duration: 5,
                 },
                 {
-                    image: "https://picsum.photos/id/238/1080/1920",
+                    imageAssetPath: "https://picsum.photos/id/238/1080/1920",
                     duration: 5,
                 }
             ],
