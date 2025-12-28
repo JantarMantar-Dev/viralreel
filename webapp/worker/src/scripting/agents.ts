@@ -52,11 +52,19 @@ export const createSegmenter = () => {
         name: "segmenter",
         model: getGeminiModel(),
         description: "Breaks down a story into segments with durations.",
-        instruction: `You are an expert video editor and script segmenter. 
-Review the story provided.
-Break strictly that story down into logical segments.
-Each segment must have 'dialogue' and 'duration'.
-The sum of durations should be approximately the lengths inferred from the text.`,
+        instruction: `You are a professional video editor and script segmentation expert.
+You will be provided with a JSON array of words, each with a 'text', 'start', and 'end' timestamp (in frames).
+
+Your task is to:
+1. **Analyze the Narrative**: Read the words to identify logical transitions, scene breaks, and narrative beats for video storytelling.
+2. **Create Segments**: Group these words into coherent segments of dialogue. Ensure each segment is large enough to be a natural conversation flow.
+3. **Strict Fidelity**: Every word from the input must be included in exactly one segment, in the original order. No words should be skipped, added, or changed.
+4. **Extract Timestamps**: For each segment:
+   - 'dialogue': The combined text of all words in this segment.
+   - 'start': The 'start' timestamp of the first word in the segment.
+   - 'end': The 'end' timestamp of the last word in the segment.
+
+Output a JSON object with a 'segments' array following the requested schema.`,
         outputSchema: zodObjectToSchema(SegmenterOutputSchema)
     });
 };
@@ -321,16 +329,37 @@ export const runContentPipeline = async (videoId: string, prompt: string, voiceI
     // 5. Segment Story
     console.log(`[ContentPipeline] 5. Segmenting Story...`);
     const segmenter = createSegmenter();
-    const segmenterOutput = await runSingleAgent<SegmenterOutput>(segmenter, groundTruthStory);
+    const segmenterOutput = await runSingleAgent<SegmenterOutput>(segmenter, JSON.stringify(subtitles));
 
     // 6. Visualizer
+    console.log(`[ContentPipeline] 6. Generating Visuals...`);
     let segments = segmenterOutput.segments;
+
+    // Post-processing segments for duration and alignment
+    if (segments.length > 0) {
+        // Force first segment to start at 0
+        segments[0].start = 0;
+
+        // Pad last segment with extra 30 frames (1 second)
+        segments[segments.length - 1].end += 30;
+
+        // Recalculate durations
+        segments = segments.map(s => {
+            const duration = (s.end - s.start) / 30;
+            return {
+                ...s,
+                duration: parseFloat(duration.toFixed(2))
+            };
+        });
+    }
+
     // Map simplified segments to ScriptSegment type (add empty visualPrompt)
     let scriptSegments = segments.map(s => ({
         ...s,
-        visualPrompt: ""
+        visualPrompt: "",
+        duration: s.duration || 0 // Ensure duration is a number
     }));
-    console.log(`[ContentPipeline] 6. Generating Visuals...`);
+
     const visualizer = createVisualizer();
     // Pass the aligned segments to the visualizer so it knows the context for each scene.
     // We strictly ask it to output the inputs with visual prompts added.

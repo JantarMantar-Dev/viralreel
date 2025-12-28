@@ -32,7 +32,9 @@ export const ScriptWriterOutputSchema = z.object({
 export const SegmenterOutputSchema = z.object({
     segments: z.array(z.object({
         dialogue: z.string(),
-        duration: z.number(),
+        duration: z.number().optional(),
+        start: z.number(),
+        end: z.number(),
     })),
 });
 
