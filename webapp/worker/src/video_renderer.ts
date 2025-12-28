@@ -1,7 +1,7 @@
 
 import { db } from './db/index.js';
 import { renderJob, video, subtitleStyle, script } from './db/schema.js';
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, and, sql, or } from 'drizzle-orm';
 import dotenv from 'dotenv';
 import { bundle } from '@remotion/bundler';
 import { renderMedia, selectComposition } from '@remotion/renderer';
@@ -312,7 +312,12 @@ async function startWorker() {
                 // 1. Find a QUEUED job and lock it (SKIP LOCKED)
                 const jobs = await tx.select()
                     .from(renderJob)
-                    .where(eq(renderJob.status, 'VIDEO_QUEUED'))
+                    .where(
+                        or(
+                            eq(renderJob.status, 'VIDEO_QUEUED'),
+                            eq(renderJob.status, 'AI_ASSET_GEN_COMPLETED')
+                        )
+                    )
                     .limit(1)
                     .for('update', { skipLocked: true });
 
