@@ -22,7 +22,7 @@ export default function ReviewStep() {
                 return
             }
             try {
-                const response = await fetch(`${API_BASE_URL}/api/voices/${request.voiceId}`)
+                const response = await fetch(`${API_BASE_URL}/api/voices/${request.voiceId}`, { credentials: 'include' })
                 if (response.ok) {
                     const data = await response.json()
                     const genderLower = data.gender.toLowerCase()
