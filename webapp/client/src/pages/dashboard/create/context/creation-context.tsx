@@ -54,7 +54,7 @@ export const INITIAL_REQUEST: VideoJobRequest = {
     episodeTitle: "",
     nicheId: null,
     scriptIdea: "",
-    duration: 1,
+    duration: 0.5,
     segments: 3,
     visualFormat: "image",
     visualStyle: "comic",

@@ -1,9 +1,10 @@
-import { Navbar } from "@/components/landing/navbar"
-import { Hero } from "@/components/landing/hero"
-import { RealExamples } from "@/components/landing/real-examples"
+import { FAQ } from "@/components/landing/faq"
 import { Features } from "@/components/landing/features"
-import { Pricing } from "@/components/landing/pricing"
 import { Footer } from "@/components/landing/footer"
+import { Hero } from "@/components/landing/hero"
+import { Navbar } from "@/components/landing/navbar"
+import { Pricing } from "@/components/landing/pricing"
+import { RealExamples } from "@/components/landing/real-examples"
 
 export default function Home() {
   return (
@@ -18,6 +19,7 @@ export default function Home() {
         <RealExamples />
         <Features />
         <Pricing />
+        <FAQ />
         <Footer />
       </div>
     </main>
