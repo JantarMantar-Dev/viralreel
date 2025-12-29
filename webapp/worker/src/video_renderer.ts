@@ -137,7 +137,7 @@ async function processJob(job: typeof renderJob.$inferSelect) {
         let subtitleClassName = "";
         let customSubtitleStyle: any = {};
 
-        const styleId = metadata?.subtitleStyleId;
+        const styleId = metadata?.subtitleTemplateId || metadata?.subtitleStyleId;
         let subtitleTemplateId: string | undefined = undefined;
         if (styleId) {
             const style = await db.query.subtitleStyle.findFirst({

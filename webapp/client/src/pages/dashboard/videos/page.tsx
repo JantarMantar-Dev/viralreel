@@ -417,7 +417,8 @@ export default function MyVideosPage() {
             })
             if (!res.ok) throw new Error('Failed to fetch projects')
             return res.json()
-        }
+        },
+        refetchInterval: 10000,
     })
 
     const projects: Project[] = (response?.projects || []).map((j: any) => ({

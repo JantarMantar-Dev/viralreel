@@ -118,7 +118,8 @@ export default function SeriesDetailsPage() {
             })
             if (!res.ok) throw new Error('Failed to fetch series details')
             return res.json()
-        }
+        },
+        refetchInterval: 10000,
     })
 
     const { mutate: deleteEpisode } = useMutation({

@@ -43,7 +43,8 @@ export function VideoPlayerDialog({ project, open, onOpenChange }: VideoPlayerDi
 
     if (!project) return null
 
-    const hasUrl = !!project.outputUrl;
+    const playbackUrl = project.compressedUrl || project.outputUrl;
+    const hasUrl = !!playbackUrl;
     const isPortrait = project.aspectRatio === "portrait";
 
     return (
@@ -54,7 +55,7 @@ export function VideoPlayerDialog({ project, open, onOpenChange }: VideoPlayerDi
                 {hasUrl ? (
                     <div className={`relative bg-black flex items-center justify-center ${isPortrait ? 'aspect-[9/16]' : 'aspect-video'}`}>
                         <video
-                            src={project.outputUrl}
+                            src={playbackUrl}
                             controls
                             className="w-full h-full object-contain"
                             autoPlay
@@ -86,7 +87,7 @@ export function VideoPlayerDialog({ project, open, onOpenChange }: VideoPlayerDi
                         {project.title}
                     </h4>
 
-                    {hasUrl && (
+                    {project.outputUrl && (
                         <Button asChild size="sm" className="bg-white text-slate-900 hover:bg-slate-200 border-none font-medium shadow-sm transition-colors">
                             <a href={project.outputUrl} download target="_blank" rel="noopener noreferrer">
                                 <Download className="mr-2 h-4 w-4" /> Download Original
