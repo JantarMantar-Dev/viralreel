@@ -19,7 +19,8 @@ import {
     FileText,
     Lock,
     Smartphone,
-    Monitor
+    Monitor,
+    Plus
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useCreation } from "../context/creation-context"
@@ -38,6 +39,7 @@ export const IMAGE_STYLES = [
     { id: "disney", name: "Disney", description: "Classic animation style, soft curves", icon: Stars },
     { id: "realism", name: "Realism", description: "Ultra-realistic photographic style", icon: Aperture },
     { id: "fantastic", name: "Fantastic", description: "Vibrant magical fantasy style", icon: Sparkles },
+    { id: "custom", name: "Add Your Own", description: "Use your own custom image style prompt", icon: Plus, comingSoon: true },
 ]
 
 export default function ScriptStep() {
@@ -146,34 +148,27 @@ export default function ScriptStep() {
                     </div>
 
                     <div
-                        onClick={() => updateRequest({ aspectRatio: 'landscape' })}
                         className={cn(
-                            "relative p-6 rounded-2xl border-2 cursor-pointer transition-all duration-300 group",
-                            request.aspectRatio === 'landscape'
-                                ? "border-purple-600 bg-purple-50/30 shadow-md ring-2 ring-purple-100"
-                                : "border-slate-100 bg-slate-50/50 hover:border-purple-200 hover:bg-white"
+                            "relative p-6 rounded-2xl border-2 transition-all duration-300 group opacity-60 cursor-not-allowed bg-slate-50/50 border-slate-100"
                         )}
                     >
                         <div className="flex flex-col items-center gap-4">
                             <div className={cn(
-                                "relative w-28 h-18 rounded-xl border-4 transition-all duration-300 flex items-center justify-center overflow-hidden",
-                                request.aspectRatio === 'landscape' ? "border-purple-600 bg-purple-100" : "border-slate-300 bg-slate-100 group-hover:border-purple-300"
+                                "relative w-28 h-18 rounded-xl border-4 transition-all duration-300 flex items-center justify-center overflow-hidden border-slate-300 bg-slate-100"
                             )}>
-                                <Monitor className={cn("h-8 w-8", request.aspectRatio === 'landscape' ? "text-purple-600" : "text-slate-400")} />
+                                <Monitor className={cn("h-8 w-8 text-slate-400")} />
                                 <div className="absolute bottom-2 w-2 h-2 bg-current rounded-full opacity-30" />
                             </div>
                             <div className="text-center">
-                                <span className={cn("font-bold block text-lg", request.aspectRatio === 'landscape' ? "text-purple-900" : "text-slate-700")}>
+                                <span className={cn("font-bold block text-lg text-slate-400")}>
                                     Landscape (16:9)
                                 </span>
-                                <span className="text-sm text-slate-500 font-medium">Best for YouTube & Standard Videos</span>
+                                <span className="text-sm text-slate-400 font-medium">Best for YouTube & Standard Videos</span>
                             </div>
                         </div>
-                        {request.aspectRatio === 'landscape' && (
-                            <div className="absolute top-4 right-4 bg-purple-600 text-white p-1 rounded-full shadow-lg">
-                                <Check className="h-4 w-4" />
-                            </div>
-                        )}
+                        <span className="absolute top-2 right-2 text-[10px] font-bold bg-slate-200 text-slate-500 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                            Coming Soon
+                        </span>
                     </div>
                 </div>
             </div>
@@ -233,17 +228,19 @@ export default function ScriptStep() {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {IMAGE_STYLES.map((style) => {
+                    {IMAGE_STYLES.map((style: any) => {
                         const isSelected = request.visualStyle === style.id
+                        const isDisabled = style.comingSoon
                         return (
                             <div
                                 key={style.id}
-                                onClick={() => updateRequest({ visualStyle: style.id })}
+                                onClick={() => !isDisabled && updateRequest({ visualStyle: style.id })}
                                 className={cn(
-                                    "relative p-4 rounded-[20px] border-2 cursor-pointer transition-all duration-300 group overflow-hidden",
+                                    "relative p-4 rounded-[20px] border-2 transition-all duration-300 group overflow-hidden",
                                     isSelected
                                         ? "border-purple-600 bg-purple-50/30 shadow-md ring-2 ring-purple-100"
-                                        : "border-slate-100 bg-slate-50/50 hover:border-purple-200 hover:bg-white"
+                                        : (isDisabled ? "border-slate-100 bg-slate-50/50 opacity-60 cursor-not-allowed" : "border-slate-100 bg-slate-50/50 hover:border-purple-200 hover:bg-white"),
+                                    !isDisabled && "cursor-pointer"
                                 )}
                             >
                                 {isSelected && (
@@ -251,17 +248,25 @@ export default function ScriptStep() {
                                         <Check className="h-3 w-3" />
                                     </div>
                                 )}
+                                {isDisabled && (
+                                    <span className="absolute top-2 right-2 text-[8px] font-bold bg-slate-200 text-slate-500 px-2 py-0.5 rounded-full uppercase tracking-wider z-10">
+                                        Coming Soon
+                                    </span>
+                                )}
                                 <div className="flex items-center gap-4">
                                     <div className={cn(
-                                        "w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300 transform group-hover:scale-110",
-                                        isSelected ? "bg-purple-600 text-white" : "bg-white text-slate-400 group-hover:text-purple-600 shadow-sm border border-slate-100"
+                                        "w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300 transform",
+                                        !isDisabled && "group-hover:scale-110",
+                                        isSelected ? "bg-purple-600 text-white" : "bg-white text-slate-400 shadow-sm border border-slate-100",
+                                        !isDisabled && !isSelected && "group-hover:text-purple-600"
                                     )}>
                                         <style.icon className="h-6 w-6" />
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <h4 className={cn(
                                             "font-extrabold text-sm truncate",
-                                            isSelected ? "text-purple-900" : "text-slate-700"
+                                            isSelected ? "text-purple-900" : "text-slate-700",
+                                            isDisabled && "text-slate-400"
                                         )}>
                                             {style.name}
                                         </h4>
