@@ -4,6 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { CustomGeminiTTS } from '../../../worker/src/scripting/custom_tts_model.js';
+import { addWavHeader } from '../../../worker/src/scripting/utils.js';
 
 // Load environment variables
 const __filename = fileURLToPath(import.meta.url);
@@ -36,7 +37,7 @@ async function generateVoicePreviews() {
     });
 
     for (const voice of VOICES) {
-        const filename = `gemini_${voice.toLowerCase()}.mp3`;
+        const filename = `gemini_${voice.toLowerCase()}.wav`;
         const filePath = path.join(OUTPUT_DIR, filename);
 
         if (fs.existsSync(filePath)) {
@@ -52,7 +53,7 @@ async function generateVoicePreviews() {
                     speechConfig: {
                         voiceConfig: {
                             prebuiltVoiceConfig: {
-                                voiceName: voice.toLowerCase() // API usually expects lowercase or exact match, list was mixed case so ensuring lower might be safer or keeping exact from error list
+                                voiceName: voice.toLowerCase()
                             }
                         }
                     }
@@ -60,33 +61,23 @@ async function generateVoicePreviews() {
             };
 
             const generator = tts.generateContentAsync(request as any);
-            let audioData: Uint8Array | null = null;
+            let audioData: Buffer | null = null;
 
             for await (const response of generator) {
                 if (response.content?.parts?.[0]?.inlineData?.data) {
-                    // Check if data is string (base64) or Uint8Array. 
-                    // The inlineData.data in @google/adk types often comes as base64 string
                     const data = response.content.parts[0].inlineData.data;
                     if (typeof data === 'string') {
                         audioData = Buffer.from(data, 'base64');
                     } else {
-                        // assume it's already a buffer or uint8array if not string (though usually base64 in JSON response)
-                        // But purely based on CustomGeminiTTS implementation, it returns what the API returns.
-                        // Let's look at CustomGeminiTTS again if needed.
-                        // It returns parts with inlineData.data
-                        // In CustomGeminiTTS:
-                        // data: part.inlineData.data 
-                        // Check what part.inlineData.data is from the fetch response.
-                        // The fetch response is JSON. so data is a base64 string.
                         audioData = Buffer.from(data as string, 'base64');
                     }
                 }
             }
 
             if (audioData) {
-                const filename = `gemini_${voice.toLowerCase()}.mp3`;
-                const filePath = path.join(OUTPUT_DIR, filename);
-                fs.writeFileSync(filePath, audioData);
+                // Add WAV Header
+                const wavData = addWavHeader(audioData, 24000, 1, 16);
+                fs.writeFileSync(filePath, wavData);
                 console.log(`✅ Saved preview: ${filename}`);
             } else {
                 console.error(`❌ Failed to generate audio for ${voice}`);
