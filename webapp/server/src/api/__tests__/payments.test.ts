@@ -338,3 +338,76 @@ describe('Verify Session API', () => {
         expect(successResponse).toEqual({ success: true, verified: true });
     });
 });
+
+describe('GET /plans', () => {
+    let fastify: FastifyInstance;
+    let testUser: any = null;
+
+    beforeEach(async () => {
+        vi.clearAllMocks();
+        testUser = null;
+        const fastifyModule = await import('fastify');
+        fastify = fastifyModule.default();
+        fastify.setValidatorCompiler(validatorCompiler);
+        fastify.setSerializerCompiler(serializerCompiler);
+
+        fastify.addHook('preHandler', async (req) => {
+            if (testUser) {
+                req.user = testUser;
+            }
+        });
+
+        fastify.register(paymentsRoutes);
+        await fastify.ready();
+    });
+
+    it('should return all active plans for user with "launch" tag', async () => {
+        testUser = { id: 'user_1' }; // Only ID matters now, planTag comes from DB
+
+        const mockUserRecord = { id: 'user_1', planTag: 'launch', planTagExpiresAt: new Date(Date.now() + 100000).toISOString() };
+        const mockPlans = [
+            { id: '1', name: 'Launch Plan', tag: 'launch', isActive: true },
+            { id: '2', name: 'Regular Plan', tag: null, isActive: true },
+        ];
+
+        // 1. Mock User Query
+        mockDb.select.mockReturnValueOnce(createDbChain([mockUserRecord]));
+
+        // 2. Mock Plans Query
+        mockDb.select.mockReturnValueOnce(createDbChain(mockPlans));
+
+        const response = await fastify.inject({
+            method: 'GET',
+            url: '/plans'
+        });
+
+        expect(response.statusCode).toBe(200);
+        const data = response.json();
+        expect(data).toHaveLength(2);
+
+        // Check logs in vitest output
+    });
+
+    it('should return only regular plans for user without tag', async () => {
+        testUser = { id: 'user_2' };
+
+        const mockUserRecord = { id: 'user_2', planTag: null };
+        const mockPlans = [
+            { id: '2', name: 'Regular Plan', tag: null, isActive: true },
+        ];
+
+        // 1. Mock User Query
+        mockDb.select.mockReturnValueOnce(createDbChain([mockUserRecord]));
+
+        // 2. Mock Plans Query
+        mockDb.select.mockReturnValueOnce(createDbChain(mockPlans));
+
+        const response = await fastify.inject({
+            method: 'GET',
+            url: '/plans'
+        });
+
+        expect(response.statusCode).toBe(200);
+        expect(response.json()).toHaveLength(1);
+    });
+});

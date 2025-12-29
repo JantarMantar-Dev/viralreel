@@ -1,7 +1,7 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { db } from "../db/index.js";
 import { subscriptionPlan, userSubscription, user, paymentHistory, creditBalance, creditTransaction } from "../db/schema.js";
-import { eq, desc, and, sql, or, ne } from "drizzle-orm";
+import { eq, desc, and, sql, or, ne, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { stripe, createCheckoutSession, createPortalSession } from "../lib/stripe.js";
 import { requireAuth } from "../middleware/auth.js";
@@ -292,7 +292,35 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
             }
         }
     }, async (request, reply) => {
-        const plans = await db.select().from(subscriptionPlan).where(eq(subscriptionPlan.isActive, true));
+        const userId = request.session.userId;
+        console.log(`[GET /plans] User ID: ${userId}`);
+        let planTag: string | null = null;
+
+        // Fetch fresh user data to get planTag
+        const [userRecord] = await db.select()
+            .from(user)
+            .where(eq(user.id, userId))
+            .limit(1);
+
+        if (userRecord && userRecord.planTag) {
+            const expiresAt = userRecord.planTagExpiresAt ? new Date(userRecord.planTagExpiresAt) : null;
+            if (!expiresAt || expiresAt > new Date()) {
+                planTag = userRecord.planTag;
+            }
+        }
+
+        const tagCondition = planTag
+            ? or(eq(subscriptionPlan.tag, planTag), isNull(subscriptionPlan.tag))
+            : isNull(subscriptionPlan.tag);
+
+        const plans = await db.select()
+            .from(subscriptionPlan)
+            .where(
+                and(
+                    eq(subscriptionPlan.isActive, true),
+                    tagCondition
+                )
+            );
         return plans;
     });
 

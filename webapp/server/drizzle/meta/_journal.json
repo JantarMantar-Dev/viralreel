@@ -78,6 +78,13 @@
       "when": 1766952126808,
       "tag": "0010_smart_scorpion",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1767021805621,
+      "tag": "0011_certain_trauma",
+      "breakpoints": true
     }
   ]
 }

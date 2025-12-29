@@ -11,6 +11,8 @@ const PLANS = [
         currency: "usd",
         interval: null, // one-time
         credits: 10,
+        tag: null,
+        isActive: true,
         stripePriceIds: {
             development: "price_1SiKegGsL2ypKmAx6HGfnAoz",
             production: "price_1SjZQiGl5J6aoHf99q2tx27y",
@@ -23,6 +25,8 @@ const PLANS = [
         currency: "usd",
         interval: "month",
         credits: 60,
+        tag: "launch",
+        isActive: true,
         stripePriceIds: {
             development: "price_1SiKe0GsL2ypKmAxhHsZGmLf",
             production: "price_1SjZPOGl5J6aoHf9PnphSlry",
@@ -35,6 +39,8 @@ const PLANS = [
         currency: "usd",
         interval: "month",
         credits: 30,
+        tag: "launch",
+        isActive: true,
         stripePriceIds: {
             development: "price_1SiKb4GsL2ypKmAxEe7aF8uV",
             production: "price_1SjZKVGl5J6aoHf92DA6oNco",
@@ -47,6 +53,8 @@ const PLANS = [
         currency: "usd",
         interval: "month",
         credits: 60,
+        tag: null,
+        isActive: false,
         stripePriceIds: {
             development: "price_1SiKe0GsL2ypKmAxhHsZGmLf_plus_fixed",
             production: "price_1SjZXtGl5J6aoHf9MrlTre2X",
@@ -59,6 +67,8 @@ const PLANS = [
         currency: "usd",
         interval: "month",
         credits: 30,
+        tag: null,
+        isActive: false,
         stripePriceIds: {
             development: "price_1SiKb4GsL2ypKmAxEe7aF8uV_standard_fixed",
             production: "price_1SjZXHGl5J6aoHf9KyjZMMpV",
@@ -107,6 +117,8 @@ export async function seedPlans() {
                         interval: plan.interval as "month" | "year" | null,
                         credits: plan.credits,
                         stripePriceId: stripePriceId,
+                        tag: plan.tag,
+                        isActive: plan.isActive,
                         updatedAt: new Date(),
                     })
                     .where(eq(subscriptionPlan.id, existing.id));
@@ -124,7 +136,8 @@ export async function seedPlans() {
                 interval: plan.interval as "month" | "year" | null,
                 credits: plan.credits,
                 stripePriceId: stripePriceId,
-                isActive: true,
+                tag: plan.tag,
+                isActive: plan.isActive,
             });
         }
     }
