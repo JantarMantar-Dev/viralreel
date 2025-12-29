@@ -1,19 +1,51 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { Pencil, Play, Wand2, ArrowRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useCreation } from "../context/creation-context"
-import { VOICES, Voice } from "./voice-step"
+import { Voice } from "./voice-step"
 import { IMAGE_STYLES } from "./script-step"
 import { Button } from "@/components/ui/button"
 import { Palette, VolumeX, Music, Ban, Clapperboard, FileText, Smartphone, Monitor } from "lucide-react"
 import StepHeader from "../components/step-header"
+import { API_BASE_URL } from "@/lib/config"
 
 export default function ReviewStep() {
     const { request, updateRequest } = useCreation()
     const navigate = useNavigate()
+    const [selectedVoice, setSelectedVoice] = useState<Voice | null>(null)
 
-    const selectedVoice = VOICES.find((v: Voice) => v.id === request.voiceId)
+    useEffect(() => {
+        const fetchVoice = async () => {
+            if (!request.voiceId) {
+                setSelectedVoice(null)
+                return
+            }
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/voices/${request.voiceId}`)
+                if (response.ok) {
+                    const data = await response.json()
+                    const genderLower = data.gender.toLowerCase()
+                    const categoryGender = genderLower === 'female' ? 'woman' : 'man'
+                    const displayGender = genderLower === 'female' ? 'Woman' : 'Man'
+
+                    setSelectedVoice({
+                        id: data.id,
+                        name: data.name,
+                        gender: displayGender,
+                        genre: "English",
+                        duration: "00:10",
+                        previewUrl: data.previewUrl,
+                        categories: ["all", categoryGender]
+                    })
+                }
+            } catch (error) {
+                console.error("Error fetching voice:", error)
+            }
+        }
+        fetchVoice()
+    }, [request.voiceId])
+
     const selectedImageStyle = IMAGE_STYLES.find(s => s.id === request.visualStyle)
 
     return (
