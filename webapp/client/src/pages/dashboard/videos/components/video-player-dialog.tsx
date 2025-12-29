@@ -87,7 +87,7 @@ export function VideoPlayerDialog({ project, open, onOpenChange }: VideoPlayerDi
                     </h4>
 
                     {hasUrl && (
-                        <Button asChild variant="outline" size="sm" className="border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white">
+                        <Button asChild size="sm" className="bg-white text-slate-900 hover:bg-slate-200 border-none font-medium shadow-sm transition-colors">
                             <a href={project.outputUrl} download target="_blank" rel="noopener noreferrer">
                                 <Download className="mr-2 h-4 w-4" /> Download Original
                             </a>

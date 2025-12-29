@@ -295,7 +295,15 @@ export default function SeriesDetailsPage() {
                 {/* Episodes Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-6">
                     {filteredEpisodes.map((ep) => (
-                        <Card key={ep.id} className="group overflow-hidden rounded-2xl border-slate-200 hover:shadow-xl hover:shadow-purple-100/50 hover:border-purple-200 hover:-translate-y-1 transition-all duration-300 cursor-pointer">
+                        <Card
+                            key={ep.id}
+                            onClick={() => {
+                                if (ep.status === "Completed") {
+                                    setPlayerEpisode(ep);
+                                }
+                            }}
+                            className="group overflow-hidden rounded-2xl border-slate-200 hover:shadow-xl hover:shadow-purple-100/50 hover:border-purple-200 hover:-translate-y-1 transition-all duration-300 cursor-pointer"
+                        >
                             {/* Thumbnail Area */}
                             <div className="aspect-[4/3] relative overflow-hidden bg-slate-100">
                                 {ep.thumbnailUrl ? (
@@ -321,11 +329,13 @@ export default function SeriesDetailsPage() {
                                 </div>
 
                                 {/* Hover Play */}
-                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                                    <div className="bg-white/90 p-3 rounded-full shadow-lg scale-90 group-hover:scale-100 transition-all">
-                                        <Play className="h-5 w-5 text-purple-600 fill-current ml-0.5" />
+                                {ep.status === "Completed" && (
+                                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                        <div className="bg-white/90 p-3 rounded-full shadow-lg scale-90 group-hover:scale-100 transition-all">
+                                            <Play className="h-5 w-5 text-purple-600 fill-current ml-0.5" />
+                                        </div>
                                     </div>
-                                </div>
+                                )}
                             </div>
 
                             {/* Info Area */}

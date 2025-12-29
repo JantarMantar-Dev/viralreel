@@ -146,11 +146,13 @@ function VideoCard({ project, onClick, onDelete, onRender, onOpen }: { project: 
                 )}
 
                 {/* Hover Play Button */}
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                    <div className="bg-white/90 p-3 rounded-full shadow-lg transform scale-90 group-hover:scale-100 transition-all">
-                        <Play className="h-6 w-6 text-purple-600 fill-current ml-1" />
+                {project.status === "Completed" && (
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                        <div className="bg-white/90 p-3 rounded-full shadow-lg transform scale-90 group-hover:scale-100 transition-all">
+                            <Play className="h-6 w-6 text-purple-600 fill-current ml-1" />
+                        </div>
                     </div>
-                </div>
+                )}
             </div>
 
             {/* Content Area */}
@@ -374,6 +376,9 @@ function VideoListView({ filter, setFilter, navigate, projects, isLoading, onDel
                                             } else {
                                                 // For now, standalone videos might go to edit or review
                                                 console.log("Edit video", project.id)
+                                                if (project.status === "Completed") {
+                                                    onOpen(project);
+                                                }
                                             }
                                         }}
                                         onDelete={() => onDelete(project)}
