@@ -96,7 +96,7 @@ function EpisodeStatusBadge({ status }: { status: Episode["status"] }) {
     }
     return (
         <div className="bg-green-50 text-green-700 px-2 py-0.5 rounded-full text-[10px] font-medium border border-green-100">
-            Published
+            Completed
         </div>
     )
 }
@@ -205,20 +205,12 @@ export default function SeriesDetailsPage() {
                 </div>
 
                 <div className="flex items-center gap-3 ml-auto">
-                    <Button variant="ghost" size="icon" className="text-slate-500 hover:text-purple-600">
-                        <Settings className="h-5 w-5" />
+                    <Button
+                        onClick={() => navigate(`/create?type=series&seriesId=${series.id}&nicheId=${series.nicheId || ''}`)}
+                        className="bg-purple-600 hover:bg-purple-700 text-white shadow-sm shadow-purple-200"
+                    >
+                        <Plus className="mr-2 h-4 w-4" /> Create Episode
                     </Button>
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button className="bg-purple-600 hover:bg-purple-700 text-white shadow-sm shadow-purple-200">
-                                <Plus className="mr-2 h-4 w-4" /> Create Episode
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => navigate(`/create?type=series&seriesId=${series.id}&nicheId=${series.nicheId || ''}`)}>New Idea</DropdownMenuItem>
-                            <DropdownMenuItem>Upload Script</DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
                 </div>
             </div>
 
@@ -233,23 +225,7 @@ export default function SeriesDetailsPage() {
                 {/* Series Hero Section */}
                 <Card className="p-1 sm:p-6 mb-8 border-slate-200 shadow-sm rounded-2xl overflow-hidden relative">
                     <div className="flex flex-col md:flex-row gap-6">
-                        {/* Series Thumbnail */}
-                        <div className="w-full md:w-32 lg:w-48 aspect-square rounded-xl bg-slate-100 flex-shrink-0 relative overflow-hidden group">
-                            {series.episodes[0]?.thumbnailUrl ? (
-                                <img
-                                    src={series.episodes[0].thumbnailUrl}
-                                    alt={series.name}
-                                    className="w-full h-full object-cover"
-                                />
-                            ) : (
-                                <div className="w-full h-full flex items-center justify-center text-slate-300">
-                                    <Layers className="h-12 w-12" />
-                                </div>
-                            )}
-                            <div className="absolute inset-0 bg-purple-600/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                <Button variant="secondary" size="sm" className="rounded-full shadow-lg">Change Cover</Button>
-                            </div>
-                        </div>
+
 
                         {/* Series Metadata */}
                         <div className="flex-1 min-w-0">
@@ -257,9 +233,6 @@ export default function SeriesDetailsPage() {
                                 <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 truncate">{series.name}</h1>
                                 <span className="bg-purple-100 text-purple-600 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">Series</span>
                             </div>
-                            <p className="text-slate-500 mb-6 max-w-3xl line-clamp-2 leading-relaxed">
-                                {series.description || "A cohesive series of videos generated with AI, maintaining visual and narrative consistency across all episodes."}
-                            </p>
 
                             <div className="flex flex-wrap items-center gap-x-6 gap-y-3 text-sm font-medium text-slate-600">
                                 <div className="flex items-center gap-2">
@@ -303,51 +276,27 @@ export default function SeriesDetailsPage() {
                                     setPlayerEpisode(ep);
                                 }
                             }}
-                            className="group overflow-hidden rounded-2xl border-slate-200 hover:shadow-xl hover:shadow-purple-100/50 hover:border-purple-200 hover:-translate-y-1 transition-all duration-300 cursor-pointer"
+                            className="group flex flex-col p-4 h-full rounded-2xl border border-slate-200 bg-white transition-all duration-300 hover:shadow-xl hover:shadow-purple-100/50 hover:border-purple-200 hover:-translate-y-1 cursor-pointer"
                         >
-                            {/* Thumbnail Area */}
-                            <div className="aspect-[4/3] relative overflow-hidden bg-slate-100">
-                                {ep.thumbnailUrl ? (
-                                    <img
-                                        src={ep.thumbnailUrl}
-                                        alt={ep.title}
-                                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
-                                    />
-                                ) : (
-                                    <div className="h-full w-full flex items-center justify-center text-slate-200">
-                                        <Play className="h-10 w-10 fill-current opacity-20" />
-                                    </div>
-                                )}
-
-                                {/* Episode Number Overlay */}
-                                <div className="absolute top-3 left-3 bg-black/80 text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-tighter">
-                                    EP {String(ep.episodeNumber).padStart(2, '0')}
-                                </div>
-
-                                {/* Duration Overlay */}
-                                <div className="absolute bottom-3 right-3 bg-black/80 text-white text-[10px] font-mono font-medium px-1.5 py-0.5 rounded">
-                                    {ep.duration ? (ep.duration === 0.5 ? "00:30" : `${ep.duration}:00`) : '--:--'}
-                                </div>
-
-                                {/* Hover Play */}
-                                {ep.status === "Completed" && (
-                                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                                        <div className="bg-white/90 p-3 rounded-full shadow-lg scale-90 group-hover:scale-100 transition-all">
-                                            <Play className="h-5 w-5 text-purple-600 fill-current ml-0.5" />
-                                        </div>
+                            {/* Header: Status | Duration */}
+                            <div className="flex items-center justify-between mb-3">
+                                <EpisodeStatusBadge status={ep.status} />
+                                {ep.duration && (
+                                    <div className="text-[10px] font-mono font-medium text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                                        {ep.duration === 0.5 ? "00:30" : `${ep.duration}:00`}
                                     </div>
                                 )}
                             </div>
 
                             {/* Info Area */}
-                            <div className="p-4">
+                            <div className="flex flex-col flex-1">
                                 <div className="flex items-start justify-between gap-2 mb-1">
-                                    <h3 className="font-semibold text-slate-900 group-hover:text-purple-600 transition-colors line-clamp-1 py-1">
+                                    <h3 className="font-semibold text-slate-900 group-hover:text-purple-600 transition-colors line-clamp-2 py-1 leading-tight">
                                         {ep.title}
                                     </h3>
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-slate-600 -mr-1" onClick={(e) => e.stopPropagation()}>
+                                            <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-slate-600 -mr-1 -mt-1" onClick={(e) => e.stopPropagation()}>
                                                 <MoreVertical className="h-4 w-4" />
                                             </Button>
                                         </DropdownMenuTrigger>
@@ -387,16 +336,18 @@ export default function SeriesDetailsPage() {
                                         </DropdownMenuContent>
                                     </DropdownMenu>
                                 </div>
-                                <p className="text-xs text-slate-500 line-clamp-2 h-8 mb-4">
+                                <p className="text-xs text-slate-500 line-clamp-3 mb-4 flex-1">
                                     {ep.description || "No episode summary available."}
                                 </p>
 
-                                <div className="flex items-center justify-between pt-3 border-t border-slate-50">
+                                <div className="flex items-center justify-between pt-3 border-t border-slate-50 mt-auto">
                                     <div className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400 uppercase tracking-tight">
                                         <Calendar className="h-3 w-3" />
                                         {formatRelativeDate(ep.date)}
                                     </div>
-                                    <EpisodeStatusBadge status={ep.status} />
+                                    <div className="text-[10px] font-bold text-slate-300 bg-slate-50 px-1.5 py-0.5 rounded uppercase">
+                                        EP {String(ep.episodeNumber).padStart(2, '0')}
+                                    </div>
                                 </div>
                             </div>
                         </Card>
