@@ -292,26 +292,43 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
             }
         }
     }, async (request, reply) => {
-        const userId = request.session.userId;
-        console.log(`[GET /plans] User ID: ${userId}`);
+        const userId = request.user?.id;
+        console.log(`[GET /plans] User ID: ${userId || 'Unauthenticated'}`);
         let planTag: string | null = null;
 
-        // Fetch fresh user data to get planTag
-        const [userRecord] = await db.select()
-            .from(user)
-            .where(eq(user.id, userId))
-            .limit(1);
+        // Fetch fresh user data to get planTag only if logged in
+        if (userId) {
+            try {
+                const [userRecord] = await db.select()
+                    .from(user)
+                    .where(eq(user.id, userId))
+                    .limit(1);
 
-        if (userRecord && userRecord.planTag) {
-            const expiresAt = userRecord.planTagExpiresAt ? new Date(userRecord.planTagExpiresAt) : null;
-            if (!expiresAt || expiresAt > new Date()) {
-                planTag = userRecord.planTag;
+                if (userRecord) {
+                    // console.log(`[GET /plans] User found: ${userRecord.id}, Current Tag: ${userRecord.planTag}`);
+                    if (userRecord.planTag) {
+                        const expiresAt = userRecord.planTagExpiresAt ? new Date(userRecord.planTagExpiresAt) : null;
+                        const now = new Date();
+                        if (!expiresAt || expiresAt > now) {
+                            planTag = userRecord.planTag;
+                            console.log(`[GET /plans] Applying active plan tag: ${planTag}`);
+                        } else {
+                            console.log(`[GET /plans] Plan tag expired at ${expiresAt}`);
+                        }
+                    }
+                } else {
+                    console.warn(`[GET /plans] User ID ${userId} in session but not found in DB`);
+                }
+            } catch (err) {
+                console.error(`[GET /plans] Error fetching user data:`, err);
             }
         }
 
         const tagCondition = planTag
             ? or(eq(subscriptionPlan.tag, planTag), isNull(subscriptionPlan.tag))
             : isNull(subscriptionPlan.tag);
+
+        console.log(`[GET /plans] Querying plans with tag condition: ${planTag ? `tag=${planTag} OR null` : 'tag=null'}`);
 
         const plans = await db.select()
             .from(subscriptionPlan)
@@ -321,6 +338,8 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
                     tagCondition
                 )
             );
+
+        console.log(`[GET /plans] Found ${plans.length} plans`);
         return plans;
     });
 

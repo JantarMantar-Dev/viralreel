@@ -34,7 +34,7 @@ export default function PricingPage() {
     useEffect(() => {
         const fetchPlans = async () => {
             try {
-                const res = await fetch(`${API_BASE_URL}/api/payments/plans`)
+                const res = await fetch(`${API_BASE_URL}/api/payments/plans`, { credentials: 'include' })
                 if (res.ok) {
                     const data = await res.json()
                     setPlans(data)
