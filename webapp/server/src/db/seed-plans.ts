@@ -13,7 +13,31 @@ const PLANS = [
         credits: 10,
         stripePriceIds: {
             development: "price_1SiKegGsL2ypKmAx6HGfnAoz",
-            production: "price_1SiKegGsL2ypKmAx6HGfnAoz", // TODO: Update with actual prod ID
+            production: "price_1SjZQiGl5J6aoHf99q2tx27y",
+        },
+    },
+    {
+        name: "Creator Plus - Launch Price",
+        description: "For serious creators",
+        price: 3900, // $39.00 in cents
+        currency: "usd",
+        interval: "month",
+        credits: 60,
+        stripePriceIds: {
+            development: "price_1SiKe0GsL2ypKmAxhHsZGmLf",
+            production: "price_1SjZPOGl5J6aoHf9PnphSlry",
+        },
+    },
+    {
+        name: "Creator - Regular Price",
+        description: "For creators",
+        price: 2900, // $29.00 in cents
+        currency: "usd",
+        interval: "month",
+        credits: 30,
+        stripePriceIds: {
+            development: "price_1SiKb4GsL2ypKmAxEe7aF8uV",
+            production: "price_1SjZKVGl5J6aoHf92DA6oNco",
         },
     },
     {
@@ -25,7 +49,7 @@ const PLANS = [
         credits: 60,
         stripePriceIds: {
             development: "price_1SiKe0GsL2ypKmAxhHsZGmLf",
-            production: "price_1SiKe0GsL2ypKmAxhHsZGmLf", // TODO: Update with actual prod ID
+            production: "price_1SjZXtGl5J6aoHf9MrlTre2X",
         },
     },
     {
@@ -37,7 +61,7 @@ const PLANS = [
         credits: 30,
         stripePriceIds: {
             development: "price_1SiKb4GsL2ypKmAxEe7aF8uV",
-            production: "price_1SiKb4GsL2ypKmAxEe7aF8uV", // TODO: Update with actual prod ID
+            production: "price_1SjZXHGl5J6aoHf9KyjZMMpV",
         },
     }
 ];
