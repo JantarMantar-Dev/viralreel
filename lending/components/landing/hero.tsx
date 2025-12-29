@@ -6,8 +6,12 @@ import { motion } from "framer-motion"
 import { PlayCircle, ArrowRight } from "lucide-react"
 import { WaitlistModal } from "@/components/waitlist-modal"
 import posthog from 'posthog-js'
+import { useState } from "react"
+import { VideoPlayerDialog } from "@/components/video-player-dialog"
 
 export function Hero() {
+    const [isVideoOpen, setIsVideoOpen] = useState(false)
+
     return (
         <section className="relative min-h-screen flex items-center justify-center pt-20 overflow-hidden">
             {/* Background Gradients */}
@@ -134,16 +138,26 @@ export function Hero() {
                         className="w-full max-w-sm mx-auto lg:mr-0 rounded-[2rem] border-8 border-slate-900 shadow-2xl overflow-hidden bg-zinc-900 aspect-[9/16] relative"
                     >
                         {/* Phone Frame / Reel Preview */}
-                        <div className="absolute inset-0 bg-slate-800 flex items-center justify-center relative group cursor-pointer overflow-hidden">
-                            <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/60 z-10" />
-                            <img
-                                src="/reel-thumbnail.jpg"
-                                alt="Reel Preview"
-                                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                        <div
+                            className="absolute inset-0 bg-slate-800 flex items-center justify-center relative group cursor-pointer overflow-hidden rounded-[1.8rem]"
+                            onClick={() => setIsVideoOpen(true)}
+                        >
+                            <video
+                                src="/videos/disney-tech-my_little_rocket_ship_kid_story.mp4"
+                                poster="/thumbnails/disney-tech-my_little_rocket_ship_kid_story.jpg"
+                                className="w-full h-full object-cover"
+                                muted
+                                playsInline
+                                loop
+                                autoPlay
                             />
-                            <div className="absolute z-20 flex flex-col items-center gap-4">
-                                <div className="size-16 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/40 shadow-xl transition-transform group-hover:scale-110">
-                                    <PlayCircle className="size-8 text-white fill-white" />
+                            <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-transparent via-transparent to-black/20" />
+
+                            {/* Hover Overlay */}
+                            <div className="absolute inset-x-0 bottom-8 flex justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20">
+                                <div className="bg-white/90 backdrop-blur-sm px-4 py-2 rounded-full text-sm font-medium text-slate-900 shadow-lg flex items-center gap-2 transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
+                                    <PlayCircle className="size-4" />
+                                    Click to expand
                                 </div>
                             </div>
                         </div>
@@ -151,6 +165,13 @@ export function Hero() {
 
                 </div>
             </div>
+
+            <VideoPlayerDialog
+                open={isVideoOpen}
+                onOpenChange={setIsVideoOpen}
+                videoSrc="/videos/disney-tech-my_little_rocket_ship_kid_story.mp4"
+                poster="/thumbnails/disney-tech-my_little_rocket_ship_kid_story.jpg"
+            />
         </section>
     )
 }

@@ -1,5 +1,5 @@
 
-import { addWavHeader } from './utils.js';
+import { addWavHeader } from '../utils.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';

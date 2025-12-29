@@ -15,7 +15,8 @@ import {
     Loader2,
     Trash2,
     Zap,
-    Edit
+    Edit,
+    Download
 } from "lucide-react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
@@ -40,6 +41,7 @@ import { Separator } from "@/components/ui/separator"
 import { VideosEmptyState } from "./components/videos-empty-state"
 import { API_BASE_URL } from "@/lib/config"
 import { formatRelativeDate } from "@/lib/date-utils"
+import { VideoPlayerDialog } from "./components/video-player-dialog"
 
 // --- Types ---
 
@@ -55,17 +57,21 @@ interface Project {
     duration?: string
     isHd?: boolean
     is4k?: boolean
+    outputUrl?: string
+    compressedUrl?: string
+    aspectRatio?: "portrait" | "landscape"
 }
 
 // --- Components ---
 
+
 function ProjectStatusBadge({ status }: { status: Project["status"] }) {
     if (status === "Rendering" || status === "Scripting") {
         return (
-            <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-white/90 backdrop-blur-sm px-2.5 py-1 rounded-full text-xs font-medium text-slate-800 shadow-sm border border-slate-100">
-                <span className="relative flex h-2 w-2">
+            <div className="flex items-center gap-1.5 bg-yellow-50 text-yellow-700 px-2 py-0.5 rounded-full text-[10px] font-medium border border-yellow-100">
+                <span className="relative flex h-1.5 w-1.5">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-500"></span>
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-yellow-500"></span>
                 </span>
                 {status}
             </div>
@@ -73,14 +79,14 @@ function ProjectStatusBadge({ status }: { status: Project["status"] }) {
     }
     if (status === "Draft") {
         return (
-            <div className="absolute top-3 left-3 bg-slate-100/90 backdrop-blur-sm px-2.5 py-1 rounded-full text-xs font-medium text-slate-600 shadow-sm border border-slate-200">
+            <div className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full text-[10px] font-medium border border-slate-200">
                 Draft
             </div>
         )
     }
     if (status === "Completed") {
         return (
-            <div className="absolute top-3 left-3 bg-green-100/90 backdrop-blur-sm px-2.5 py-1 rounded-full text-xs font-medium text-green-700 shadow-sm border border-green-200">
+            <div className="bg-green-50 text-green-700 px-2 py-0.5 rounded-full text-[10px] font-medium border border-green-100">
                 Completed
             </div>
         )
@@ -88,147 +94,156 @@ function ProjectStatusBadge({ status }: { status: Project["status"] }) {
     return null
 }
 
-function VideoTypeBadge({ type, count }: { type: Project["type"], count?: number }) {
+function VideoTypeBadge({ type }: { type: Project["type"] }) {
     if (type === "Series") {
         return (
-            <div className="absolute top-3 right-3 flex items-center gap-1 bg-purple-600/90 backdrop-blur-sm px-2.5 py-1 rounded-full text-xs font-medium text-white shadow-sm">
+            <div className="flex items-center gap-1 bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full text-[10px] font-medium border border-purple-200">
                 <Layers className="h-3 w-3" />
                 Series
             </div>
         )
     }
-    // Single video usually doesn't need a badge unless we want to distinguish
     return null
 }
 
-function VideoCard({ project, onClick, onDelete, onRender }: { project: Project, onClick: () => void, onDelete: () => void, onRender?: () => void }) {
+function VideoCard({ project, onClick, onDelete, onRender, onOpen }: { project: Project, onClick: () => void, onDelete: () => void, onRender?: () => void, onOpen?: () => void }) {
     return (
         <Card
             onClick={onClick}
-            className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white transition-all duration-300 hover:shadow-xl hover:shadow-purple-100/50 hover:border-purple-200 cursor-pointer"
+            className="group relative flex flex-col p-4 h-full rounded-2xl border border-slate-200 bg-white transition-all duration-300 hover:shadow-xl hover:shadow-purple-100/50 hover:border-purple-200 cursor-pointer"
         >
-            {/* Thumbnail Area */}
-            <div className="aspect-[4/3] w-full bg-slate-100 relative overflow-hidden">
-                {project.thumbnailUrl ? (
-                    <img
-                        src={project.thumbnailUrl}
-                        alt={project.title}
-                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                    />
-                ) : (
-                    <div className="flex flex-col items-center justify-center h-full text-slate-300">
-                        <Play className="h-12 w-12 mb-2 opacity-50" />
-                        <span className="text-xs uppercase tracking-wider font-semibold">No Preview</span>
-                    </div>
-                )}
-
-                {/* Overlays */}
+            {/* Header: Status | Type or Duration */}
+            <div className="flex items-center justify-between mb-3">
                 <ProjectStatusBadge status={project.status} />
-                <VideoTypeBadge type={project.type} count={project.videoCount} />
 
-                {/* Duration Badge */}
-                {project.duration && (
-                    <div className="absolute bottom-3 right-3 bg-black/70 backdrop-blur-sm px-1.5 py-0.5 rounded text-[10px] font-mono font-medium text-white">
-                        {project.duration}
-                    </div>
+                {project.type === "Series" ? (
+                    <VideoTypeBadge type={project.type} />
+                ) : (
+                    project.duration && (
+                        <div className="text-[10px] font-mono font-medium text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                            {project.duration}
+                        </div>
+                    )
                 )}
-
-                {/* Series Count Badge (if applicable) */}
-                {project.videoCount && (
-                    <div className="absolute bottom-3 right-3 bg-slate-900/80 backdrop-blur-sm px-2 py-0.5 rounded text-xs font-medium text-white">
-                        {project.videoCount} Videos
-                    </div>
-                )}
-
-                {/* Hover Play Button */}
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                    <div className="bg-white/90 p-3 rounded-full shadow-lg transform scale-90 group-hover:scale-100 transition-all">
-                        <Play className="h-6 w-6 text-purple-600 fill-current ml-1" />
-                    </div>
-                </div>
             </div>
 
-            {/* Content Area */}
-            <div className="p-3">
-                <div className="flex items-start justify-between gap-2 mb-1.5">
-                    <h3 className="font-semibold text-slate-900 line-clamp-1 text-sm group-hover:text-purple-600 transition-colors">
-                        {project.title}
-                    </h3>
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6 -mr-1 text-slate-400 hover:text-slate-600"
-                                onClick={(e) => e.stopPropagation()}
-                            >
-                                <MoreVertical className="h-4 w-4" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onClick(); }}>
-                                {project.type === "Series" ? (
-                                    <>
-                                        <Layers className="h-4 w-4 mr-2" />
-                                        Open
-                                    </>
-                                ) : (
-                                    <>
-                                        <Edit className="h-4 w-4 mr-2" />
-                                        Edit Detail
-                                    </>
-                                )}
-                            </DropdownMenuItem>
-                            {project.type === "Single Video" && project.status === "Draft" && onRender && (
+            {/* Series Video Count Line */}
+            {project.type === "Series" && (
+                <div className="text-xs font-medium text-slate-900 mb-3">
+                    {project.videoCount || 0} Videos
+                </div>
+            )}
+
+            {/* Title & Menu */}
+            <div className="flex items-start justify-between gap-2 mb-2">
+                <h3 className="font-bold text-lg text-slate-900 line-clamp-2 leading-tight group-hover:text-purple-600 transition-colors">
+                    {project.title}
+                </h3>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 -mr-2 -mt-1 text-slate-400 hover:text-slate-600"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <MoreVertical className="h-4 w-4" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                if (project.type === "Series" || project.status === "Completed") {
+                                    onClick();
+                                }
+                            }}
+                            disabled={project.type !== "Series" && project.status !== "Completed"}
+                        >
+                            {project.type === "Series" ? (
+                                <>
+                                    <Layers className="h-4 w-4 mr-2" />
+                                    Open
+                                </>
+                            ) : (
+                                <>
+                                    <Edit className="h-4 w-4 mr-2" />
+                                    Edit Detail
+                                </>
+                            )}
+                        </DropdownMenuItem>
+                        {project.type === "Single Video" && (
+                            <>
                                 <DropdownMenuItem
-                                    className="text-purple-600 font-medium"
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        onRender();
+                                        if (project.status === "Completed") onOpen?.();
                                     }}
+                                    disabled={project.status !== "Completed"}
                                 >
-                                    <Zap className="h-4 w-4 mr-2 text-yellow-500" />
-                                    Render Now
+                                    <Play className="h-4 w-4 mr-2" />
+                                    Open
                                 </DropdownMenuItem>
-                            )}
-                            <Separator className="my-1" />
+                                {project.outputUrl && (
+                                    <DropdownMenuItem asChild>
+                                        <a href={project.outputUrl} download target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+                                            <Download className="h-4 w-4 mr-2" />
+                                            Download
+                                        </a>
+                                    </DropdownMenuItem>
+                                )}
+                            </>
+                        )}
+                        {project.type === "Single Video" && project.status === "Draft" && onRender && (
                             <DropdownMenuItem
-                                className="text-red-600 focus:text-red-600"
+                                className="text-purple-600 font-medium"
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    onDelete();
+                                    onRender();
                                 }}
                             >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Delete
+                                <Zap className="h-4 w-4 mr-2 text-yellow-500" />
+                                Render Now
                             </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+                        )}
+                        <Separator className="my-1" />
+                        <DropdownMenuItem
+                            className="text-red-600 focus:text-red-600"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onDelete();
+                            }}
+                        >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            </div>
+
+            <p className="text-sm text-slate-500 line-clamp-3 mb-4 flex-1">
+                {project.description || "No description provided"}
+            </p>
+
+            <div className="flex items-center justify-between text-xs text-slate-400 border-t border-slate-50 pt-3 mt-auto">
+                <div className="flex items-center gap-1.5">
+                    <Calendar className="h-3 w-3" />
+                    {project.date}
                 </div>
 
-                <p className="text-sm text-slate-500 line-clamp-2 h-10 mb-4">
-                    {project.description || "No description provided"}
-                </p>
-
-                <div className="flex items-center justify-between text-xs text-slate-400 border-t border-slate-50 pt-3 mt-auto">
-                    <div className="flex items-center gap-1.5">
-                        <Calendar className="h-3 w-3" />
-                        {project.date}
-                    </div>
-
-                    <div className="flex gap-2">
-                        {project.isHd && (
-                            <span className="bg-purple-50 text-purple-600 px-1.5 rounded font-bold text-[10px]">HD</span>
-                        )}
-                        {project.is4k && (
-                            <span className="bg-purple-100 text-purple-700 px-1.5 rounded font-bold text-[10px]">4K</span>
-                        )}
-                    </div>
+                <div className="flex gap-2">
+                    {project.isHd && (
+                        <span className="bg-purple-50 text-purple-600 px-1.5 rounded font-bold text-[10px]">HD</span>
+                    )}
+                    {project.is4k && (
+                        <span className="bg-purple-100 text-purple-700 px-1.5 rounded font-bold text-[10px]">4K</span>
+                    )}
                 </div>
             </div>
         </Card>
     )
 }
+
 
 interface VideoListViewProps {
     filter: "All" | "Single" | "Series"
@@ -238,9 +253,10 @@ interface VideoListViewProps {
     isLoading: boolean
     onDelete: (project: Project) => void
     onRender: (project: Project) => void
+    onOpen: (project: Project) => void
 }
 
-function VideoListView({ filter, setFilter, navigate, projects, isLoading, onDelete, onRender }: VideoListViewProps) {
+function VideoListView({ filter, setFilter, navigate, projects, isLoading, onDelete, onRender, onOpen }: VideoListViewProps) {
     return (
         <div className="flex flex-col w-full h-full">
             {/* Top Bar (Search & Actions) - Full Width Header */}
@@ -352,10 +368,14 @@ function VideoListView({ filter, setFilter, navigate, projects, isLoading, onDel
                                             } else {
                                                 // For now, standalone videos might go to edit or review
                                                 console.log("Edit video", project.id)
+                                                if (project.status === "Completed") {
+                                                    onOpen(project);
+                                                }
                                             }
                                         }}
                                         onDelete={() => onDelete(project)}
                                         onRender={() => onRender(project)}
+                                        onOpen={() => onOpen(project)}
                                     />
                                 ))}
                         </div>
@@ -370,6 +390,7 @@ export default function MyVideosPage() {
     const navigate = useNavigate()
     const [filter, setFilter] = useState<"All" | "Single" | "Series">("All")
     const [deleteTarget, setDeleteTarget] = useState<Project | null>(null)
+    const [playerProject, setPlayerProject] = useState<Project | null>(null)
     const queryClient = useQueryClient()
 
     const { data: response, isLoading } = useQuery({
@@ -388,7 +409,8 @@ export default function MyVideosPage() {
             })
             if (!res.ok) throw new Error('Failed to fetch projects')
             return res.json()
-        }
+        },
+        refetchInterval: 10000,
     })
 
     const projects: Project[] = (response?.projects || []).map((j: any) => ({
@@ -399,9 +421,12 @@ export default function MyVideosPage() {
         type: j.type, // 'Series' or 'Single Video'
         status: j.status, // 'Rendering', 'Completed', 'Draft' from backend
         date: formatRelativeDate(j.date),
-        duration: j.duration ? `${j.duration}:00` : undefined,
+        duration: j.duration ? (j.duration === 0.5 ? "00:30" : `${j.duration}:00`) : undefined,
         isHd: true,
-        videoCount: j.videoCount
+        videoCount: j.videoCount,
+        outputUrl: j.outputUrl,
+        compressedUrl: j.compressedUrl,
+        aspectRatio: j.aspectRatio
     }))
 
     // Sort by date (assuming id or createdAt is comparable, technically createdAt string needs parsing but fine for now)
@@ -468,6 +493,14 @@ export default function MyVideosPage() {
                 isLoading={isLoading}
                 onDelete={(p) => setDeleteTarget(p)}
                 onRender={(p) => renderProject(p)}
+                onOpen={(p) => setPlayerProject(p)}
+            />
+
+            {/* Video Player Dialog */}
+            <VideoPlayerDialog
+                project={playerProject}
+                open={!!playerProject}
+                onOpenChange={(open) => !open && setPlayerProject(null)}
             />
 
             {/* Delete Confirmation Dialog */}

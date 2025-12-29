@@ -7,7 +7,7 @@ import { ImageEffectType } from '../../effects/types';
 import { VideoRendererInput } from '../../../types';
 
 export const SimpleCompositionSchema = z.object({
-    audioUrl: z.string(),
+    audioUrl: z.string().optional(),
     segments: z.array(z.object({
         imageAssetPath: z.string(),
         imageEffect: z.enum(['ken-burns', 'zoom-in', 'shine', 'grayscale-to-color', 'blur-to-focus', 'tilt-3d', 'pan', 'circular-morph', 'glitch', 'curtain'] as [string, ...string[]]).optional(),
@@ -36,7 +36,7 @@ export const SimpleComposition: React.FC<VideoRendererInput> = ({
     const frame = useCurrentFrame();
     const { fps } = useVideoConfig();
 
-    const templateStyle = subtitleTemplateId ? SUBTITLE_STYLES[subtitleTemplateId]?.style || {} : {};
+    const templateStyle = subtitleTemplateId ? SUBTITLE_STYLES[subtitleTemplateId]?.style || {} : subtitleStyle;
 
     const segmentStartFrames = React.useMemo(() => {
         let accumulated = 0;
@@ -72,8 +72,8 @@ export const SimpleComposition: React.FC<VideoRendererInput> = ({
                 );
             })}
 
-            {/* Subtitles Overlay */}
-            {subtitles && subtitles.map((subtitle, index) => {
+            {/* Subtitles Overlay: Only render if we have a template AND subtitles */}
+            {subtitleTemplateId && subtitles && subtitles.length > 0 && subtitles.map((subtitle, index) => {
                 return (
                     <Sequence
                         key={`top-sub-${index}`}
@@ -92,7 +92,6 @@ export const SimpleComposition: React.FC<VideoRendererInput> = ({
                                     textAlign: 'center',
                                     maxWidth: '85%',
                                     ...templateStyle,
-                                    ...subtitleStyle
                                 }}
                             >
                                 {subtitle.text}

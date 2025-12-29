@@ -1,5 +1,6 @@
 import { Navbar } from "@/components/landing/navbar"
 import { Hero } from "@/components/landing/hero"
+import { RealExamples } from "@/components/landing/real-examples"
 import { Features } from "@/components/landing/features"
 import { Pricing } from "@/components/landing/pricing"
 import { Footer } from "@/components/landing/footer"
@@ -14,6 +15,7 @@ export default function Home() {
       <div className="relative z-10">
         <Navbar />
         <Hero />
+        <RealExamples />
         <Features />
         <Pricing />
         <Footer />

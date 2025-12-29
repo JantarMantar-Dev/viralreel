@@ -74,3 +74,13 @@ export function addWavHeader(pcmData: Buffer, sampleRate: number, numChannels: n
 
     return Buffer.concat([header, pcmData]);
 }
+
+/**
+ * Reconstructs the full story text from the generated subtitles.
+ */
+export function reconstructStoryFromSubtitles(subtitles: any[]): string {
+    if (!subtitles || subtitles.length === 0) {
+        return '';
+    }
+    return subtitles.map(s => s.text).join(' ');
+}

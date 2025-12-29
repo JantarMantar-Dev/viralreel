@@ -137,7 +137,7 @@ async function processJob(job: typeof renderJob.$inferSelect) {
         let subtitleClassName = "";
         let customSubtitleStyle: any = {};
 
-        const styleId = metadata?.subtitleStyleId;
+        const styleId = metadata?.subtitleTemplateId || metadata?.subtitleStyleId;
         let subtitleTemplateId: string | undefined = undefined;
         if (styleId) {
             const style = await db.query.subtitleStyle.findFirst({
@@ -210,7 +210,8 @@ async function processJob(job: typeof renderJob.$inferSelect) {
             subtitleTemplateId,
             segments: segments.map(s => ({
                 ...s,
-                imageAssetPath: toLocalUrl(s.imageAssetPath)
+                imageAssetPath: toLocalUrl(s.imageAssetPath),
+                duration: s.duration
             })),
             subtitles: topLevelSubtitles
         };
@@ -255,6 +256,11 @@ async function processJob(job: typeof renderJob.$inferSelect) {
         }
 
         const outputLocation = path.join(workDir, `${job.id}.mp4`);
+        // Delete file if it exists we are re-rendering
+        if (fs.existsSync(outputLocation)) {
+            // delete file
+            fs.unlinkSync(outputLocation);
+        }
         await renderMedia({
             composition,
             serveUrl: bundleLocation,
@@ -265,30 +271,54 @@ async function processJob(job: typeof renderJob.$inferSelect) {
         });
         console.log(`Rendered to ${outputLocation}`);
 
-        // 5. Upload
-        console.log("Uploading...");
-        const publicUrl = await uploadToS3(outputLocation, `renders/${job.id}.mp4`);
-        console.log(`Uploaded to ${publicUrl}`);
+        // 5. Upload Original
+        console.log("Uploading Original...");
+        const originalUrl = await uploadToS3(outputLocation, `renders/${job.id}_original.mp4`);
+        console.log(`Uploaded Original to ${originalUrl}`);
 
-        // 6. Update DB
+        // 6. Compress Video
+        console.log("Compressing...");
+        const compressedLocation = path.join(workDir, `${job.id}_compressed.mp4`);
+        await compressVideo(outputLocation, compressedLocation);
+        console.log(`Compressed to ${compressedLocation}`);
+
+        // 7. Upload Compressed
+        console.log("Uploading Compressed...");
+        const compressedUrl = await uploadToS3(compressedLocation, `renders/${job.id}.mp4`);
+        console.log(`Uploaded Compressed to ${compressedUrl}`);
+
+        // 8. Update DB
         await db.update(renderJob)
             .set({
                 status: 'VIDEO_COMPLETED',
                 progress: 100,
                 completedAt: new Date(),
-                updatedAt: new Date()
+                updatedAt: new Date(),
+                originalUrl: originalUrl,
+                compressedUrl: compressedUrl,
+                metadata: {}, // Empty JSON as requested
             })
             .where(eq(renderJob.id, job.id));
 
         await db.update(video)
             .set({
                 status: 'COMPLETED',
-                outputUrl: publicUrl
+                // We store the original URL in outputUrl as the primary source,
+                // and the compressed version in its own column.
+                outputUrl: originalUrl,
+                compressedUrl: compressedUrl,
             })
             .where(eq(video.id, job.videoId));
 
     } catch (error: any) {
         console.error(`Job ${job.id} failed:`, error);
+
+        // Handle retry count logic here if we were implementing automatic retries, 
+        // but for now just setting the fields as requested.
+        // We can increment retry count on failure? User said "field retry count in render job as well for our use case by defualt that value will be 0".
+        // They didn't explicitly ask for the RETRY LOGIC, just the FIELD. "we can also field retry count...".
+        // But let's leave it as 0 for now unless we implement a retry mechanism.
+
         await db.update(renderJob)
             .set({
                 status: 'FAILED',
@@ -302,6 +332,8 @@ async function processJob(job: typeof renderJob.$inferSelect) {
             .where(eq(video.id, job.videoId));
     }
 }
+
+import { compressVideo } from './lib/video.js';
 
 async function startWorker() {
     console.log(`Worker ${WORKER_ID} started. Polling for jobs...`);

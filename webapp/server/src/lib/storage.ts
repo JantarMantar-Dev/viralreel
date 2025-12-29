@@ -83,6 +83,31 @@ export class StorageProvider {
 
         return getSignedUrl(this.client, command, { expiresIn: expiresInSeconds });
     }
+
+    /**
+     * Extracts key from full URL and returns signed URL.
+     * If URL is not from this bucket, returns original URL.
+     */
+    async getSignedUrlFromFullUrl(fullUrl: string): Promise<string> {
+        if (!fullUrl || !this.bucket) return fullUrl;
+
+        try {
+            const urlObj = new URL(fullUrl);
+            const pathParts = urlObj.pathname.split('/');
+            // Expected format: /bucket/key/path/file.ext
+            // pathParts[0] is "", pathParts[1] is bucket
+
+            if (pathParts[1] === this.bucket) {
+                const key = pathParts.slice(2).join('/');
+                if (key) {
+                    return await this.getSignedUrl(key);
+                }
+            }
+            return fullUrl;
+        } catch (e) {
+            return fullUrl;
+        }
+    }
 }
 
 export const storageProvider = new StorageProvider();
