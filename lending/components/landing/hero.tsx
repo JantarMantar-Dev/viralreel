@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { motion } from "framer-motion"
 import { PlayCircle, ArrowRight } from "lucide-react"
-import { WaitlistModal } from "@/components/waitlist-modal"
+import Link from "next/link"
 import posthog from 'posthog-js'
 import { useState } from "react"
 import { VideoPlayerDialog } from "@/components/video-player-dialog"
@@ -62,7 +62,7 @@ export function Hero() {
                             transition={{ duration: 0.5, delay: 0.3 }}
                             className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto"
                         >
-                            <WaitlistModal>
+                            <Link href={process.env.NEXT_PUBLIC_APP_URL || '#'}>
                                 <Button
                                     size="lg"
                                     variant="gradient"
@@ -72,7 +72,7 @@ export function Hero() {
                                     Start Creating Free
                                     <ArrowRight className="ml-2 size-4 group-hover:translate-x-1 transition-transform" />
                                 </Button>
-                            </WaitlistModal>
+                            </Link>
                             <Button
                                 variant="outline"
                                 size="lg"
