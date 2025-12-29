@@ -18,7 +18,7 @@ const PLANS = [
     },
     {
         name: "Creator Plus - Launch Price",
-        description: "For serious creators",
+        description: "For serious creators (Launch Discount)",
         price: 3900, // $39.00 in cents
         currency: "usd",
         interval: "month",
@@ -29,8 +29,8 @@ const PLANS = [
         },
     },
     {
-        name: "Creator - Regular Price",
-        description: "For creators",
+        name: "Creator - Launch Price",
+        description: "For creators (Launch Discount)",
         price: 2900, // $29.00 in cents
         currency: "usd",
         interval: "month",
@@ -42,25 +42,25 @@ const PLANS = [
     },
     {
         name: "Creator Plus",
-        description: "For serious creators",
+        description: "Double the videos. Best deal.",
         price: 5900, // $59.00 in cents
         currency: "usd",
         interval: "month",
         credits: 60,
         stripePriceIds: {
-            development: "price_1SiKe0GsL2ypKmAxhHsZGmLf",
+            development: "price_1SiKe0GsL2ypKmAxhHsZGmLf_plus_fixed",
             production: "price_1SjZXtGl5J6aoHf9MrlTre2X",
         },
     },
     {
         name: "Creator",
-        description: "For creators",
+        description: "Perfect for daily creators.",
         price: 3900, // $39.00 in cents
         currency: "usd",
         interval: "month",
         credits: 30,
         stripePriceIds: {
-            development: "price_1SiKb4GsL2ypKmAxEe7aF8uV",
+            development: "price_1SiKb4GsL2ypKmAxEe7aF8uV_standard_fixed",
             production: "price_1SjZXHGl5J6aoHf9KyjZMMpV",
         },
     }
@@ -72,23 +72,42 @@ export async function seedPlans() {
 
     console.log(`🌱 Seeding Subscription Plans (Env: ${env}, Update Mode: ${isUpdate})...`);
 
+    // Validation: Check for duplicate price IDs in the current environment
+    const priceIds = PLANS.map(p => p.stripePriceIds[env]);
+    const duplicatePriceIds = priceIds.filter((id, index) => priceIds.indexOf(id) !== index);
+
+    if (duplicatePriceIds.length > 0) {
+        throw new Error(`❌ Duplicate Stripe Price IDs found for ${env}: ${duplicatePriceIds.join(", ")}. Seeding aborted.`);
+    }
+
     for (const plan of PLANS) {
-        // Check if plan exists by name
-        const existingPlans = await db.select().from(subscriptionPlan).where(eq(subscriptionPlan.name, plan.name));
-        const existing = existingPlans[0];
         const stripePriceId = plan.stripePriceIds[env];
+
+        // Check if plan exists by name OR stripePriceId
+        const existingPlans = await db.select()
+            .from(subscriptionPlan)
+            .where(
+                or(
+                    eq(subscriptionPlan.name, plan.name),
+                    eq(subscriptionPlan.stripePriceId, stripePriceId)
+                )
+            );
+
+        const existing = existingPlans[0];
 
         if (existing) {
             if (isUpdate) {
-                console.log(`🔹 Updating plan "${plan.name}"...`);
+                console.log(`🔹 Updating plan "${plan.name}" (ID: ${existing.id})...`);
                 await db.update(subscriptionPlan)
                     .set({
+                        name: plan.name, // In case name changed but price ID is same
                         description: plan.description,
                         price: plan.price,
                         currency: plan.currency,
-                        interval: plan.interval,
+                        interval: plan.interval as "month" | "year" | null,
                         credits: plan.credits,
                         stripePriceId: stripePriceId,
+                        updatedAt: new Date(),
                     })
                     .where(eq(subscriptionPlan.id, existing.id));
             } else {
@@ -115,7 +134,7 @@ export async function seedPlans() {
 
 // Execute if run directly
 import { fileURLToPath } from 'url';
-import { eq } from "drizzle-orm"; // Need this for the update check
+import { eq, or } from "drizzle-orm"; // Need or for existing check
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
     seedPlans()
