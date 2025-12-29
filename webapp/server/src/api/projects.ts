@@ -56,7 +56,10 @@ async function fetchSeriesProjects(userId: string) {
 
         const isAnyDraft = episodes.some(e =>
             e.renderStatus === "DRAFT" ||
-            e.status === "DRAFT"
+            e.status === "DRAFT" ||
+            e.renderStatus === "FAILED" ||
+            e.status === "FAILED" ||
+            e.status === "SCRIPT_READY"
         );
 
         let status = "Completed";
@@ -112,7 +115,7 @@ async function fetchVideoProjects(userId: string) {
         let status = "Completed";
         if (v.renderStatus === "QUEUED" || v.renderStatus === "PROCESSING") {
             status = "Rendering";
-        } else if (v.status === "DRAFT" || v.renderStatus === "DRAFT") {
+        } else if (v.status === "DRAFT" || v.renderStatus === "DRAFT" || v.status === "SCRIPT_READY") {
             status = "Draft";
         } else if (v.status === "SCRIPTING") {
             status = "Rendering"; // Grouping scripting into rendering for dashboard simplicity
@@ -247,9 +250,9 @@ const projectsRoutes: FastifyPluginAsync = async (fastify) => {
 
             const formattedEpisodes = await Promise.all(episodes.map(async v => {
                 let status = "Completed";
-                if (v.renderStatus === "QUEUED" || v.renderStatus === "PROCESSING") {
+                if (v.renderStatus === "QUEUED" || v.renderStatus === "PROCESSING" || v.status === "GENERATING") {
                     status = "Rendering";
-                } else if (v.status === "DRAFT" || v.renderStatus === "DRAFT") {
+                } else if (v.status === "DRAFT" || v.renderStatus === "DRAFT" || v.status === "SCRIPT_READY") {
                     status = "Draft";
                 } else if (v.status === "SCRIPTING") {
                     status = "Rendering";

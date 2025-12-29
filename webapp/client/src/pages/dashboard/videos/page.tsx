@@ -173,7 +173,15 @@ function VideoCard({ project, onClick, onDelete, onRender, onOpen }: { project: 
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onClick(); }}>
+                            <DropdownMenuItem
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (project.type === "Series" || project.status === "Completed") {
+                                        onClick();
+                                    }
+                                }}
+                                disabled={project.type !== "Series" && project.status !== "Completed"}
+                            >
                                 {project.type === "Series" ? (
                                     <>
                                         <Layers className="h-4 w-4 mr-2" />
@@ -188,7 +196,13 @@ function VideoCard({ project, onClick, onDelete, onRender, onOpen }: { project: 
                             </DropdownMenuItem>
                             {project.type === "Single Video" && (
                                 <>
-                                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onOpen?.(); }}>
+                                    <DropdownMenuItem
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (project.status === "Completed") onOpen?.();
+                                        }}
+                                        disabled={project.status !== "Completed"}
+                                    >
                                         <Play className="h-4 w-4 mr-2" />
                                         Open
                                     </DropdownMenuItem>
@@ -429,7 +443,7 @@ export default function MyVideosPage() {
         type: j.type, // 'Series' or 'Single Video'
         status: j.status, // 'Rendering', 'Completed', 'Draft' from backend
         date: formatRelativeDate(j.date),
-        duration: j.duration ? `${j.duration}:00` : undefined,
+        duration: j.duration ? (j.duration === 0.5 ? "00:30" : `${j.duration}:00`) : undefined,
         isHd: true,
         videoCount: j.videoCount,
         outputUrl: j.outputUrl,

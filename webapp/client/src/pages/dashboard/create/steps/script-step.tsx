@@ -295,38 +295,44 @@ export default function ScriptStep() {
                         {/* Track Background */}
                         <div className="absolute w-full h-2 bg-slate-100 rounded-full overflow-hidden">
                             {/* Fill Track */}
-                            <div
-                                className="h-full bg-purple-600 transition-all duration-300 ease-out"
-                                style={{
-                                    width: `${((([0.5, 1, 2, 3, 4, 5].indexOf(request.duration) / 5) * 100))}%`
-                                }}
-                            />
+                            {/* Visual fill logic: since only 0.5 and 1 are active, maybe just fill dynamically up to 1 max? 
+                                Or simply don't show a fill track for disabled items. 
+                                Let's keep it simple: just show points. 
+                            */}
                         </div>
 
                         {/* Steps */}
                         <div className="absolute w-full flex justify-between items-center">
-                            {[0.5, 1, 2, 3, 4, 5].map((step, index) => {
-                                const isActive = request.duration >= step
-                                const isSelected = request.duration === step
+                            {[0.5, 1, 2, 3, 4, 5].map((step) => {
+                                const isActive = request.duration === step
+                                const isDisabled = step > 1
 
                                 return (
                                     <div
                                         key={step}
-                                        className="relative group cursor-pointer"
-                                        onClick={() => updateRequest({ duration: step })}
+                                        className={cn(
+                                            "relative group",
+                                            isDisabled ? "cursor-not-allowed" : "cursor-pointer"
+                                        )}
+                                        onClick={() => !isDisabled && updateRequest({ duration: step })}
                                     >
                                         <div className={cn(
                                             "w-4 h-4 rounded-full border-2 transition-all duration-300 z-10 relative",
-                                            isActive ? "border-purple-600 bg-purple-600" : "border-slate-300 bg-white group-hover:border-purple-300",
-                                            isSelected && "scale-150 ring-4 ring-purple-100"
+                                            isActive ? "border-purple-600 bg-purple-600" : (isDisabled ? "border-slate-200 bg-slate-100" : "border-slate-300 bg-white group-hover:border-purple-300"),
+                                            isActive && "scale-150 ring-4 ring-purple-100"
                                         )} />
 
                                         {/* Label */}
                                         <div className={cn(
-                                            "absolute -bottom-8 left-1/2 -translate-x-1/2 text-xs font-bold transition-colors whitespace-nowrap",
-                                            isSelected ? "text-purple-600" : "text-slate-400"
+                                            "absolute -bottom-8 left-1/2 -translate-x-1/2 text-xs font-bold transition-colors whitespace-nowrap flex flex-col items-center gap-1",
+                                            isActive ? "text-purple-600" : (isDisabled ? "text-slate-300" : "text-slate-400")
                                         )}>
-                                            {step === 0.5 ? '30s' : `${step}m`}
+                                            <span>{step === 0.5 ? '30s' : `${step}m`}</span>
+                                            {isDisabled && (
+                                                <span className="text-[8px] bg-slate-100 text-slate-400 px-1 py-0.5 rounded uppercase tracking-wider hidden group-hover:block absolute top-full mt-1 whitespace-nowrap z-20">
+                                                    Coming Soon
+                                                </span>
+                                            )}
                                         </div>
                                     </div>
                                 )
@@ -351,7 +357,7 @@ export default function ScriptStep() {
                 </div>
 
                 {/* Visual Format Selector */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div
                         onClick={() => updateRequest({ visualFormat: 'image' })}
                         className={cn(
@@ -387,70 +393,6 @@ export default function ScriptStep() {
                             Coming Soon
                         </span>
                     </div>
-                </div>
-
-                <div className="h-px w-full bg-slate-100 mb-8" />
-
-                <div className="flex items-center justify-between mb-4">
-                    <h4 className="font-bold text-slate-900">Visual Segments</h4>
-                    <span className="text-purple-600 font-bold text-sm bg-purple-50 px-3 py-1 rounded-full">{request.segments} Scenes</span>
-                </div>
-
-                <div className="px-2 md:px-4 py-4">
-                    <div className="relative h-12 flex items-center select-none">
-                        {/* Track Background */}
-                        <div className="absolute w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                            {/* Fill Track */}
-                            <div
-                                className="h-full bg-purple-600 transition-all duration-300 ease-out"
-                                style={{
-                                    width: `${(((request.segments - 3) / 9) * 100)}%`
-                                }}
-                            />
-                        </div>
-
-                        {/* Steps */}
-                        <div className="absolute w-full flex justify-between items-center">
-                            {Array.from({ length: 10 }, (_, i) => i + 3).map((count) => {
-                                const isActive = request.segments >= count
-                                const isSelected = request.segments === count
-
-                                return (
-                                    <div
-                                        key={count}
-                                        className="relative group cursor-pointer"
-                                        onClick={() => updateRequest({ segments: count })}
-                                    >
-                                        <div className={cn(
-                                            "w-3 h-3 md:w-4 md:h-4 rounded-full border-2 transition-all duration-300 z-10 relative",
-                                            isActive ? "border-purple-600 bg-purple-600" : "border-slate-300 bg-white group-hover:border-purple-300",
-                                            isSelected && "scale-150 ring-4 ring-purple-100"
-                                        )} />
-
-                                        {/* Label */}
-                                        <div className={cn(
-                                            "absolute -bottom-8 left-1/2 -translate-x-1/2 text-xs font-bold transition-colors",
-                                            isSelected ? "text-purple-600" : "text-slate-400",
-                                            "hidden md:block" // Show all on desktop
-                                        )}>
-                                            {count}
-                                        </div>
-                                        {/* Mobile: Show only start, mid, end */}
-                                        <div className={cn(
-                                            "absolute -bottom-8 left-1/2 -translate-x-1/2 text-xs font-bold transition-colors md:hidden",
-                                            isSelected ? "text-purple-600" : "text-slate-400",
-                                            (count === 3 || count === 7 || count === 12 || isSelected) ? "block" : "hidden"
-                                        )}>
-                                            {count}
-                                        </div>
-                                    </div>
-                                )
-                            })}
-                        </div>
-                    </div>
-                    <p className="text-center text-xs text-slate-400 font-medium mt-8">
-                        Recommended: 3-5 segments for shorter videos, 8+ for detailed stories.
-                    </p>
                 </div>
             </div>
         </div>

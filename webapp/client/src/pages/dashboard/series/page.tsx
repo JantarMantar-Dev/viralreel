@@ -326,7 +326,7 @@ export default function SeriesDetailsPage() {
 
                                 {/* Duration Overlay */}
                                 <div className="absolute bottom-3 right-3 bg-black/80 text-white text-[10px] font-mono font-medium px-1.5 py-0.5 rounded">
-                                    01:12
+                                    {ep.duration ? (ep.duration === 0.5 ? "00:30" : `${ep.duration}:00`) : '--:--'}
                                 </div>
 
                                 {/* Hover Play */}
@@ -352,7 +352,13 @@ export default function SeriesDetailsPage() {
                                             </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
-                                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setPlayerEpisode(ep); }}>
+                                            <DropdownMenuItem
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (ep.status === "Completed") setPlayerEpisode(ep);
+                                                }}
+                                                disabled={ep.status !== "Completed"}
+                                            >
                                                 <Play className="h-4 w-4 mr-2" />
                                                 Open
                                             </DropdownMenuItem>
