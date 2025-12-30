@@ -12,6 +12,7 @@ import { VideoRendererInput, SubtitleSegment, VideoSegment } from '../types.js';
 import http from 'http';
 import { URL, fileURLToPath } from 'url';
 import { compressVideo } from '../lib/video.js';
+import { deductCredits } from '../services/credit-service.js';
 
 export class VideoProcessor implements Processor {
     name = 'VideoProcessor';
@@ -248,6 +249,20 @@ export class VideoProcessor implements Processor {
             await db.update(video)
                 .set({ status: 'COMPLETED', outputUrl: originalUrl, compressedUrl })
                 .where(eq(video.id, job.videoId));
+
+            // Deduct credits
+            try {
+                await deductCredits(
+                    videoData.userId,
+                    1,
+                    `Video Generation: ${videoData.title}`,
+                    videoData.id,
+                    videoData.seriesId || undefined
+                );
+                console.log(`[VideoProcessor] Deducted 1 credit for user ${videoData.userId}`);
+            } catch (err) {
+                console.error(`[VideoProcessor] Failed to deduct credits for user ${videoData.userId}:`, err);
+            }
 
             console.log(`[VideoProcessor] Completed Job ID: ${job.id}`);
 

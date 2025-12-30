@@ -64,9 +64,9 @@ export default async function jobRoutes(fastify: FastifyInstance) {
                 .orderBy(desc(renderJob.createdAt));
 
             return { jobs };
-        } catch (error) {
+        } catch (error: any) {
             fastify.log.error(error);
-            return reply.status(500).send({ error: "Failed to fetch jobs" });
+            return reply.status(500).send({ error: error.message || "Failed to fetch jobs" });
         }
     });
 
@@ -114,9 +114,9 @@ export default async function jobRoutes(fastify: FastifyInstance) {
                     compressedUrl: signedCompressedUrl
                 }
             };
-        } catch (error) {
+        } catch (error: any) {
             fastify.log.error(error);
-            return reply.status(500).send({ error: "Failed to fetch video details" });
+            return reply.status(500).send({ error: error.message || "Failed to fetch video details" });
         }
     });
 
@@ -147,9 +147,9 @@ export default async function jobRoutes(fastify: FastifyInstance) {
             });
 
             return result;
-        } catch (error) {
+        } catch (error: any) {
             fastify.log.error(error);
-            return reply.status(500).send({ error: "Failed to create job" });
+            return reply.status(500).send({ error: error.message || "Failed to create job" });
         }
     });
 
@@ -270,9 +270,9 @@ export default async function jobRoutes(fastify: FastifyInstance) {
             });
 
             return result;
-        } catch (error) {
+        } catch (error: any) {
             fastify.log.error(error);
-            return reply.status(500).send({ error: "Failed to add episode" });
+            return reply.status(500).send({ error: error.message || "Failed to add episode" });
         }
     });
 }

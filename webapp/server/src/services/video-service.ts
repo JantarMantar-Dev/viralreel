@@ -122,10 +122,7 @@ export async function createVideoJob({ userId, body, existingSeriesId, isDraft =
         progress: 0
     });
 
-    // 5. Deduct credit if not a draft
-    if (!isDraft) {
-        await deductCredits(userId, 1, `Video Generation: ${title}`);
-    }
+    // 5. Credit deduction moved to worker completion
 
     return {
         success: true,
@@ -210,8 +207,7 @@ export async function queueVideoRender(videoId: string, userId: string) {
         .set({ status: "QUEUED", updatedAt: new Date() })
         .where(eq(renderJob.videoId, videoId));
 
-    // Deduct credit
-    await deductCredits(userId, 1, `Video Generation: ${v.title}`);
+    // Credit deduction moved to worker completion
 
     return { success: true, message: "Rendering queued successfully" };
 }

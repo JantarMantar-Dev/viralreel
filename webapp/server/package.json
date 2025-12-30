@@ -16,6 +16,9 @@
     "db:seed:voices": "tsx src/db/seed-voices.ts",
     "db:seed:subtitles": "tsx src/db/seed-subtitles.ts",
     "db:seed:plans": "tsx src/db/seed-plans.ts",
+    "db:seed:voices:prod": "node dist/db/seed-voices.js",
+    "db:seed:subtitles:prod": "node dist/db/seed-subtitles.js",
+    "db:seed:plans:prod": "node dist/db/seed-plans.js",
     "test:emails": "tsx src/scripts/test-emails.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

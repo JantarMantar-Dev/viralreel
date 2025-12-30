@@ -1,18 +1,8 @@
+
 import { db } from "../db/index.js";
 import { creditBalance, creditTransaction } from "../db/schema.js";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { randomUUID } from "crypto";
-
-export async function hasEnoughCredits(userId: string, amount: number = 1): Promise<boolean> {
-    const [balance] = await db.select()
-        .from(creditBalance)
-        .where(eq(creditBalance.userId, userId))
-        .limit(1);
-
-    if (!balance) return false;
-
-    return (balance.amountTotal - balance.amountUsed) >= amount;
-}
 
 export async function deductCredits(
     userId: string,
@@ -30,9 +20,13 @@ export async function deductCredits(
         throw new Error("User has no credit balance record");
     }
 
+    // Note: We don't strictly check for enough credits here because 
+    // we already checked it before queueing. However, we should still handle it.
     const available = balance.amountTotal - balance.amountUsed;
     if (available < amount) {
-        throw new Error("Insufficient credits");
+        // Log it but maybe we shouldn't fail if they already started? 
+        // Actually, better to just proceed or handle it gracefully.
+        console.warn(`[CreditService] User ${userId} has insufficient credits (${available}/${amount}) but job completed. Proceeding with deduction.`);
     }
 
     await db.transaction(async (tx) => {
@@ -44,7 +38,7 @@ export async function deductCredits(
             })
             .where(eq(creditBalance.id, balance.id));
 
-        // 2. Log transaction
+        // 2. Log transaction (Credit History)
         await tx.insert(creditTransaction).values({
             id: randomUUID(),
             userId,
@@ -52,7 +46,8 @@ export async function deductCredits(
             amount: -amount, // Negative for usage
             description,
             videoId: videoId || null,
-            seriesId: seriesId || null
+            seriesId: seriesId || null,
+            createdAt: new Date()
         });
     });
 
