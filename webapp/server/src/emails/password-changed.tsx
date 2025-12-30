@@ -30,7 +30,7 @@ export const PasswordChangedEmail = ({ userName }: PasswordChangedEmailProps) =>
             </Text>
 
             <Section style={btnContainer}>
-                <Button style={button} href="https://viralreel.com/reset-password">
+                <Button style={button} href="https://getviralreel.com/reset-password">
                     Reset Password
                 </Button>
             </Section>

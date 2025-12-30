@@ -35,13 +35,13 @@ export const WelcomeEmail = ({ userFirstname = "there" }: WelcomeEmailProps) => 
             </Row>
 
             <Section style={btnContainer}>
-                <Button style={button} href="https://viralreel.com/dashboard">
+                <Button style={button} href="https://getviralreel.com/dashboard">
                     Launch Dashboard
                 </Button>
             </Section>
 
             <Text style={subtext}>
-                Need help getting started? <Link href="https://viralreel.com/docs" style={link}>Read the Quick Start Guide</Link>
+                Need help getting started? <Link href="https://getviralreel.com/docs" style={link}>Read the Quick Start Guide</Link>
             </Text>
         </EmailLayout>
     );
