@@ -832,21 +832,30 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
                 ))
                 .limit(1);
 
+            // Get usage from credit_balance regardless of subscription status
+            const [balance] = await db.select()
+                .from(creditBalance)
+                .where(eq(creditBalance.userId, currentUser.id))
+                .limit(1);
+
             if (!subscription) {
+                if (balance) {
+                    return {
+                        status: 'none',
+                        subscription: null,
+                        usage: {
+                            used: balance.amountUsed,
+                            total: balance.amountTotal,
+                            resetsAt: balance.expiresAt || null
+                        }
+                    };
+                }
                 return { status: 'none', subscription: null, usage: null };
             }
 
             const [plan] = await db.select()
                 .from(subscriptionPlan)
                 .where(eq(subscriptionPlan.id, subscription.planId))
-                .limit(1);
-
-            // Get usage from credit_balance
-            // We need to fetch specific balance for this plan or generic?
-            // Existing logic matches planId.
-            const [balance] = await db.select()
-                .from(creditBalance)
-                .where(eq(creditBalance.userId, currentUser.id))
                 .limit(1);
 
             return {
