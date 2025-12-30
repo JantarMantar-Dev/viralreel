@@ -92,29 +92,29 @@ function ProjectStatusBadge({ status }: { status: Project["status"] }) {
             </TooltipProvider>
         )
     }
-}
-if (status === "Draft") {
-    return (
-        <div className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full text-[10px] font-medium border border-slate-200">
-            Draft
-        </div>
-    )
-}
-if (status === "Failed") {
-    return (
-        <div className="bg-red-50 text-red-700 px-2 py-0.5 rounded-full text-[10px] font-medium border border-red-100">
-            Failed
-        </div>
-    )
-}
-if (status === "Completed") {
-    return (
-        <div className="bg-green-50 text-green-700 px-2 py-0.5 rounded-full text-[10px] font-medium border border-green-100">
-            Completed
-        </div>
-    )
-}
-return null
+
+    if (status === "Draft") {
+        return (
+            <div className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full text-[10px] font-medium border border-slate-200">
+                Draft
+            </div>
+        )
+    }
+    if (status === "Failed") {
+        return (
+            <div className="bg-red-50 text-red-700 px-2 py-0.5 rounded-full text-[10px] font-medium border border-red-100">
+                Failed
+            </div>
+        )
+    }
+    if (status === "Completed") {
+        return (
+            <div className="bg-green-50 text-green-700 px-2 py-0.5 rounded-full text-[10px] font-medium border border-green-100">
+                Completed
+            </div>
+        )
+    }
+    return null
 }
 
 function VideoTypeBadge({ type }: { type: Project["type"] }) {
