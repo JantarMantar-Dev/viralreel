@@ -14,6 +14,7 @@ import nicheRoutes from './api/niches.js';
 import voicesRoutes from './api/voices.js';
 import musicRoutes from './api/music.js';
 import subtitleRoutes from "./api/subtitles.js";
+import { runMigrations } from "./db/index.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -144,6 +145,7 @@ fastify.register(paymentsRoutes, { prefix: "/api/payments" });
 // Run the server
 const start = async () => {
     try {
+        await runMigrations();
         await fastify.listen({ port: Number(process.env.PORT) || 3000, host: '0.0.0.0' });
     } catch (err) {
         fastify.log.error(err);
