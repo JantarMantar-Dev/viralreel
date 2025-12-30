@@ -1,0 +1,20 @@
+services:
+  zot:
+    image: ghcr.io/project-zot/zot-linux-amd64:latest
+    container_name: zot-registry
+    volumes:
+      - zot-data:/var/lib/registry
+      - ./config.json:/home/jbaba/.zot/config.json:ro
+      - ./htpasswd:/home/jbaba/.zot/zotpass:ro
+    networks:
+      - dokploy-network
+    ports:
+      - "5000:5000"
+    restart: always
+
+volumes:
+  zot-data:
+
+networks:
+  dokploy-network:
+    external: true
