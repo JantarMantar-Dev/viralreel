@@ -1,4 +1,5 @@
 import { pgTable, text, timestamp, boolean, integer, json } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 export const user = pgTable("user", {
     id: text("id").primaryKey(),
@@ -7,6 +8,8 @@ export const user = pgTable("user", {
     emailVerified: boolean("email_verified").notNull(),
     image: text("image"),
     stripeCustomerId: text("stripe_customer_id").unique(),
+    planTag: text("plan_tag").default("launch"),
+    planTagExpiresAt: timestamp("plan_tag_expires_at").default(sql`CURRENT_TIMESTAMP + INTERVAL '2 months'`),
     createdAt: timestamp("created_at").notNull(),
     updatedAt: timestamp("updated_at").notNull(),
 });
@@ -256,6 +259,7 @@ export const subscriptionPlan = pgTable("subscription_plan", {
     interval: text("interval"), // 'month', 'year', or null for one-time
     credits: integer("credits").notNull(), // Number of credits granted
     stripePriceId: text("stripe_price_id").unique(), // Stripe Price ID
+    tag: text("tag"), // 'launch' or null
     isActive: boolean("is_active").default(true),
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),

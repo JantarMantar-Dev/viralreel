@@ -21,3 +21,10 @@ Chasing that first $1k. 🚀
 https://www.getviralreel.com/
 
 #buildinpublic #indiehacker #SaaS #entrepreneurship
+
+-----
+
+Ideas:
+
+Pravoking!! Twit. I am a Vibe Coder, scare me with one word 👀 (do it with coding, dock ploy, ai usage, building small apps, next.js, react, postgres, docker)
+
