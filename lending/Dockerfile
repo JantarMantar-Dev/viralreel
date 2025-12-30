@@ -18,6 +18,10 @@ COPY . .
 
 ENV NEXT_TELEMETRY_DISABLED 1
 
+
+ARG NEXT_PUBLIC_APP_URL
+ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
+
 RUN npm run build
 
 # Production image, copy all the files and run next
