@@ -3,26 +3,40 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Copy package files
 COPY package*.json ./
+
+# Install all dependencies (including devDependencies)
 RUN npm install
 
+# Copy source code
 COPY . .
-RUN npm run build
+
+# Build the application
+RUN npm run build:prod
 
 # Production stage
 FROM node:20-alpine
 
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm install --production
+ENV NODE_ENV=production
 
-# Copy built app and migration files
+# Copy package files
+COPY package*.json ./
+
+# Install only production dependencies
+RUN npm install --production && \
+    npm cache clean --force
+
+# Copy built application
 COPY --from=builder /app/dist ./dist
+# Copy drizzle migrations
 COPY --from=builder /app/drizzle ./drizzle
+
+# Use non-root user
+USER node
 
 EXPOSE 3000
 
-# For local development in docker-compose, this command will be overridden
-# In production, this starts the server
 CMD ["node", "dist/index.js"]

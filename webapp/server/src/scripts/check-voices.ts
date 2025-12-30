@@ -28,7 +28,7 @@ async function checkVoices() {
                     }
                 }
             }
-        };
+        } as any;
 
         const generator = tts.generateContentAsync(request);
         for await (const response of generator) {
