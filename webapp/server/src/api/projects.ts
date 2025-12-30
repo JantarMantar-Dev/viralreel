@@ -9,6 +9,13 @@ import { storageProvider } from "../lib/storage.js";
 
 // --- Helper Functions ---
 
+function mapVideoStatus(status: string): "Draft" | "Rendering" | "Completed" | "Failed" {
+    if (status === "DRAFT") return "Draft";
+    if (status === "COMPLETED") return "Completed";
+    if (status.includes("FAILED")) return "Failed";
+    return "Rendering";
+}
+
 async function fetchSeriesProjects(userId: string) {
     // Fetch series with their episode counts and metadata
     const allSeries = await db.select({
@@ -31,11 +38,9 @@ async function fetchSeriesProjects(userId: string) {
         const episodes = await db.select({
             id: video.id,
             status: video.status,
-            renderStatus: renderJob.status,
             thumbnailUrl: video.thumbnailUrl // Still need thumbnail from first episode
         })
             .from(video)
-            .leftJoin(renderJob, eq(video.id, renderJob.videoId))
             .where(eq(video.seriesId, s.id))
             .orderBy(desc(video.createdAt)); // Newest first
 
@@ -48,18 +53,13 @@ async function fetchSeriesProjects(userId: string) {
 
         // Determine aggregated status
         const isRendering = episodes.some(e =>
-            e.renderStatus === "QUEUED" ||
-            e.renderStatus === "PROCESSING" ||
             e.status === "SCRIPTING" ||
-            e.status === "GENERATING"
+            e.status === "GENERATING" ||
+            e.status === "SCRIPT_READY"
         );
 
         const isAnyDraft = episodes.some(e =>
-            e.renderStatus === "DRAFT" ||
-            e.status === "DRAFT" ||
-            e.renderStatus === "FAILED" ||
-            e.status === "FAILED" ||
-            e.status === "SCRIPT_READY"
+            e.status === "DRAFT"
         );
 
         let status = "Completed";
@@ -95,7 +95,6 @@ async function fetchVideoProjects(userId: string) {
         createdAt: video.createdAt,
         status: video.status,
         metadata: video.metadata,
-        renderStatus: renderJob.status,
         outputUrl: video.outputUrl,
         compressedUrl: video.compressedUrl
     })
@@ -111,17 +110,8 @@ async function fetchVideoProjects(userId: string) {
 
     return Promise.all(videos.map(async v => {
         // Map status
-        // Priority: Render Job Status > Video Status
-        let status = "Completed";
-        if (v.renderStatus === "QUEUED" || v.renderStatus === "PROCESSING") {
-            status = "Rendering";
-        } else if (v.status === "DRAFT" || v.renderStatus === "DRAFT" || v.status === "SCRIPT_READY") {
-            status = "Draft";
-        } else if (v.status === "SCRIPTING") {
-            status = "Rendering"; // Grouping scripting into rendering for dashboard simplicity
-        } else if (v.renderStatus === "FAILED" || v.status === "FAILED") {
-            status = "Draft"; // or Failed
-        }
+        // Simplified Logic: 4 Statuses Only
+        const status = mapVideoStatus(v.status);
 
         const signedOutputUrl = await storageProvider.getSignedUrlFromFullUrl(v.outputUrl || "");
         const signedCompressedUrl = await storageProvider.getSignedUrlFromFullUrl(v.compressedUrl || "");
@@ -239,26 +229,15 @@ const projectsRoutes: FastifyPluginAsync = async (fastify) => {
                 status: video.status,
                 metadata: video.metadata,
                 episodeNumber: video.episodeNumber,
-                renderStatus: renderJob.status,
                 outputUrl: video.outputUrl,
                 compressedUrl: video.compressedUrl
             })
                 .from(video)
-                .leftJoin(renderJob, eq(video.id, renderJob.videoId))
                 .where(eq(video.seriesId, seriesId))
                 .orderBy(video.episodeNumber);
 
             const formattedEpisodes = await Promise.all(episodes.map(async v => {
-                let status = "Completed";
-                if (v.renderStatus === "QUEUED" || v.renderStatus === "PROCESSING" || v.status === "GENERATING") {
-                    status = "Rendering";
-                } else if (v.status === "DRAFT" || v.renderStatus === "DRAFT" || v.status === "SCRIPT_READY") {
-                    status = "Draft";
-                } else if (v.status === "SCRIPTING") {
-                    status = "Rendering";
-                } else if (v.renderStatus === "FAILED" || v.status === "FAILED") {
-                    status = "Draft";
-                }
+                const status = mapVideoStatus(v.status);
 
                 const signedOutputUrl = await storageProvider.getSignedUrlFromFullUrl(v.outputUrl || "");
                 const signedCompressedUrl = await storageProvider.getSignedUrlFromFullUrl(v.compressedUrl || "");

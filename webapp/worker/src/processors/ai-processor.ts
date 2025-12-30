@@ -30,6 +30,16 @@ export class AiProcessor implements Processor {
                         updatedAt: new Date()
                     })
                     .where(eq(renderJob.id, job.id));
+
+                // Update video status to GENERATING (since AI gen is part of generation process)
+                // Note: Schema has SCRIPT_READY, GENERATING. We'll use GENERATING here as it's active work.
+                await tx.update(video)
+                    .set({
+                        status: 'GENERATING',
+                        updatedAt: new Date()
+                    })
+                    .where(eq(video.id, job.videoId));
+
                 return job;
             }
             return null;
@@ -144,6 +154,13 @@ export class AiProcessor implements Processor {
                     updatedAt: new Date()
                 })
                 .where(eq(renderJob.id, job.id));
+
+            await db.update(video)
+                .set({
+                    status: 'FAILED',
+                    updatedAt: new Date()
+                })
+                .where(eq(video.id, job.videoId));
         }
     }
 }

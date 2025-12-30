@@ -39,6 +39,12 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator"
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { API_BASE_URL } from "@/lib/config"
 import { formatRelativeDate } from "@/lib/date-utils"
 import { VideoPlayerDialog } from "../videos/components/video-player-dialog"
@@ -49,8 +55,9 @@ interface Episode {
     id: string
     title: string
     description: string
+
     thumbnailUrl: string
-    status: "Draft" | "Rendering" | "Completed"
+    status: "Draft" | "Rendering" | "Completed" | "Failed"
     episodeNumber: number
     date: string
     duration?: number
@@ -78,15 +85,25 @@ interface SeriesDetails {
 function EpisodeStatusBadge({ status }: { status: Episode["status"] }) {
     if (status === "Rendering") {
         return (
-            <div className="flex items-center gap-1.5 bg-yellow-50 text-yellow-700 px-2 py-0.5 rounded-full text-[10px] font-medium border border-yellow-100">
-                <span className="relative flex h-1.5 w-1.5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-yellow-500"></span>
-                </span>
-                Rendering
-            </div>
+            <TooltipProvider>
+                <Tooltip delayDuration={300}>
+                    <TooltipTrigger asChild>
+                        <div className="flex items-center gap-1.5 bg-yellow-50 text-yellow-700 px-2 py-0.5 rounded-full text-[10px] font-medium border border-yellow-100 cursor-default">
+                            <span className="relative flex h-1.5 w-1.5">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-yellow-500"></span>
+                            </span>
+                            Rendering
+                        </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                        <p>It will take 5 mins. Sit back and relax.</p>
+                    </TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
         )
     }
+
     if (status === "Draft") {
         return (
             <div className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full text-[10px] font-medium border border-slate-200">
