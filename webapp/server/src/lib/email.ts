@@ -7,6 +7,7 @@ import ResetPasswordEmail from "../emails/reset-password.js";
 import SubscriptionConfirmedEmail from "../emails/subscription-confirmed.js";
 import VideoReadyEmail from "../emails/video-ready.js";
 import SubscriptionCancelledEmail from "../emails/subscription-cancelled.js";
+import WaitlistInviteEmail from "../emails/waitlist-invite.js";
 import * as React from "react";
 
 // Create a transporter using SMTP credentials from environment variables
@@ -161,3 +162,12 @@ export const sendSubscriptionCancelledEmail = async (
         })
     );
 };
+
+export const sendWaitlistInviteEmail = async (email: string, name?: string) => {
+    return sendEmail(
+        email,
+        "We are live!",
+        React.createElement(WaitlistInviteEmail, { name })
+    );
+};
+
