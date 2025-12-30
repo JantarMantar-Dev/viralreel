@@ -141,5 +141,45 @@ export const SUBTITLE_STYLES: Record<string, {
             textTransform: 'capitalize',
             filter: 'drop-shadow(0 6.4px 9.6px rgba(0,0,0,0.1))'
         }
+    },
+    "default": {
+        name: "Default",
+        description: "Standard clean style",
+        previewText: "Basic",
+        style: {
+            fontFamily: 'sans-serif',
+            fontWeight: 700,
+            color: 'white',
+            fontSize: '4.8rem',
+            textShadow: '0 4px 8px rgba(0,0,0,0.3)',
+            filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))'
+        }
+    },
+    "bold-yellow": {
+        name: "Bold Yellow",
+        description: "High visibility style",
+        previewText: "BOLD",
+        style: {
+            fontFamily: 'sans-serif',
+            fontWeight: 900,
+            color: '#FACC15',
+            fontSize: '4.8rem',
+            textTransform: 'uppercase',
+            textShadow: '0 4px 8px rgba(0,0,0,0.3)',
+            filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))'
+        }
+    },
+    "red-outline": {
+        name: "Red Outline",
+        description: "Distinctive outline style",
+        previewText: "Outline",
+        style: {
+            fontFamily: 'sans-serif',
+            fontWeight: 900,
+            color: 'transparent',
+            fontSize: '4.8rem',
+            textTransform: 'uppercase',
+            WebkitTextStroke: '3.2px red'
+        }
     }
 };
