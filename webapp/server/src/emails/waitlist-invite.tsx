@@ -40,30 +40,6 @@ export const WaitlistInviteEmail = ({
 
 export default WaitlistInviteEmail;
 
-const heroSection = {
-    backgroundColor: "#F0FDF4", // Light green background
-    borderRadius: "8px",
-    padding: "40px 0",
-    marginBottom: "32px",
-    textAlign: "center" as const,
-};
-
-const iconCircle = {
-    backgroundColor: "#DCFCE7", // Slightly darker green circle
-    borderRadius: "50%",
-    width: "80px",
-    height: "80px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    margin: "0 auto",
-};
-
-const icon = {
-    margin: "0 auto",
-    display: "block",
-};
-
 const heading = {
     fontSize: "30px",
     fontWeight: "bold",
