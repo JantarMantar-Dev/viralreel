@@ -24,7 +24,10 @@ dotenv.config();
 import { serializerCompiler, validatorCompiler } from "fastify-type-provider-zod";
 import fastifyRawBody from 'fastify-raw-body';
 
-const fastify = Fastify({ logger: true });
+const fastify = Fastify({
+    logger: true,
+    trustProxy: true // trust the proxy to set the correct protocol and ip
+});
 
 // Register raw body for Stripe webhooks
 fastify.register(fastifyRawBody, {
@@ -80,6 +83,10 @@ fastify.route({
     url: "/api/auth/*",
     async handler(request, reply) {
         try {
+            console.log("[Auth] Request URL:", request.url);
+            console.log("[Auth] Request Method:", request.method);
+            console.log("[Auth] Request Headers:", request.headers);
+            console.log("[Auth] Request Body:", request.body);
             // Construct request URL
             const url = new URL(request.url, `http://${request.headers.host}`);
 
@@ -97,7 +104,12 @@ fastify.route({
             });
 
             // Process authentication request
+            console.log(`[Auth] ${request.method} ${request.url}`);
+            console.log(`[Auth] Host: ${request.headers.host}, Proto: ${request.headers['x-forwarded-proto']}`);
+
             const response = await auth.handler(req);
+
+            console.log(`[Auth] Response Status: ${response.status}`);
 
             // Forward response to client
             reply.status(response.status);
@@ -122,9 +134,13 @@ fastify.route({
     }
 });
 
-// Health check route
+// Health check routes
 fastify.get('/api/health', async (_request, _reply) => {
     return { status: 'ok', message: 'Fastify server is running' };
+});
+
+fastify.get('/health', async (_request, _reply) => {
+    return { status: 'ok', message: 'Public health check' };
 });
 
 // Register authentication middleware
@@ -146,6 +162,14 @@ fastify.register(paymentsRoutes, { prefix: "/api/payments" });
 const start = async () => {
     try {
         await runMigrations();
+
+        // Debug Auth Environment Variables
+        console.log("--- Auth Configuration Check ---");
+        console.log("BETTER_AUTH_URL:", process.env.BETTER_AUTH_URL);
+        console.log("BETTER_AUTH_SECRET present:", !!process.env.BETTER_AUTH_SECRET);
+        console.log("NODE_ENV:", process.env.NODE_ENV);
+        console.log("--------------------------------");
+
         await fastify.listen({ port: Number(process.env.PORT) || 3000, host: '0.0.0.0' });
     } catch (err) {
         fastify.log.error(err);
