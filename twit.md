@@ -28,3 +28,8 @@ Ideas:
 
 Pravoking!! Twit. I am a Vibe Coder, scare me with one word 👀 (do it with coding, dock ploy, ai usage, building small apps, next.js, react, postgres, docker)
 
+DEv issues twit:
+there is build env vars comes after you selecte dockerfile
+missing better auth env vars
+setting docker swarm mode
+setting up db in swarm why you need swarm
