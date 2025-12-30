@@ -26,6 +26,11 @@ import { cn } from "@/lib/utils"
 import { useCreation } from "../context/creation-context"
 import { Button } from "@/components/ui/button"
 import StepHeader from "../components/step-header"
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 export const IMAGE_STYLES = [
     { id: "comic", name: "Comic", description: "Bold comic-book style, thick outlines", icon: Zap },
@@ -201,14 +206,24 @@ export default function ScriptStep() {
                         <span className="text-xs font-semibold text-slate-400">
                             {request.scriptIdea.length}/1000
                         </span>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="bg-white hover:bg-purple-50 hover:text-purple-600 hover:border-purple-200 gap-2 transition-all shadow-sm"
-                        >
-                            <Sparkles className="h-4 w-4" />
-                            Enhance with AI
-                        </Button>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <span tabIndex={0}>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        disabled
+                                        className="bg-white hover:bg-purple-50 hover:text-purple-600 hover:border-purple-200 gap-2 transition-all shadow-sm opacity-50 cursor-not-allowed"
+                                    >
+                                        <Sparkles className="h-4 w-4" />
+                                        Enhance with AI
+                                    </Button>
+                                </span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>This feature is coming soon</p>
+                            </TooltipContent>
+                        </Tooltip>
                     </div>
                 </div>
             </div>
