@@ -83,10 +83,6 @@ fastify.route({
     url: "/api/auth/*",
     async handler(request, reply) {
         try {
-            console.log("[Auth] Request URL:", request.url);
-            console.log("[Auth] Request Method:", request.method);
-            console.log("[Auth] Request Headers:", request.headers);
-            console.log("[Auth] Request Body:", request.body);
             // Construct request URL
             const url = new URL(request.url, `http://${request.headers.host}`);
 
@@ -102,10 +98,6 @@ fastify.route({
                 headers,
                 body: request.body ? JSON.stringify(request.body) : undefined,
             });
-
-            // Process authentication request
-            console.log(`[Auth] ${request.method} ${request.url}`);
-            console.log(`[Auth] Host: ${request.headers.host}, Proto: ${request.headers['x-forwarded-proto']}`);
 
             const response = await auth.handler(req);
 
