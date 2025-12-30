@@ -5,10 +5,11 @@
     "main": "dist/index.js",
     "type": "module",
     "scripts": {
-        "start": "tsx src/video_renderer.ts",
+        "start": "tsx src/worker.ts",
         "start:script": "tsx src/script_renderer.ts",
         "start:ai": "tsx src/ai_asset_generator.ts",
         "start:video": "tsx src/video_renderer.ts",
+        "start:worker": "tsx src/worker.ts",
         "build": "tsc",
         "preview": "remotion preview src/remotion/index.ts"
     },
