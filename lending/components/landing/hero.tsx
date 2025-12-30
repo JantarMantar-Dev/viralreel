@@ -11,6 +11,15 @@ import { VideoPlayerDialog } from "@/components/video-player-dialog"
 
 export function Hero() {
     const [isVideoOpen, setIsVideoOpen] = useState(false)
+    const [activeVideo, setActiveVideo] = useState({
+        src: "/videos/disney-tech-my_little_rocket_ship_kid_story.mp4",
+        poster: "/thumbnails/disney-tech-my_little_rocket_ship_kid_story.jpg"
+    })
+
+    const openVideo = (src: string, poster?: string) => {
+        setActiveVideo({ src, poster: poster || "" })
+        setIsVideoOpen(true)
+    }
 
     return (
         <section className="relative min-h-screen flex items-center justify-center pt-20 overflow-hidden">
@@ -77,7 +86,10 @@ export function Hero() {
                                 variant="outline"
                                 size="lg"
                                 className="w-full sm:w-auto border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-slate-900"
-                                onClick={() => posthog.capture('hero_cta_clicked', { button: 'watch_demo' })}
+                                onClick={() => {
+                                    posthog.capture('hero_cta_clicked', { button: 'watch_demo' })
+                                    openVideo("https://www.youtube.com/watch?v=ctrap1vIX48")
+                                }}
                             >
                                 <PlayCircle className="mr-2 size-4" />
                                 Watch Demo
@@ -140,7 +152,7 @@ export function Hero() {
                         {/* Phone Frame / Reel Preview */}
                         <div
                             className="absolute inset-0 bg-slate-800 flex items-center justify-center relative group cursor-pointer overflow-hidden rounded-[1.8rem]"
-                            onClick={() => setIsVideoOpen(true)}
+                            onClick={() => openVideo("/videos/disney-tech-my_little_rocket_ship_kid_story.mp4", "/thumbnails/disney-tech-my_little_rocket_ship_kid_story.jpg")}
                         >
                             <video
                                 src="/videos/disney-tech-my_little_rocket_ship_kid_story.mp4"
@@ -169,8 +181,8 @@ export function Hero() {
             <VideoPlayerDialog
                 open={isVideoOpen}
                 onOpenChange={setIsVideoOpen}
-                videoSrc="/videos/disney-tech-my_little_rocket_ship_kid_story.mp4"
-                poster="/thumbnails/disney-tech-my_little_rocket_ship_kid_story.jpg"
+                videoSrc={activeVideo.src}
+                poster={activeVideo.poster}
             />
         </section>
     )

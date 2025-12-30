@@ -155,6 +155,10 @@ export default function CreateVideoLayout() {
 
             if (!response.ok) {
                 const errorData = await response.json()
+                // Pass the whole error object if it has a key, otherwise throw generic error
+                if (errorData.key) {
+                    throw errorData
+                }
                 throw new Error(errorData.error || errorData.message || "Failed to process job")
             }
 
@@ -163,6 +167,15 @@ export default function CreateVideoLayout() {
         onSuccess: () => {
             toast.success(editVideoId ? "Job updated successfully!" : "Job created successfully!")
             navigate("/videos")
+        },
+        onError: (error: any) => {
+            // Check if it's our trusted error format
+            if (error?.key === "InsuffCredits") {
+                toast.error(error.message)
+            } else {
+                // Fallback for generic errors
+                toast.error(error.message || "Something went wrong. Please try again.")
+            }
         }
     })
 

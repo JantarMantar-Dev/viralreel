@@ -1,4 +1,5 @@
 import * as React from "react"
+import { Slot } from "@radix-ui/react-slot"
 import { cn } from "@/lib/utils"
 
 const variants = {
@@ -27,12 +28,14 @@ export function getButtonClassName(variant: keyof typeof variants = 'primary', s
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
     variant?: keyof typeof variants;
     size?: keyof typeof sizes;
+    asChild?: boolean;
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-    ({ className, variant = 'primary', size = 'md', ...props }, ref) => {
+    ({ className, variant = 'primary', size = 'md', asChild = false, ...props }, ref) => {
+        const Comp = asChild ? Slot : "button"
         return (
-            <button
+            <Comp
                 ref={ref}
                 className={getButtonClassName(variant, size, className)}
                 {...props}

@@ -4,6 +4,7 @@ import { nanoid } from "nanoid";
 import { CreateJobBody } from "../api/jobs.js";
 import { eq, desc, and, sql, inArray, or } from "drizzle-orm";
 import { deductCredits, hasEnoughCredits } from "./credit-service.js";
+import { AppError } from "../lib/errors.js";
 
 interface CreateVideoJobParams {
     userId: string;
@@ -17,7 +18,7 @@ export async function createVideoJob({ userId, body, existingSeriesId, isDraft =
     if (!isDraft) {
         const canAfford = await hasEnoughCredits(userId, 1);
         if (!canAfford) {
-            throw new Error("Insufficient credits to generate this video");
+            throw new AppError("InsuffCredits", "Insufficient credits to generate this video", 402);
         }
     }
 
@@ -194,7 +195,7 @@ export async function queueVideoRender(videoId: string, userId: string) {
     // Check credits
     const canAfford = await hasEnoughCredits(userId, 1);
     if (!canAfford) {
-        throw new Error("Insufficient credits to generate this video");
+        throw new AppError("InsuffCredits", "Insufficient credits to generate this video", 402);
     }
 
     // Update video status to SCRIPTING (start of pipeline)
