@@ -81,6 +81,7 @@ ENV GROQ_API_KEY=$GROQ_API_KEY
 
 # Ensure work directory exists
 RUN mkdir -p $VIDEO_WORK_DIR
+VOLUME $VIDEO_WORK_DIR
 
 # Run the worker - default to video worker, can be overridden
 CMD ["npm", "start"]
