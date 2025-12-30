@@ -53,13 +53,13 @@ export const SubscriptionConfirmedEmail = ({
             </Section>
 
             <Section style={btnContainer}>
-                <Button style={button} href="https://viralreel.com/dashboard">
+                <Button style={button} href="https://getviralreel.com/dashboard">
                     Go to Dashboard
                 </Button>
             </Section>
 
             <Text style={subtext}>
-                Need to change your plan? <Link href="https://viralreel.com/dashboard/settings" style={link}>Manage Subscription</Link>
+                Need to change your plan? <Link href="https://getviralreel.com/settings" style={link}>Manage Subscription</Link>
             </Text>
         </EmailLayout>
     );

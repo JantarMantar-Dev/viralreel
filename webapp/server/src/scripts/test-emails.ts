@@ -53,11 +53,11 @@ async function main() {
         await runTest("Welcome Email", () => sendWelcomeEmail(TEST_EMAIL, USER_NAME));
 
         await runTest("Verify Email", () =>
-            sendVerifyEmail(TEST_EMAIL, "https://viralreel.com/verify?token=mock-token", USER_NAME)
+            sendVerifyEmail(TEST_EMAIL, "https://getviralreel.com/verify?token=mock-token", USER_NAME)
         );
 
         await runTest("Reset Password Email", () =>
-            sendResetPasswordEmail(TEST_EMAIL, "https://viralreel.com/reset-password?token=mock-token", USER_NAME)
+            sendResetPasswordEmail(TEST_EMAIL, "https://getviralreel.com/reset-password?token=mock-token", USER_NAME)
         );
 
         await runTest("Password Changed Email", () =>
@@ -80,7 +80,7 @@ async function main() {
                 USER_NAME,
                 "Future of Tech - Episode 1",
                 "https://images.unsplash.com/photo-1626544827763-d516dce335ca?q=80&w=600&auto=format&fit=crop",
-                "https://viralreel.com/dashboard/videos/123",
+                "https://getviralreel.com/dashboard/videos/123",
                 "02:14"
             )
         );
