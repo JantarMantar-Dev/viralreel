@@ -13,6 +13,31 @@ export interface SubtitleStyle {
     css: string
 }
 
+const STYLE_MAPPING: Record<string, string> = {
+    // Standard Styles
+    "Classic CapCut": "font-sans font-black text-white stroke-black drop-shadow-[0_2px_0_rgba(0,0,0,1)] uppercase text-4xl tracking-tight leading-none",
+    "Bold Impact": "font-sans font-black text-yellow-400 drop-shadow-[0_4px_0_rgba(0,0,0,1)] uppercase text-4xl tracking-normal",
+    "Neon Glow": "font-mono font-bold text-cyan-400 drop-shadow-[0_0_10px_rgba(34,211,238,0.8)] uppercase text-4xl tracking-widest",
+    "Minimal Clean": "font-sans font-medium text-slate-900 bg-white/90 px-3 py-1 rounded-lg text-2xl tracking-wide lowercase",
+    "Gradient Pop": "font-sans font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600 drop-shadow-sm uppercase text-4xl tracking-tighter",
+    "Comic Book": "font-sans font-extrabold text-white text-4xl tracking-wide uppercase drop-shadow-[3px_3px_0_#000] -rotate-3",
+    "Typewriter": "font-mono font-medium text-green-400 bg-black/80 px-4 py-2 rounded-sm text-xl tracking-tight",
+    "MrBeast Style": "font-sans font-black text-white text-5xl tracking-tighter uppercase drop-shadow-[0_0_15px_rgba(0,0,0,0.8)] stroke-[3px] stroke-black",
+    "Karaoke": "font-sans font-bold text-purple-300 text-3xl tracking-normal capitalize drop-shadow-md",
+
+    // Custom/New Styles
+    "Default": "font-sans font-bold text-white drop-shadow-md text-3xl",
+    "Bold Yellow": "font-sans font-black text-yellow-400 drop-shadow-md uppercase text-3xl",
+    "Red Outline": "font-sans font-black text-transparent [-webkit-text-stroke:2px_red] uppercase text-3xl"
+}
+
+const PREVIEW_MAPPING: Record<string, string> = {
+    "Default": "Basic",
+    "Bold Yellow": "BOLD",
+    "Red Outline": "Outline"
+}
+
+
 export default function SubtitleStep() {
     const { request, updateRequest } = useCreation()
 
@@ -95,8 +120,8 @@ export default function SubtitleStep() {
                                     {/* Background Grid Pattern */}
                                     <div className="absolute inset-0 opacity-[0.03] bg-[linear-gradient(to_right,#000_1px,transparent_1px),linear-gradient(to_bottom,#000_1px,transparent_1px)] bg-[size:16px_16px]" />
 
-                                    <div className={cn(style.css, "text-center relative z-10 transition-transform duration-500 group-hover:scale-110")}>
-                                        {style.preview}
+                                    <div className={cn(STYLE_MAPPING[style.name] || "", "text-center relative z-10 transition-transform duration-500 group-hover:scale-110")}>
+                                        {PREVIEW_MAPPING[style.name] || style.preview}
                                     </div>
                                 </div>
 

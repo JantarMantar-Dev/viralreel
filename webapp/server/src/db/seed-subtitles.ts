@@ -57,6 +57,24 @@ const SUBTITLE_STYLES = [
         description: "Sing-along style",
         previewText: "Sing",
         css: "font-sans font-bold text-purple-300 text-3xl tracking-normal capitalize drop-shadow-md"
+    },
+    {
+        name: "Default",
+        description: "Standard clean style",
+        previewText: "Basic",
+        css: "font-sans font-bold text-white drop-shadow-md text-3xl"
+    },
+    {
+        name: "Bold Yellow",
+        description: "High visibility style",
+        previewText: "BOLD",
+        css: "font-sans font-black text-yellow-400 drop-shadow-md uppercase text-3xl"
+    },
+    {
+        name: "Red Outline",
+        description: "Distinctive outline style",
+        previewText: "Outline",
+        css: "font-sans font-black text-transparent [-webkit-text-stroke:2px_red] uppercase text-3xl"
     }
 ];
 
