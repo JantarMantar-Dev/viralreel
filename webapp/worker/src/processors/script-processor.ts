@@ -1,6 +1,6 @@
 
 import { db } from '../db/index.js';
-import { renderJob } from '../db/schema.js';
+import { renderJob, video } from '../db/schema.js';
 import { eq, or } from 'drizzle-orm';
 import { Processor } from './types.js';
 import { ScriptingJob } from '../scripting/index.js';
@@ -27,6 +27,14 @@ export class ScriptProcessor implements Processor {
                         updatedAt: new Date()
                     })
                     .where(eq(renderJob.id, job.id));
+
+                await tx.update(video)
+                    .set({
+                        status: 'SCRIPTING',
+                        updatedAt: new Date()
+                    })
+                    .where(eq(video.id, job.videoId));
+
                 return job;
             }
             return null;
@@ -59,6 +67,13 @@ export class ScriptProcessor implements Processor {
                     updatedAt: new Date()
                 })
                 .where(eq(renderJob.id, job.id));
+
+            await db.update(video)
+                .set({
+                    status: 'FAILED',
+                    updatedAt: new Date()
+                })
+                .where(eq(video.id, job.videoId));
         }
     }
 }

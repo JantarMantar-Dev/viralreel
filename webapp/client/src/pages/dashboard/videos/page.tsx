@@ -38,6 +38,12 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator"
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { VideosEmptyState } from "./components/videos-empty-state"
 import { API_BASE_URL } from "@/lib/config"
 import { formatRelativeDate } from "@/lib/date-utils"
@@ -51,7 +57,7 @@ interface Project {
     description: string
     thumbnailUrl: string
     type: "Single Video" | "Series"
-    status: "Draft" | "Rendering" | "Completed" | "Scripting"
+    status: "Draft" | "Rendering" | "Completed" | "Failed"
     videoCount?: number
     date: string
     duration?: string
@@ -66,32 +72,49 @@ interface Project {
 
 
 function ProjectStatusBadge({ status }: { status: Project["status"] }) {
-    if (status === "Rendering" || status === "Scripting") {
+    if (status === "Rendering") {
         return (
-            <div className="flex items-center gap-1.5 bg-yellow-50 text-yellow-700 px-2 py-0.5 rounded-full text-[10px] font-medium border border-yellow-100">
-                <span className="relative flex h-1.5 w-1.5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-yellow-500"></span>
-                </span>
-                {status}
-            </div>
+            <TooltipProvider>
+                <Tooltip delayDuration={300}>
+                    <TooltipTrigger asChild>
+                        <div className="flex items-center gap-1.5 bg-yellow-50 text-yellow-700 px-2 py-0.5 rounded-full text-[10px] font-medium border border-yellow-100 cursor-default">
+                            <span className="relative flex h-1.5 w-1.5">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-yellow-500"></span>
+                            </span>
+                            Rendering
+                        </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                        <p>It will take 5 mins. Sit back and relax.</p>
+                    </TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
         )
     }
-    if (status === "Draft") {
-        return (
-            <div className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full text-[10px] font-medium border border-slate-200">
-                Draft
-            </div>
-        )
-    }
-    if (status === "Completed") {
-        return (
-            <div className="bg-green-50 text-green-700 px-2 py-0.5 rounded-full text-[10px] font-medium border border-green-100">
-                Completed
-            </div>
-        )
-    }
-    return null
+}
+if (status === "Draft") {
+    return (
+        <div className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full text-[10px] font-medium border border-slate-200">
+            Draft
+        </div>
+    )
+}
+if (status === "Failed") {
+    return (
+        <div className="bg-red-50 text-red-700 px-2 py-0.5 rounded-full text-[10px] font-medium border border-red-100">
+            Failed
+        </div>
+    )
+}
+if (status === "Completed") {
+    return (
+        <div className="bg-green-50 text-green-700 px-2 py-0.5 rounded-full text-[10px] font-medium border border-green-100">
+            Completed
+        </div>
+    )
+}
+return null
 }
 
 function VideoTypeBadge({ type }: { type: Project["type"] }) {

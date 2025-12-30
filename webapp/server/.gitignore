@@ -122,3 +122,4 @@ dist
 # Better Auth
 auth.db
 webapp/server/auth.db
+.env.support

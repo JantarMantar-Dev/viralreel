@@ -127,6 +127,10 @@ export default function CustomNicheForm({ onBack }: CustomNicheFormProps) {
     useEffect(() => {
         setCanContinue(isValid && !isCreating)
         setIsStepLoading(isNameChecking || isCreating)
+
+        return () => {
+            setIsStepLoading(false)
+        }
     }, [isValid, isCreating, isNameChecking, setCanContinue, setIsStepLoading])
 
     return (

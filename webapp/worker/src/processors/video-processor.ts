@@ -130,6 +130,14 @@ export class VideoProcessor implements Processor {
                         updatedAt: new Date()
                     })
                     .where(eq(renderJob.id, job.id));
+
+                await tx.update(video)
+                    .set({
+                        status: 'GENERATING',
+                        updatedAt: new Date()
+                    })
+                    .where(eq(video.id, job.videoId));
+
                 return job;
             }
             return null;
