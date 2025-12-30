@@ -33,3 +33,4 @@ there is build env vars comes after you selecte dockerfile
 missing better auth env vars
 setting docker swarm mode
 setting up db in swarm why you need swarm
+connection stringpassword with string should be encoded if we have special characters in drizzle
