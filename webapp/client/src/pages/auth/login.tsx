@@ -57,10 +57,6 @@ export default function LoginPage() {
         })
     }
 
-    // Debug environment variables
-    console.log('Current Env:', import.meta.env);
-    console.log('Lending URL:', import.meta.env.VITE_LENDING_URL);
-
     return (
         <Card>
             <CardHeader>

@@ -367,7 +367,6 @@ function VideoListView({ filter, setFilter, navigate, projects, isLoading, onDel
                                                 navigate(`/videos/series/${project.id}`)
                                             } else {
                                                 // For now, standalone videos might go to edit or review
-                                                console.log("Edit video", project.id)
                                                 if (project.status === "Completed") {
                                                     onOpen(project);
                                                 }
