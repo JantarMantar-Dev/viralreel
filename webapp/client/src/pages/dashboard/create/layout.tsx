@@ -14,6 +14,14 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { API_BASE_URL } from "@/lib/config"
 import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog"
+import {
     CreationContext,
     VideoJobRequest,
     INITIAL_REQUEST
@@ -42,6 +50,7 @@ export default function CreateVideoLayout() {
     const [customPrev, setCustomPrev] = useState<(() => void) | undefined>()
     const [canContinue, setCanContinue] = useState(true)
     const [isStepLoading, setIsStepLoading] = useState(false)
+    const [showInsufficientCreditsDialog, setShowInsufficientCreditsDialog] = useState(false)
 
     const navigate = useNavigate()
     const location = useLocation()
@@ -171,7 +180,7 @@ export default function CreateVideoLayout() {
         onError: (error: any) => {
             // Check if it's our trusted error format
             if (error?.key === "InsuffCredits") {
-                toast.error(error.message)
+                setShowInsufficientCreditsDialog(true)
             } else {
                 // Fallback for generic errors
                 toast.error(error.message || "Something went wrong. Please try again.")
@@ -388,6 +397,24 @@ export default function CreateVideoLayout() {
                         </div>
                     </footer>
                 )}
+
+                <Dialog open={showInsufficientCreditsDialog} onOpenChange={setShowInsufficientCreditsDialog}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Insufficient Credits</DialogTitle>
+                            <DialogDescription>
+                                You don't have enough credits to generate this video. Please upgrade your plan or purchase add-on credits.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <DialogFooter>
+                            <Button variant="outline" onClick={() => setShowInsufficientCreditsDialog(false)}>Cancel</Button>
+                            <Button onClick={() => {
+                                setShowInsufficientCreditsDialog(false)
+                                navigate("/settings/billing")
+                            }}>Buy Credits</Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
             </div>
         </CreationContext.Provider>
     )
