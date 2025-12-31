@@ -2,6 +2,7 @@ import { db } from "../db/index.js";
 import { creditBalance, creditTransaction } from "../db/schema.js";
 import { eq, sql } from "drizzle-orm";
 import { randomUUID } from "crypto";
+import { AppError } from "../lib/errors.js";
 
 export async function hasEnoughCredits(userId: string, amount: number = 1): Promise<boolean> {
     const [balance] = await db.select()
@@ -32,7 +33,7 @@ export async function deductCredits(
 
     const available = balance.amountTotal - balance.amountUsed;
     if (available < amount) {
-        throw new Error("Insufficient credits");
+        throw new AppError("InsuffCredits", "Insufficient credits to generate this video", 402);
     }
 
     await db.transaction(async (tx) => {

@@ -149,6 +149,9 @@ export default async function jobRoutes(fastify: FastifyInstance) {
             return result;
         } catch (error: any) {
             fastify.log.error(error);
+            if (error?.name === 'AppError') {
+                return reply.status(error.statusCode).send({ key: error.key, message: error.message });
+            }
             return reply.status(500).send({ error: error.message || "Failed to create job" });
         }
     });
@@ -167,6 +170,9 @@ export default async function jobRoutes(fastify: FastifyInstance) {
             return result;
         } catch (error: any) {
             fastify.log.error(error);
+            if (error?.name === 'AppError') {
+                return reply.status(error.statusCode).send({ key: error.key, message: error.message });
+            }
             return reply.status(error.message.includes("not found") ? 404 : 500).send({ error: error.message });
         }
     });
@@ -207,6 +213,9 @@ export default async function jobRoutes(fastify: FastifyInstance) {
             return result;
         } catch (error: any) {
             fastify.log.error(error);
+            if (error?.name === 'AppError') {
+                return reply.status(error.statusCode).send({ key: error.key, message: error.message });
+            }
             return reply.status(error.message.includes("not found") ? 404 : 500).send({ error: error.message });
         }
     });
@@ -272,6 +281,9 @@ export default async function jobRoutes(fastify: FastifyInstance) {
             return result;
         } catch (error: any) {
             fastify.log.error(error);
+            if (error?.name === 'AppError') {
+                return reply.status(error.statusCode).send({ key: error.key, message: error.message });
+            }
             return reply.status(500).send({ error: error.message || "Failed to add episode" });
         }
     });
