@@ -83,7 +83,7 @@ export function VideoPlayerDialog({ project, open, onOpenChange }: VideoPlayerDi
                 )}
 
                 <div className="p-4 bg-slate-900 border-t border-slate-800 flex items-center justify-between">
-                    <h4 className="text-slate-200 font-medium truncate max-w-[60%]">
+                    <h4 className="text-slate-200 font-medium truncate max-w-[60%]" title={project.title}>
                         {project.title}
                     </h4>
 
