@@ -17,6 +17,8 @@ app.listen(PORT, '0.0.0.0', () => {
 const checkDatabase = async () => {
     const dbUrl = process.env.DATABASE_URL;
 
+    console.log(`[${new Date().toISOString()}] (v2) Checking database connection...`);
+
     if (!dbUrl) {
         console.error('DATABASE_URL environment variable is not set.');
         return;
