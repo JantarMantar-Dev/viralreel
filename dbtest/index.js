@@ -36,7 +36,7 @@ const checkDatabase = async () => {
         console.warn('Could not parse DATABASE_URL for obscuring:', e.message);
     }
 
-    console.log(`[${new Date().toISOString()}] Testing connection to: ${obscuredUrl}`);
+    console.log(`[${new Date().toISOString()}] (v2) Testing connection to: ${obscuredUrl}`);
 
     const client = new Client({
         connectionString: dbUrl,
@@ -45,9 +45,9 @@ const checkDatabase = async () => {
     try {
         await client.connect();
         const res = await client.query('SELECT NOW()');
-        console.log(`[${new Date().toISOString()}] Connection SUCCESS. DB Time: ${res.rows[0].now}`);
+        console.log(`[${new Date().toISOString()}] (v2) Connection SUCCESS. DB Time: ${res.rows[0].now}`);
     } catch (err) {
-        console.error(`[${new Date().toISOString()}] Connection FAILED:`, err.message);
+        console.error(`[${new Date().toISOString()}] (v2) Connection FAILED:`, err.message);
     } finally {
         await client.end().catch(() => { });
     }
