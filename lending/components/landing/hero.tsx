@@ -9,8 +9,15 @@ import posthog from 'posthog-js'
 import { useState } from "react"
 import { VideoPlayerDialog } from "@/components/video-player-dialog"
 
+import { useLendingAsset } from "@/hooks/use-lending-asset"
+
 export function Hero() {
     const [isVideoOpen, setIsVideoOpen] = useState(false)
+
+    // Resolve assets with fallback
+    const videoUrl = useLendingAsset("disney-tech-my_little_rocket_ship_kid_story.mp4", "/videos/disney-tech-my_little_rocket_ship_kid_story.mp4")
+    const posterUrl = "/thumbnails/disney-tech-my_little_rocket_ship_kid_story.jpg"
+
     const [activeVideo, setActiveVideo] = useState({
         src: "/videos/disney-tech-my_little_rocket_ship_kid_story.mp4",
         poster: "/thumbnails/disney-tech-my_little_rocket_ship_kid_story.jpg"
@@ -152,11 +159,11 @@ export function Hero() {
                         {/* Phone Frame / Reel Preview */}
                         <div
                             className="absolute inset-0 bg-slate-800 flex items-center justify-center relative group cursor-pointer overflow-hidden rounded-[1.8rem]"
-                            onClick={() => openVideo("/videos/disney-tech-my_little_rocket_ship_kid_story.mp4", "/thumbnails/disney-tech-my_little_rocket_ship_kid_story.jpg")}
+                            onClick={() => openVideo(videoUrl, posterUrl)}
                         >
                             <video
-                                src="/videos/disney-tech-my_little_rocket_ship_kid_story.mp4"
-                                poster="/thumbnails/disney-tech-my_little_rocket_ship_kid_story.jpg"
+                                src={videoUrl}
+                                poster={posterUrl}
                                 className="w-full h-full object-cover"
                                 muted
                                 playsInline

@@ -70,7 +70,7 @@ export function RealExamples() {
                             key={video.id}
                             video={video}
                             index={index}
-                            onClick={() => setSelectedVideo(video)}
+                            onClick={(resolvedSrc) => setSelectedVideo({ ...video, src: resolvedSrc })}
                         />
                     ))}
                 </div>
@@ -86,6 +86,8 @@ export function RealExamples() {
     )
 }
 
+import { useLendingAsset } from "@/hooks/use-lending-asset"
+
 function VideoCard({
     video,
     index,
@@ -93,10 +95,17 @@ function VideoCard({
 }: {
     video: typeof VIDEOS[0],
     index: number,
-    onClick: () => void
+    onClick: (src: string) => void
 }) {
     const [isHovering, setIsHovering] = useState(false)
     const videoRef = useRef<HTMLVideoElement>(null)
+
+    const videoFileName = video.src.split('/').pop() || ""
+
+    // Use dynamic asset for video only
+    const videoUrl = useLendingAsset(videoFileName, video.src)
+    // Use static poster
+    const posterUrl = video.poster
 
     const handleMouseEnter = () => {
         setIsHovering(true)
@@ -123,12 +132,12 @@ function VideoCard({
             className="relative aspect-[9/16] rounded-xl overflow-hidden bg-slate-900 shadow-lg group cursor-pointer border border-slate-200/50 hover:border-purple-500/50 transition-colors"
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
-            onClick={onClick}
+            onClick={() => onClick(videoUrl)}
         >
             <video
                 ref={videoRef}
-                src={video.src}
-                poster={video.poster}
+                src={videoUrl}
+                poster={posterUrl}
                 className="absolute inset-0 w-full h-full object-cover"
                 muted
                 playsInline

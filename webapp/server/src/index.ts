@@ -49,7 +49,7 @@ const trustedOrigins = (process.env.TRUSTED_ORIGINS || "")
 
 // Register CORS
 fastify.register(cors, {
-    origin: [...trustedOrigins, process.env.CLIENT_URL || "", "http://localhost:3000", "http://127.0.0.1:3000"],
+    origin: [...trustedOrigins, process.env.CLIENT_URL || "", "http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:3001", "http://localhost:3002"],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: [
         "Content-Type",
@@ -149,6 +149,8 @@ import projectsRoutes from "./api/projects.js";
 fastify.register(projectsRoutes, { prefix: "/api/projects" });
 import paymentsRoutes from "./api/payments.js";
 fastify.register(paymentsRoutes, { prefix: "/api/payments" });
+import publicRoutes from "./api/public.js";
+fastify.register(publicRoutes, { prefix: "/api/public" });
 
 // Run the server
 const start = async () => {
