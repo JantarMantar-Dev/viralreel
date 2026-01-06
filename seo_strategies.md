@@ -22,7 +22,7 @@
     - Place a default `opengraph-image.png` in the `app/` root or use `opengraph-image.tsx` for dynamic generation.
   - **Prerequisites:** Designed social media assets (1200x630px).
 
-- [ ] **3. Structured Data (JSON-LD) - Organization**
+- [x] **3. Structured Data (JSON-LD) - Organization**
   - **Goal:** Help Google understand your brand and display rich results (Knowledge Graph).
   - **Do's:**
     - Define `Organization` schema with name, logo, URL, and social profiles.
@@ -32,7 +32,7 @@
     - Use a helper function to validate the JSON structure.
   - **Prerequisites:** Brand logo URL and social media profile URLs.
 
-- [ ] **4. Structured Data (JSON-LD) - FAQ**
+- [x] **4. Structured Data (JSON-LD) - FAQ**
   - **Goal:** Win "People Also Ask" snippets in search results.
   - **Do's:**
     - Wrap your existing FAQ content in `FAQPage` schema.
@@ -42,7 +42,7 @@
     - Inject it into the page head or body.
   - **Prerequisites:** Finalized FAQ content.
 
-- [ ] **5. XML Sitemap**
+- [x] **5. XML Sitemap**
   - **Goal:** Ensure search engines discover all your pages instantly.
   - **Do's:**
     - Include all public URLs (Home, Blog posts, Legal pages).
@@ -52,7 +52,7 @@
     - Dynamically fetch blog posts to include their URLs if applicable.
   - **Prerequisites:** List of all public routes.
 
-- [ ] **6. Robots.txt Configuration**
+- [x] **6. Robots.txt Configuration**
   - **Goal:** Control where search engines can and cannot go.
   - **Do's:**
     - Allow access to public pages.
