@@ -19,6 +19,9 @@ export const metadata: Metadata = {
     default: 'Viral Reel - AI Content Creator',
   },
   description: "Create faceless videos in 5 minutes with AI.",
+  alternates: {
+    canonical: '/',
+  },
   icons: {
     icon: '/favicon.svg',
     apple: '/favicon.svg',

@@ -12,6 +12,9 @@ import { FaqJsonLd } from "@/components/json-ld";
 export const metadata: Metadata = {
   title: "Viral Reel - AI Content Creator | Create Faceless Videos in Minutes",
   description: "Create faceless videos in 5 minutes with AI. Automate your content creation workflow with ViralReel.",
+  alternates: {
+    canonical: '/',
+  },
 };
 
 export default function Home() {

@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import Image from "next/image"
 
 import { Sparkles } from "lucide-react"
 
@@ -13,7 +14,7 @@ export function Navbar({ hideNavLinks = false }: NavbarProps) {
             <div className="container mx-auto px-6 h-16 flex items-center justify-between">
                 <Link href="/" className="flex items-center gap-2 text-xl font-bold tracking-tighter hover:opacity-80 transition-opacity">
                     <div className="size-8 rounded-lg overflow-hidden flex items-center justify-center bg-gradient-to-br from-purple-600 to-blue-600 p-1.5">
-                        <img src="/logo.svg" alt="Viral Reel Logo" className="w-full h-full object-contain" />
+                        <Image src="/logo.svg" alt="Viral Reel Logo" width={32} height={32} className="w-full h-full object-contain" />
                     </div>
                     Viral Reel
                 </Link>
