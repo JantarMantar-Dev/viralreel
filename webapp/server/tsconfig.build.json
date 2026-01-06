@@ -3,7 +3,6 @@
     "exclude": [
         "node_modules",
         "**/*.test.ts",
-        "src/lib/worker-shared",
         "src/scripts/check-voices.ts",
         "src/scripts/fetch-voices.ts"
     ]
