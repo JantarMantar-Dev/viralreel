@@ -13,11 +13,41 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Viral Reel - AI Content Creator",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_LENDING_URL || 'https://getviralreel.com'),
+  title: {
+    template: '%s | Viral Reel',
+    default: 'Viral Reel - AI Content Creator',
+  },
   description: "Create faceless videos in 5 minutes with AI.",
+  alternates: {
+    canonical: '/',
+  },
   icons: {
     icon: '/favicon.svg',
     apple: '/favicon.svg',
+  },
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: "https://getviralreel.com",
+    title: "Viral Reel - AI Content Creator",
+    description: "Create faceless videos in 5 minutes with AI.",
+    siteName: "Viral Reel",
+    images: [
+      {
+        url: "/opengraph-image.jpeg",
+        width: 1200,
+        height: 630,
+        alt: "Viral Reel - AI Content Creator",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Viral Reel - AI Content Creator",
+    description: "Create faceless videos in 5 minutes with AI.",
+    images: ["/opengraph-image.jpeg"],
+    creator: "@JBabaTalks",
   },
 };
 
@@ -35,8 +65,11 @@ export default function RootLayout({
           className={`${geistSans.variable} ${geistMono.variable} antialiased bg-zinc-50 text-slate-900`}
         >
           {children}
+          <OrganizationJsonLd />
         </body>
       </PHProvider>
     </html>
   );
 }
+
+import { OrganizationJsonLd } from "../components/json-ld";

@@ -1,5 +1,11 @@
 import Link from "next/link";
 import { ArrowLeft, Shield, Lock, Eye, Server, RefreshCw, Mail, Globe } from "lucide-react";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+    title: "Privacy Policy",
+    description: "Read our Privacy Policy to understand how ViralReel collects, uses, and protects your data.",
+};
 
 export default function PrivacyPolicy() {
     return (

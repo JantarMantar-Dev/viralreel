@@ -1,6 +1,7 @@
 import { getPostBySlug, blogPosts } from "@/lib/blog-data";
 import { Navbar } from "@/components/landing/navbar";
 import LaunchPost from "@/components/blog/posts/LaunchPost";
+import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { notFound } from "next/navigation";
 import { Metadata } from "next";
 
@@ -61,6 +62,14 @@ export default async function BlogPostPage({ params }: PageProps) {
                     The component itself handles its internal layout/design.
                     We could pass props if needed: <PostComponent post={post} />
                  */}
+                <div className="container mx-auto px-6 max-w-4xl mb-8">
+                    <Breadcrumbs
+                        items={[
+                            { label: 'Blog', href: '/blog' },
+                            { label: post.title, href: `/blog/${slug}` }
+                        ]}
+                    />
+                </div>
                 <PostComponent />
             </main>
 
