@@ -11,7 +11,7 @@
     - Define a template in `layout.tsx` for consistent branding (e.g., `Title | ViralReel`).
   - **Prerequisites:** None. Built-in Next.js feature.
 
-- [ ] **2. Open Graph (OG) & Twitter Cards**
+- [x] **2. Open Graph (OG) & Twitter Cards**
   - **Goal:** Ensure beautiful, clickable previews when shared on social media.
   - **Do's:**
     - Set `og:image`, `og:title`, `og:description`, and `og:url`.
