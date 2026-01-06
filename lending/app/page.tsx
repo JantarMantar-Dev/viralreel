@@ -7,6 +7,7 @@ import { Pricing } from "@/components/landing/pricing"
 import { RealExamples } from "@/components/landing/real-examples"
 
 import { Metadata } from "next";
+import { FaqJsonLd } from "@/components/json-ld";
 
 export const metadata: Metadata = {
   title: "Viral Reel - AI Content Creator | Create Faceless Videos in Minutes",
@@ -29,6 +30,7 @@ export default function Home() {
         <FAQ />
         <Footer />
       </div>
+      <FaqJsonLd />
     </main>
   );
 }

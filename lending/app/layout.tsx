@@ -62,8 +62,11 @@ export default function RootLayout({
           className={`${geistSans.variable} ${geistMono.variable} antialiased bg-zinc-50 text-slate-900`}
         >
           {children}
+          <OrganizationJsonLd />
         </body>
       </PHProvider>
     </html>
   );
 }
+
+import { OrganizationJsonLd } from "../components/json-ld";
