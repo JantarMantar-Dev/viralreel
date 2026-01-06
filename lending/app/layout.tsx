@@ -13,11 +13,22 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Viral Reel - AI Content Creator",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_LENDING_URL || 'https://getviralreel.com'),
+  title: {
+    template: '%s | Viral Reel',
+    default: 'Viral Reel - AI Content Creator',
+  },
   description: "Create faceless videos in 5 minutes with AI.",
   icons: {
     icon: '/favicon.svg',
     apple: '/favicon.svg',
+  },
+  openGraph: {
+    images: '/opengraph-image.png',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    images: '/opengraph-image.png',
   },
 };
 

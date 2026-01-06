@@ -6,6 +6,13 @@ import { Navbar } from "@/components/landing/navbar"
 import { Pricing } from "@/components/landing/pricing"
 import { RealExamples } from "@/components/landing/real-examples"
 
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Viral Reel - AI Content Creator | Create Faceless Videos in Minutes",
+  description: "Create faceless videos in 5 minutes with AI. Automate your content creation workflow with ViralReel.",
+};
+
 export default function Home() {
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900 selection:bg-purple-500/30 relative">

@@ -1,5 +1,11 @@
 import Link from "next/link";
 import { ArrowLeft, Scale, Shield, User, Lightbulb, AlertTriangle, Gavel, Mail } from "lucide-react";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+    title: "Terms of Use",
+    description: "Review the Terms of Use for ViralReel. Understand your rights and obligations when using our AI video creation service.",
+};
 
 export default function TermsOfUse() {
     return (

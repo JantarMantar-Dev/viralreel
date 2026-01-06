@@ -3,9 +3,10 @@ import { Navbar } from "@/components/landing/navbar";
 import { getAllPosts } from "@/lib/blog-data";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Calendar, Clock, User } from "lucide-react";
+import { Metadata } from "next";
 
-export const metadata = {
-    title: "Blog - Viral Reel | AI Video Creation Insights",
+export const metadata: Metadata = {
+    title: "Blog - AI Video Creation Insights",
     description: "Latest news, tips, and insights about AI video creation, content marketing, and the future of viral shorts.",
 };
 
