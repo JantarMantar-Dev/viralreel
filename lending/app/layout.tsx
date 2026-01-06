@@ -24,11 +24,11 @@ export const metadata: Metadata = {
     apple: '/favicon.svg',
   },
   openGraph: {
-    images: '/opengraph-image.png',
+    images: '/opengraph-image.jpeg',
   },
   twitter: {
     card: 'summary_large_image',
-    images: '/opengraph-image.png',
+    images: '/opengraph-image.jpeg',
   },
 };
 
