@@ -25,7 +25,7 @@ const nextConfig: NextConfig = {
           },
           {
             key: "Content-Security-Policy",
-            value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' *.youtube.com *.google.com *.googleapis.com *.gstatic.com https://us-assets.i.posthog.com https://us.i.posthog.com; style-src 'self' 'unsafe-inline' *.googleapis.com; img-src 'self' blob: data: *.googleapis.com *.gstatic.com *.ytimg.com; font-src 'self' data: *.gstatic.com; connect-src 'self' *.googleapis.com https://us.i.posthog.com https://us-assets.i.posthog.com; frame-src 'self' *.youtube.com;",
+            value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' *.youtube.com *.google.com *.googleapis.com *.gstatic.com https://us-assets.i.posthog.com https://us.i.posthog.com; style-src 'self' 'unsafe-inline' *.googleapis.com; img-src 'self' blob: data: *.googleapis.com *.gstatic.com *.ytimg.com; font-src 'self' data: *.gstatic.com; connect-src 'self' *.googleapis.com https://us.i.posthog.com https://us-assets.i.posthog.com https://api.getviralreel.com; frame-src 'self' *.youtube.com;",
           },
         ],
       },

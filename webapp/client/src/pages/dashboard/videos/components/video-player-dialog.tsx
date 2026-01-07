@@ -1,6 +1,6 @@
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { AlertCircle, RotateCcw, Download } from "lucide-react"
+import { AlertCircle, RotateCcw, Download, Loader2 } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
 import { API_BASE_URL } from "@/lib/config"
@@ -27,6 +27,7 @@ interface VideoPlayerDialogProps {
 
 export function VideoPlayerDialog({ project, open, onOpenChange }: VideoPlayerDialogProps) {
     const [isRetrying, setIsRetrying] = useState(false)
+    const [isDownloading, setIsDownloading] = useState(false)
 
     const handleRetry = async () => {
         if (!project) return;
@@ -102,10 +103,41 @@ export function VideoPlayerDialog({ project, open, onOpenChange }: VideoPlayerDi
                         </Tooltip>
 
                         {project.outputUrl && (
-                            <Button asChild size="sm" className="bg-white text-slate-900 hover:bg-slate-200 border-none font-medium shadow-sm transition-colors">
-                                <a href={project.outputUrl} download target="_blank" rel="noopener noreferrer">
-                                    <Download className="mr-2 h-4 w-4" /> Download Original
-                                </a>
+                            <Button
+                                size="sm"
+                                className="bg-white text-slate-900 hover:bg-slate-200 border-none font-medium shadow-sm transition-colors"
+                                onClick={async () => {
+                                    if (!project.outputUrl) return;
+                                    try {
+                                        setIsDownloading(true);
+                                        const response = await fetch(project.outputUrl);
+                                        if (!response.ok) throw new Error('Download failed');
+                                        const blob = await response.blob();
+                                        const url = window.URL.createObjectURL(blob);
+                                        const a = document.createElement('a');
+                                        a.style.display = 'none';
+                                        a.href = url;
+                                        a.download = `${project.title}.mp4`;
+                                        document.body.appendChild(a);
+                                        a.click();
+                                        window.URL.revokeObjectURL(url);
+                                        document.body.removeChild(a);
+                                        toast.success("Download started");
+                                    } catch (error) {
+                                        console.error('Download error:', error);
+                                        toast.error("Failed to download video");
+                                    } finally {
+                                        setIsDownloading(false);
+                                    }
+                                }}
+                                disabled={isDownloading}
+                            >
+                                {isDownloading ? (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                ) : (
+                                    <Download className="mr-2 h-4 w-4" />
+                                )}
+                                {isDownloading ? "Downloading..." : "Download Original"}
                             </Button>
                         )}
                     </div>
