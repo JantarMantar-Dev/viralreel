@@ -12,6 +12,7 @@ dotenv.config();
 export class StorageProvider {
     private client: S3Client;
     private bucket: string;
+    private signedUrlCache: Map<string, string>;
 
     constructor() {
         this.client = new S3Client({
@@ -24,6 +25,7 @@ export class StorageProvider {
             forcePathStyle: true, // Fix for Docker DNS resolution issues with virtual-hosted-style URLs
         });
         this.bucket = process.env.S3_BUCKET_NAME || "";
+        this.signedUrlCache = new Map();
     }
 
     /**
@@ -69,11 +71,17 @@ export class StorageProvider {
     /**
      * Generates a signed URL for reading a file.
      * @param key The S3 object key
-     * @param expiresInSeconds Expiration time in seconds (default 1 hour)
+     * @param expiresInSeconds Expiration time in seconds (default 3 hours)
      */
-    async getSignedUrl(key: string, expiresInSeconds = 3600): Promise<string> {
+    async getSignedUrl(key: string, expiresInSeconds = 10800): Promise<string> {
         if (!this.bucket) {
             throw new Error("S3_BUCKET_NAME is not configured");
+        }
+
+        // Check if we have a valid cached URL for this key
+        // Only use cache if using the default expiration (3 hours), as that matches our cache policy
+        if (expiresInSeconds === 10800 && this.signedUrlCache.has(key)) {
+            return this.signedUrlCache.get(key)!;
         }
 
         const command = new GetObjectCommand({
@@ -81,7 +89,20 @@ export class StorageProvider {
             Key: key,
         });
 
-        return getSignedUrl(this.client, command, { expiresIn: expiresInSeconds });
+        const signedUrl = await getSignedUrl(this.client, command, { expiresIn: expiresInSeconds });
+
+        // Cache the URL if using the standard 3-hour expiration
+        if (expiresInSeconds === 10800) {
+            this.signedUrlCache.set(key, signedUrl);
+
+            // Expire cache after 2.5 hours (2 hours 30 mins = 9,000,000 ms)
+            // This ensures we refresh the URL before it actually expires (3 hours)
+            setTimeout(() => {
+                this.signedUrlCache.delete(key);
+            }, 2.5 * 60 * 60 * 1000);
+        }
+
+        return signedUrl;
     }
 
     /**
