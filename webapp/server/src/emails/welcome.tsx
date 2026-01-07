@@ -35,7 +35,7 @@ export const WelcomeEmail = ({ userFirstname = "there" }: WelcomeEmailProps) => 
             </Row>
 
             <Section style={btnContainer}>
-                <Button style={button} href="https://getviralreel.com/dashboard">
+                <Button style={button} href="https://app.getviralreel.com/dashboard">
                     Launch Dashboard
                 </Button>
             </Section>
