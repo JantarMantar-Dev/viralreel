@@ -16,6 +16,11 @@ declare module "fastify" {
  */
 export async function authenticate(request: FastifyRequest, reply: FastifyReply) {
     try {
+        // Skip auth check for auth routes to avoid double session loading
+        if (request.url.startsWith("/api/auth")) {
+            return;
+        }
+
         const headers = new Headers();
         Object.entries(request.headers).forEach(([key, value]) => {
             if (value) {
