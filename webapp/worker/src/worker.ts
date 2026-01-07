@@ -4,6 +4,7 @@ import { Processor } from './processors/types.js';
 import { ScriptProcessor } from './processors/script-processor.js';
 import { AiProcessor } from './processors/ai-processor.js';
 import { VideoProcessor } from './processors/video-processor.js';
+import { logger } from './lib/logger.js';
 
 dotenv.config();
 
@@ -11,7 +12,7 @@ const POLLING_INTERVAL = 3000; // 3 seconds
 const WORKER_ID = process.env.WORKER_ID || `worker-${Math.random().toString(36).substring(7)}`;
 
 async function startUnifiedWorker() {
-    console.log(`[UnifiedWorker] Starting worker ${WORKER_ID}...`);
+    logger.info(`[UnifiedWorker] Starting worker ${WORKER_ID}...`, { workerId: WORKER_ID });
 
     // Register Processors
     // Order matters if we want to prioritize certain phases. 
@@ -24,7 +25,7 @@ async function startUnifiedWorker() {
         new VideoProcessor()
     ];
 
-    console.log(`[UnifiedWorker] Registered processors: ${processors.map(p => p.name).join(', ')}`);
+    logger.info(`[UnifiedWorker] Registered processors: ${processors.map(p => p.name).join(', ')}`, { workerId: WORKER_ID });
 
     let isRunning = true;
 
@@ -48,12 +49,16 @@ async function startUnifiedWorker() {
                     try {
                         await processor.process(job);
                     } catch (err) {
-                        console.error(`[UnifiedWorker] Error processing job ${job.id} with ${processor.name}:`, err);
+                        logger.error(`[UnifiedWorker] Error processing job ${job.id} with ${processor.name}:`, {
+                            workerId: WORKER_ID,
+                            jobId: job.id,
+                            error: err
+                        });
                     }
                 }
             }
         } catch (err) {
-            console.error("[UnifiedWorker] Error in main loop:", err);
+            logger.error("[UnifiedWorker] Error in main loop:", { workerId: WORKER_ID, error: err });
         }
 
         if (!worked) {
@@ -66,10 +71,10 @@ async function startUnifiedWorker() {
         }
     }
 
-    console.log(`[UnifiedWorker] Worker ${WORKER_ID} stopped.`);
+    logger.info(`[UnifiedWorker] Worker ${WORKER_ID} stopped.`, { workerId: WORKER_ID });
 }
 
 startUnifiedWorker().catch(err => {
-    console.error("[UnifiedWorker] Fatal error:", err);
+    logger.error("[UnifiedWorker] Fatal error:", { error: err });
     process.exit(1);
 });
