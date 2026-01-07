@@ -55,13 +55,13 @@ export const SubscriptionCancelledEmail = ({
             </Text>
 
             <Section style={btnContainer}>
-                <Button style={button} href="https://getviralreel.com/settings">
+                <Button style={button} href="https://app.getviralreel.com/settings">
                     Reactivate Subscription
                 </Button>
             </Section>
 
             <Text style={subtextSmall}>
-                Help us improve by telling us why you left. <Link href="https://getviralreel.com/feedback" style={link}>Give Feedback</Link>
+                Help us improve by telling us why you left. <Link href="https://app.getviralreel.com/feedback" style={link}>Give Feedback</Link>
             </Text>
         </EmailLayout>
     );

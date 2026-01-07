@@ -80,7 +80,7 @@ async function main() {
                 USER_NAME,
                 "Future of Tech - Episode 1",
                 "https://images.unsplash.com/photo-1626544827763-d516dce335ca?q=80&w=600&auto=format&fit=crop",
-                "https://getviralreel.com/dashboard/videos/123",
+                "https://app.hboard/videos/123",
                 "02:14"
             )
         );
