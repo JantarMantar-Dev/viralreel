@@ -49,7 +49,7 @@ async function seedVoices() {
             name: name,
             gender: gender,
             languageCode: "en",
-            previewUrl: `/assets/voices/${voice.filename}`,
+            previewUrl: `pub/appclient/voices/${voice.filename}`,
             isActive: true,
         };
 
