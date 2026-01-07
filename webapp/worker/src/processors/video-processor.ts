@@ -13,6 +13,7 @@ import http from 'http';
 import { URL, fileURLToPath } from 'url';
 import { compressVideo } from '../lib/video.js';
 import { deductCredits } from '../services/credit-service.js';
+import { logger } from '../lib/logger.js';
 
 export class VideoProcessor implements Processor {
     name = 'VideoProcessor';
@@ -145,7 +146,9 @@ export class VideoProcessor implements Processor {
     }
 
     async process(job: typeof renderJob.$inferSelect): Promise<void> {
-        console.log(`[VideoProcessor] Processing Job ID: ${job.id}`);
+        const logContext = { videoId: job.videoId, jobId: job.id, workerId: process.env.WORKER_ID };
+        logger.info(`[VideoProcessor] Processing Job`, logContext);
+
         try {
             // 1. Fetch Video Metadata
             const videoData = await db.query.video.findFirst({
@@ -206,7 +209,7 @@ export class VideoProcessor implements Processor {
             };
 
             // Bundle
-            console.log("[VideoProcessor] Bundling Remotion...");
+            logger.info("[VideoProcessor] Bundling Remotion...", logContext);
             const entryPoint = path.join(process.cwd(), 'src', 'remotion', 'Root.tsx');
             const bundleLocation = await bundle({
                 entryPoint,
@@ -222,7 +225,7 @@ export class VideoProcessor implements Processor {
             });
 
             // Render
-            console.log("[VideoProcessor] Rendering...");
+            logger.info("[VideoProcessor] Rendering...", logContext);
             if (!fs.existsSync(workDir)) fs.mkdirSync(workDir, { recursive: true });
 
             const outputLocation = path.join(workDir, `${job.id}.mp4`);
@@ -238,11 +241,11 @@ export class VideoProcessor implements Processor {
             });
 
             // Upload Original
-            console.log("[VideoProcessor] Uploading original...");
+            logger.info("[VideoProcessor] Uploading original...", logContext);
             const originalUrl = await this.uploadToS3(outputLocation, `renders/${job.id}_original.mp4`);
 
             // Compress
-            console.log("[VideoProcessor] Compressing...");
+            logger.info("[VideoProcessor] Compressing...", logContext);
             const compressedLocation = path.join(workDir, `${job.id}_compressed.mp4`);
             await compressVideo(outputLocation, compressedLocation);
 
@@ -267,21 +270,43 @@ export class VideoProcessor implements Processor {
                     videoData.id,
                     videoData.seriesId || undefined
                 );
-                console.log(`[VideoProcessor] Deducted 1 credit for user ${videoData.userId}`);
+                logger.info(`[VideoProcessor] Deducted 1 credit for user ${videoData.userId}`, logContext);
             } catch (err) {
-                console.error(`[VideoProcessor] Failed to deduct credits for user ${videoData.userId}:`, err);
+                logger.error(`[VideoProcessor] Failed to deduct credits for user ${videoData.userId}:`, { ...logContext, error: err });
             }
 
-            console.log(`[VideoProcessor] Completed Job ID: ${job.id}`);
+            logger.info(`[VideoProcessor] Completed Job`, logContext);
 
         } catch (error: any) {
-            console.error(`[VideoProcessor] Failed Job ID: ${job.id}`, error);
-            await db.update(renderJob)
-                .set({ status: 'FAILED', error: error.message, completedAt: new Date() })
-                .where(eq(renderJob.id, job.id));
-            await db.update(video)
-                .set({ status: 'FAILED' })
-                .where(eq(video.id, job.videoId));
+            const currentRetry = job.retryCount || 0;
+            const maxRetries = 2;
+
+            if (currentRetry < maxRetries) {
+                const nextRetry = currentRetry + 1;
+                logger.warn(`[VideoProcessor] Job failed, retrying (${nextRetry}/${maxRetries})`, {
+                    ...logContext,
+                    error: error.message,
+                    tags: ['retry', `retry-${nextRetry}`],
+                    retryCount: nextRetry
+                });
+
+                await db.update(renderJob)
+                    .set({
+                        status: 'VIDEO_QUEUED', // Send back to queue
+                        retryCount: nextRetry,
+                        error: error.message,
+                        updatedAt: new Date()
+                    })
+                    .where(eq(renderJob.id, job.id));
+            } else {
+                logger.error(`[VideoProcessor] Failed Job`, { ...logContext, error });
+                await db.update(renderJob)
+                    .set({ status: 'FAILED', error: error.message, completedAt: new Date() })
+                    .where(eq(renderJob.id, job.id));
+                await db.update(video)
+                    .set({ status: 'FAILED' })
+                    .where(eq(video.id, job.videoId));
+            }
         }
     }
 }

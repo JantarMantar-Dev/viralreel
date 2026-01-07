@@ -7,6 +7,7 @@ import { ImageGenerator } from '../ai/image_generator.js';
 import { ScriptContent, ScriptSegment } from '../types.js';
 import * as path from 'path';
 import * as fs from 'fs/promises';
+import { logger } from '../lib/logger.js';
 
 export class AiProcessor implements Processor {
     name = 'AiProcessor';
@@ -47,7 +48,9 @@ export class AiProcessor implements Processor {
     }
 
     async process(job: typeof renderJob.$inferSelect): Promise<void> {
-        console.log(`[AiProcessor] Processing Job ID: ${job.id}`);
+        const logContext = { videoId: job.videoId, jobId: job.id, workerId: process.env.WORKER_ID };
+        logger.info(`[AiProcessor] Processing Job`, logContext);
+
         try {
             // 1. Fetch Script
             const scriptData = await db.select()
@@ -115,7 +118,7 @@ export class AiProcessor implements Processor {
                         imageAssetPath: outputPath
                     });
                 } catch (err) {
-                    console.error(`[AiProcessor] Failed segment ${i}:`, err);
+                    logger.error(`[AiProcessor] Failed segment ${i}`, { ...logContext, error: err });
                     updatedSegments.push(segment);
                 }
 
@@ -142,25 +145,48 @@ export class AiProcessor implements Processor {
                 })
                 .where(eq(renderJob.id, job.id));
 
-            console.log(`[AiProcessor] Completed Job ID: ${job.id}`);
+            logger.info(`[AiProcessor] Completed Job`, logContext);
 
         } catch (error: any) {
-            console.error(`[AiProcessor] Failed Job ID: ${job.id}`, error);
-            await db.update(renderJob)
-                .set({
-                    status: 'AI_ASSET_GEN_FAILED',
-                    error: error.message,
-                    completedAt: new Date(),
-                    updatedAt: new Date()
-                })
-                .where(eq(renderJob.id, job.id));
+            const currentRetry = job.retryCount || 0;
+            const maxRetries = 2;
 
-            await db.update(video)
-                .set({
-                    status: 'FAILED',
-                    updatedAt: new Date()
-                })
-                .where(eq(video.id, job.videoId));
+            if (currentRetry < maxRetries) {
+                const nextRetry = currentRetry + 1;
+                logger.warn(`[AiProcessor] Job failed, retrying (${nextRetry}/${maxRetries})`, {
+                    ...logContext,
+                    error: error.message,
+                    tags: ['retry', `retry-${nextRetry}`],
+                    retryCount: nextRetry
+                });
+
+                await db.update(renderJob)
+                    .set({
+                        status: 'AI_ASSET_GEN_QUEUED', // Send back to AI queue
+                        retryCount: nextRetry,
+                        error: error.message,
+                        updatedAt: new Date()
+                    })
+                    .where(eq(renderJob.id, job.id));
+
+            } else {
+                logger.error(`[AiProcessor] Failed Job`, { ...logContext, error });
+                await db.update(renderJob)
+                    .set({
+                        status: 'AI_ASSET_GEN_FAILED',
+                        error: error.message,
+                        completedAt: new Date(),
+                        updatedAt: new Date()
+                    })
+                    .where(eq(renderJob.id, job.id));
+
+                await db.update(video)
+                    .set({
+                        status: 'FAILED',
+                        updatedAt: new Date()
+                    })
+                    .where(eq(video.id, job.videoId));
+            }
         }
     }
 }
