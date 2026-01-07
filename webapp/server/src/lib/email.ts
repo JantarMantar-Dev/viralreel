@@ -56,16 +56,18 @@ export const sendEmail = async (
             return { success: true };
         }
 
-        const info = await transporter.sendMail({
+        transporter.sendMail({
             from: FROM_EMAIL,
             to: recipient,
             subject: finalSubject,
             html: emailHtml,
+        }).then((info) => {
+            console.log(`Email sent to ${recipient} with subject: ${finalSubject}`);
+        }).catch((error) => {
+            console.error(`Error sending email to ${to}:`, error);
         });
 
-        console.log(`Email sent to ${recipient} with subject: ${finalSubject}`);
-
-        return { success: true, data: info };
+        return { success: true };
     } catch (error) {
         console.error(`Error sending email to ${to}:`, error);
         return { success: false, error };
