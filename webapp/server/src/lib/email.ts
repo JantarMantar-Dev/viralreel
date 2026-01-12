@@ -1,4 +1,4 @@
-import nodemailer from "nodemailer";
+import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
 import { render } from "@react-email/render";
 import WelcomeEmail from "../emails/welcome.js";
 import VerifyEmail from "../emails/verify.js";
@@ -10,14 +10,12 @@ import SubscriptionCancelledEmail from "../emails/subscription-cancelled.js";
 import WaitlistInviteEmail from "../emails/waitlist-invite.js";
 import * as React from "react";
 
-// Create a transporter using SMTP credentials from environment variables
-const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_OUT_SERVER,
-    port: parseInt(process.env.SMTP_PORT || "465"),
-    secure: true, // true for 465, false for other ports
-    auth: {
-        user: process.env.SMTP_EMAIL_USER,
-        pass: process.env.SMTP_EMAIL_PASS,
+// Create an SES client using credentials from environment variables
+const sesClient = new SESClient({
+    region: process.env.AMZ_SES_AWS_REGION || "us-east-2",
+    credentials: {
+        accessKeyId: process.env.AMZ_SES_ACCESS_KEY || "",
+        secretAccessKey: process.env.AMZ_SES_SECRET_KEY || "",
     },
 });
 
@@ -32,7 +30,7 @@ interface EmailResult {
 }
 
 /**
- * Generic function to send an email using the SMTP transporter.
+ * Generic function to send an email using Amazon SES.
  */
 export const sendEmail = async (
     to: string,
@@ -52,22 +50,32 @@ export const sendEmail = async (
             console.log("--------------------------------------------");
             console.log(emailHtml);
             console.log("============================================");
-            // In mock mode we just log, but we've applied the redirection logic to logs
             return { success: true };
         }
 
-        transporter.sendMail({
-            from: FROM_EMAIL,
-            to: recipient,
-            subject: finalSubject,
-            html: emailHtml,
-        }).then((info) => {
-            console.log(`Email sent to ${recipient} with subject: ${finalSubject}`);
-        }).catch((error) => {
-            console.error(`Error sending email to ${to}:`, error);
+        const command = new SendEmailCommand({
+            Destination: {
+                ToAddresses: [recipient],
+            },
+            Message: {
+                Body: {
+                    Html: {
+                        Charset: "UTF-8",
+                        Data: emailHtml,
+                    },
+                },
+                Subject: {
+                    Charset: "UTF-8",
+                    Data: finalSubject,
+                },
+            },
+            Source: FROM_EMAIL,
         });
 
-        return { success: true };
+        const response = await sesClient.send(command);
+        console.log(`Email sent to ${recipient} with subject: ${finalSubject}. MessageId: ${response.MessageId}`);
+
+        return { success: true, data: response };
     } catch (error) {
         console.error(`Error sending email to ${to}:`, error);
         return { success: false, error };
