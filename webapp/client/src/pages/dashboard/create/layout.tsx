@@ -22,10 +22,16 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog"
 import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from "@/components/ui/tooltip"
+import {
     CreationContext,
     VideoJobRequest,
     INITIAL_REQUEST
 } from "./context/creation-context"
+import { getMissingFieldsMessage } from "./utils/step-validation"
 
 const STEPS = [
     { id: 1, title: "Choose Niche", path: "niche" },
@@ -218,6 +224,9 @@ export default function CreateVideoLayout() {
         createJob({ ...request, isDraft: true })
     }
 
+    // Get missing fields message for tooltip (uses extracted utility)
+    const missingFieldsMessage = getMissingFieldsMessage(request, currentStep)
+
     return (
         <CreationContext.Provider value={{
             request,
@@ -367,32 +376,43 @@ export default function CreateVideoLayout() {
                                         {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Draft"}
                                     </Button>
                                 )}
-                                <Button
-                                    onClick={() => nextStep()}
-                                    disabled={
-                                        (currentStep === 1 && !canContinue) ||
-                                        (currentStep === 2 && (!request.scriptIdea.trim() || (request.jobType === 'series' && !request.seriesName.trim()) || !request.episodeTitle.trim())) ||
-                                        isPending ||
-                                        !!isStepLoading
-                                    }
-                                    className={cn(
-                                        "w-full h-12 rounded-xl transition-all font-bold text-lg shadow-xl",
-                                        currentStep === 6
-                                            ? "bg-purple-600 hover:bg-purple-700 text-white md:w-60 shadow-purple-200 hover:scale-[1.02] active:scale-[0.98]"
-                                            : "bg-purple-600 hover:bg-purple-700 text-white max-w-xs shadow-purple-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:shadow-none"
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <span className="w-full md:w-auto">
+                                            <Button
+                                                onClick={() => nextStep()}
+                                                disabled={
+                                                    (currentStep === 1 && !canContinue) ||
+                                                    (currentStep === 2 && (!request.scriptIdea.trim() || (request.jobType === 'series' && !request.seriesName.trim()) || !request.episodeTitle.trim())) ||
+                                                    isPending ||
+                                                    !!isStepLoading
+                                                }
+                                                className={cn(
+                                                    "w-full h-12 rounded-xl transition-all font-bold text-lg shadow-xl",
+                                                    currentStep === 6
+                                                        ? "bg-purple-600 hover:bg-purple-700 text-white md:w-60 shadow-purple-200 hover:scale-[1.02] active:scale-[0.98]"
+                                                        : "bg-purple-600 hover:bg-purple-700 text-white max-w-xs shadow-purple-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:shadow-none"
+                                                )}
+                                            >
+                                                {isPending || isStepLoading ? (
+                                                    <Loader2 className="h-5 w-5 animate-spin" />
+                                                ) : currentStep === 6 ? (
+                                                    <>
+                                                        <Wand2 className="mr-2 h-5 w-5" />
+                                                        {editVideoId ? "Update Episode" : (request.seriesId ? "Generate Episode" : (request.jobType === "series" ? "Generate Series" : "Generate Video"))}
+                                                    </>
+                                                ) : (
+                                                    currentStep === 1 && customNext ? "Create & Continue" : `Continue to Step ${currentStep + 1}`
+                                                )}
+                                            </Button>
+                                        </span>
+                                    </TooltipTrigger>
+                                    {missingFieldsMessage && (
+                                        <TooltipContent>
+                                            <p>{missingFieldsMessage}</p>
+                                        </TooltipContent>
                                     )}
-                                >
-                                    {isPending || isStepLoading ? (
-                                        <Loader2 className="h-5 w-5 animate-spin" />
-                                    ) : currentStep === 6 ? (
-                                        <>
-                                            <Wand2 className="mr-2 h-5 w-5" />
-                                            {editVideoId ? "Update Episode" : (request.seriesId ? "Generate Episode" : (request.jobType === "series" ? "Generate Series" : "Generate Video"))}
-                                        </>
-                                    ) : (
-                                        currentStep === 1 && customNext ? "Create & Continue" : `Continue to Step ${currentStep + 1}`
-                                    )}
-                                </Button>
+                                </Tooltip>
                             </div>
                         </div>
                     </footer>

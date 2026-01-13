@@ -200,11 +200,11 @@ export default function ScriptStep() {
                         onChange={(e) => updateRequest({ scriptIdea: e.target.value })}
                         placeholder="Example: Create a series about 'Unsolved Ocean Mysteries'. The tone should be suspenseful and eerie. Start with the Bermuda Triangle, then move to the Mariana Trench anomalies..."
                         className="w-full min-h-[180px] p-4 md:p-6 rounded-2xl border border-slate-200 bg-slate-50/50 text-slate-900 placeholder:text-slate-400 focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none resize-none transition-all text-base leading-relaxed"
-                        maxLength={1000}
+                        maxLength={10000}
                     />
                     <div className="absolute bottom-4 right-4 flex items-center gap-4">
                         <span className="text-xs font-semibold text-slate-400">
-                            {request.scriptIdea.length}/1000
+                            {request.scriptIdea.length}/10000
                         </span>
                         <Tooltip>
                             <TooltipTrigger asChild>
