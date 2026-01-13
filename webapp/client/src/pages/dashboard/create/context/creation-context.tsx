@@ -30,6 +30,8 @@ export interface VideoJobRequest {
     // Editor mode fields
     editorMode: boolean
     generatedScript?: GeneratedScript
+    scriptGenerationCount: number // Track number of generation attempts (max 3)
+    scriptFeedback?: string // User feedback for regeneration
 }
 
 export interface CreationContextType {
@@ -73,5 +75,7 @@ export const INITIAL_REQUEST: VideoJobRequest = {
     aspectRatio: "portrait",
     isDraft: false,
     editorMode: false,
-    generatedScript: undefined
+    generatedScript: undefined,
+    scriptGenerationCount: 0,
+    scriptFeedback: undefined
 }

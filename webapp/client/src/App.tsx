@@ -14,6 +14,7 @@ import SettingsPage from "./pages/dashboard/settings"
 import CreateLayout from "./pages/dashboard/create/layout"
 import NicheStep from "./pages/dashboard/create/steps/niche-step"
 import ScriptStep from "./pages/dashboard/create/steps/script-step"
+import ScriptEditorStep from "./pages/dashboard/create/steps/script-editor-step"
 import VoiceStep from "./pages/dashboard/create/steps/voice-step"
 import MusicStep from "./pages/dashboard/create/steps/music-step"
 import SubtitleStep from "./pages/dashboard/create/steps/subtitle-step"
@@ -57,6 +58,7 @@ function App() {
             <Route index element={<Navigate to="niche" replace />} />
             <Route path="niche" element={<NicheStep />} />
             <Route path="script" element={<ScriptStep />} />
+            <Route path="script-editor" element={<ScriptEditorStep />} />
             <Route path="voice" element={<VoiceStep />} />
             {/* Removed Visuals Route */}
             <Route path="subtitles" element={<SubtitleStep />} />

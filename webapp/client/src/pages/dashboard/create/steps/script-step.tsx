@@ -1,6 +1,3 @@
-import { useState, useEffect } from "react"
-import { useMutation } from "@tanstack/react-query"
-import { toast } from "sonner"
 import {
     Lightbulb,
     Timer,
@@ -17,7 +14,6 @@ import {
     Camera,
     Stars,
     Aperture,
-    PlayCircle,
     Clapperboard,
     FileText,
     Lock,
@@ -25,11 +21,8 @@ import {
     Monitor,
     Plus,
     Edit3,
-    RefreshCw,
-    Loader2,
-    ChevronDown,
-    ChevronUp,
-    Wand2
+    Wand2,
+    ArrowRight
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useCreation } from "../context/creation-context"
@@ -40,7 +33,6 @@ import {
     TooltipContent,
     TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { API_BASE_URL } from "@/lib/config"
 import { Switch } from "@/components/ui/switch"
 
 export const IMAGE_STYLES = [
@@ -62,112 +54,7 @@ export default function ScriptStep() {
     const {
         request,
         updateRequest,
-        setCustomNext,
-        nextStep,
-        setIsStepLoading
     } = useCreation()
-
-    const [showScriptPreview, setShowScriptPreview] = useState(false)
-
-    // Script generation mutation
-    const generateScriptMutation = useMutation({
-        mutationFn: async () => {
-            const response = await fetch(`${API_BASE_URL}/api/scripting/generate`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                credentials: "include",
-                body: JSON.stringify({
-                    scriptIdea: request.scriptIdea,
-                    nicheName: request.nicheName,
-                    duration: request.duration,
-                    voiceId: request.voiceId || "Zephyr",
-                }),
-            })
-            if (!response.ok) {
-                const error = await response.json()
-                throw new Error(error.error || "Failed to generate script")
-            }
-            return response.json()
-        },
-        onSuccess: (data) => {
-            updateRequest({
-                generatedScript: data.script
-            })
-            setShowScriptPreview(true)
-            toast.success("Script generated successfully!")
-        },
-        onError: (error: Error) => {
-            toast.error(error.message)
-        },
-    })
-
-    // Regenerate script mutation
-    const regenerateScriptMutation = useMutation({
-        mutationFn: async () => {
-            const response = await fetch(`${API_BASE_URL}/api/scripting/regenerate`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                credentials: "include",
-                body: JSON.stringify({
-                    scriptIdea: request.scriptIdea,
-                    nicheName: request.nicheName,
-                    duration: request.duration,
-                    voiceId: request.voiceId || "Zephyr",
-                }),
-            })
-            if (!response.ok) {
-                const error = await response.json()
-                throw new Error(error.error || "Failed to regenerate script")
-            }
-            return response.json()
-        },
-        onSuccess: (data) => {
-            updateRequest({
-                generatedScript: data.script
-            })
-            toast.success("Script regenerated successfully!")
-        },
-        onError: (error: Error) => {
-            toast.error(error.message)
-        },
-    })
-
-    const isGenerating = generateScriptMutation.isPending || regenerateScriptMutation.isPending
-
-    // Set up custom next handler for editor mode
-    useEffect(() => {
-        if (request.editorMode) {
-            setCustomNext(() => {
-                // If script not generated yet, generate it first
-                if (!request.generatedScript) {
-                    generateScriptMutation.mutate()
-                } else {
-                    // Script already generated, proceed to next step
-                    nextStep(true)
-                }
-            })
-        } else {
-            setCustomNext(undefined)
-        }
-        return () => setCustomNext(undefined)
-    }, [request.editorMode, request.generatedScript, setCustomNext, nextStep])
-
-    // Update step loading state based on mutation status
-    useEffect(() => {
-        setIsStepLoading(isGenerating)
-    }, [isGenerating, setIsStepLoading])
-
-    const handleGenerateScript = () => {
-        generateScriptMutation.mutate()
-    }
-
-    const handleRegenerateScript = () => {
-        regenerateScriptMutation.mutate()
-    }
-
-    const handleAcceptScript = () => {
-        nextStep(true)
-    }
 
     return (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-4xl mx-auto space-y-8">
@@ -175,6 +62,59 @@ export default function ScriptStep() {
                 title="Define your Video Details"
                 description="Provide specific instructions to tailor the AI script, choose the duration, and structure the storytelling flow."
             />
+
+            {/* Editor Mode Toggle - Simplified to just show info */}
+            <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-3xl border-2 border-purple-200 p-6 md:p-8 shadow-sm">
+                <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-start gap-4">
+                        <div className="p-3 rounded-2xl bg-purple-100 text-purple-600">
+                            <Edit3 className="h-6 w-6" />
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-bold text-slate-900">Editor Mode</h3>
+                            <p className="text-slate-500 text-sm font-medium mt-1">
+                                Take full control over your video. Preview and edit the AI-generated script before proceeding.
+                            </p>
+                        </div>
+                    </div>
+                    <Switch
+                        checked={request.editorMode}
+                        onCheckedChange={(checked) => {
+                            updateRequest({ 
+                                editorMode: checked,
+                                generatedScript: checked ? request.generatedScript : undefined,
+                                scriptGenerationCount: 0,
+                                scriptFeedback: undefined
+                            })
+                        }}
+                        className="data-[state=checked]:bg-purple-600"
+                    />
+                </div>
+
+                {request.editorMode && (
+                    <div className="mt-6">
+                        <div className="flex items-start gap-3 text-sm text-purple-700 bg-purple-100/50 rounded-xl p-4">
+                            <Wand2 className="h-5 w-5 shrink-0 mt-0.5" />
+                            <div className="space-y-2">
+                                <p className="font-medium">
+                                    In the next step, you'll be able to:
+                                </p>
+                                <ul className="list-disc list-inside space-y-1 text-purple-600">
+                                    <li>Generate a script preview based on your idea</li>
+                                    <li>Review and provide feedback for improvements</li>
+                                    <li>Regenerate up to 3 times with your comments</li>
+                                    <li>Accept the final script when satisfied</li>
+                                </ul>
+                                <div className="flex items-center gap-2 mt-3 pt-3 border-t border-purple-200">
+                                    <ArrowRight className="h-4 w-4" />
+                                    <span className="font-semibold">Click "Continue" to proceed to the Script Editor</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+
             {/* Section 0: Series Basics */}
             <div className="bg-white rounded-3xl border border-slate-200 p-6 md:p-8 shadow-sm space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -530,123 +470,6 @@ export default function ScriptStep() {
                         </span>
                     </div>
                 </div>
-            </div>
-
-            {/* Section 4: Editor Mode Toggle */}
-            <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-3xl border-2 border-purple-200 p-6 md:p-8 shadow-sm">
-                <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-start gap-4">
-                        <div className="p-3 rounded-2xl bg-purple-100 text-purple-600">
-                            <Edit3 className="h-6 w-6" />
-                        </div>
-                        <div>
-                            <h3 className="text-xl font-bold text-slate-900">Editor Mode</h3>
-                            <p className="text-slate-500 text-sm font-medium mt-1">
-                                Take full control over your video. Preview and edit the AI-generated script before proceeding.
-                            </p>
-                        </div>
-                    </div>
-                    <Switch
-                        checked={request.editorMode}
-                        onCheckedChange={(checked) => {
-                            updateRequest({ 
-                                editorMode: checked,
-                                generatedScript: checked ? request.generatedScript : undefined
-                            })
-                            if (!checked) {
-                                setShowScriptPreview(false)
-                            }
-                        }}
-                        className="data-[state=checked]:bg-purple-600"
-                    />
-                </div>
-
-                {request.editorMode && (
-                    <div className="mt-6 space-y-4">
-                        <div className="flex items-center gap-2 text-sm text-purple-700 bg-purple-100/50 rounded-xl p-4">
-                            <Wand2 className="h-5 w-5 shrink-0" />
-                            <span>
-                                When you click "Continue", we'll generate a script based on your idea. You can then review, edit, or regenerate it.
-                            </span>
-                        </div>
-
-                        {/* Script Preview Section */}
-                        {request.generatedScript && (
-                            <div className="bg-white rounded-2xl border border-purple-200 overflow-hidden">
-                                <button
-                                    onClick={() => setShowScriptPreview(!showScriptPreview)}
-                                    className="w-full flex items-center justify-between p-4 hover:bg-slate-50 transition-colors"
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <FileText className="h-5 w-5 text-purple-600" />
-                                        <span className="font-bold text-slate-900">Generated Script</span>
-                                        <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-1 rounded-full">
-                                            {request.generatedScript.wordCount} words • ~{Math.ceil(request.generatedScript.estimatedDurationSeconds / 60)}min
-                                        </span>
-                                    </div>
-                                    {showScriptPreview ? (
-                                        <ChevronUp className="h-5 w-5 text-slate-400" />
-                                    ) : (
-                                        <ChevronDown className="h-5 w-5 text-slate-400" />
-                                    )}
-                                </button>
-
-                                {showScriptPreview && (
-                                    <div className="border-t border-purple-100">
-                                        <div className="p-4 max-h-[400px] overflow-y-auto">
-                                            <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">
-                                                {request.generatedScript.story}
-                                            </p>
-                                        </div>
-                                        <div className="border-t border-purple-100 p-4 bg-slate-50 flex items-center justify-between gap-4">
-                                            <Button
-                                                variant="outline"
-                                                onClick={handleRegenerateScript}
-                                                disabled={isGenerating}
-                                                className="gap-2"
-                                            >
-                                                {regenerateScriptMutation.isPending ? (
-                                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                                ) : (
-                                                    <RefreshCw className="h-4 w-4" />
-                                                )}
-                                                Regenerate Script
-                                            </Button>
-                                            <Button
-                                                onClick={handleAcceptScript}
-                                                className="bg-purple-600 hover:bg-purple-700 gap-2"
-                                            >
-                                                <Check className="h-4 w-4" />
-                                                Accept & Continue
-                                            </Button>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        {/* Generate Script Button (when not yet generated) */}
-                        {!request.generatedScript && (
-                            <Button
-                                onClick={handleGenerateScript}
-                                disabled={isGenerating || !request.scriptIdea.trim()}
-                                className="w-full h-14 bg-purple-600 hover:bg-purple-700 gap-3 text-lg font-bold rounded-xl"
-                            >
-                                {generateScriptMutation.isPending ? (
-                                    <>
-                                        <Loader2 className="h-5 w-5 animate-spin" />
-                                        Generating Script...
-                                    </>
-                                ) : (
-                                    <>
-                                        <Sparkles className="h-5 w-5" />
-                                        Generate Script Preview
-                                    </>
-                                )}
-                            </Button>
-                        )}
-                    </div>
-                )}
             </div>
         </div>
     )

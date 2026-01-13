@@ -1,60 +1,69 @@
 /**
- * Step 2 Validation Utilities
+ * Step Validation Utilities
  * 
- * This file contains validation logic for Step 2 (Script & Idea) of the
- * video creation wizard. Extracted into a separate file for:
+ * This file contains validation logic for the video creation wizard steps.
+ * Extracted into a separate file for:
  * - Better testability
  * - Reusability across components
  * - Separation of concerns
  */
 
-import { VideoJobRequest } from './context/creation-context'
+import { VideoJobRequest } from '../context/creation-context'
 
 /**
- * Determines which required fields are missing for Step 2
+ * Determines which required fields are missing for the current step
  * 
  * @param request - The current video job request state
  * @param currentStep - The current step number in the wizard
+ * @param currentPath - The current route path (optional, used for path-based checking)
  * @returns A user-friendly message listing missing fields, or null if all fields are valid
- * 
- * Validation rules for Step 2:
- * - Series Mode: Requires Series Name, Episode Title, and Script Idea
- * - Video Mode: Requires Video Name and Script Idea
  */
 export function getMissingFieldsMessage(
     request: VideoJobRequest,
-    currentStep: number
+    currentStep: number,
+    currentPath?: string
 ): string | null {
-    // Only validate on step 2
-    if (currentStep !== 2) return null
-    
-    const missingFields: string[] = []
-    
-    // Series mode requires series name
-    if (request.jobType === 'series' && !request.seriesName.trim()) {
-        missingFields.push('Series Name')
+    // Script step validation
+    const isScriptStep = currentPath === 'script' || currentStep === 2
+    if (isScriptStep) {
+        const missingFields: string[] = []
+        
+        // Series mode requires series name
+        if (request.jobType === 'series' && !request.seriesName.trim()) {
+            missingFields.push('Series Name')
+        }
+        
+        // Video mode requires video name (stored in episodeTitle)
+        if (request.jobType !== 'series' && !request.episodeTitle.trim()) {
+            missingFields.push('Video Name')
+        }
+        
+        // Series mode requires episode title
+        if (request.jobType === 'series' && !request.episodeTitle.trim()) {
+            missingFields.push('Episode Title')
+        }
+        
+        // Both modes require script idea
+        if (!request.scriptIdea.trim()) {
+            missingFields.push('Video Idea & Context')
+        }
+        
+        // No missing fields
+        if (missingFields.length === 0) return null
+        
+        // Format the message with proper pluralization
+        return `Missing required field${missingFields.length > 1 ? 's' : ''}: ${missingFields.join(', ')}`
     }
     
-    // Video mode requires video name (stored in episodeTitle)
-    if (request.jobType !== 'series' && !request.episodeTitle.trim()) {
-        missingFields.push('Video Name')
+    // Script editor step validation
+    const isScriptEditorStep = currentPath === 'script-editor'
+    if (isScriptEditorStep) {
+        if (!request.generatedScript) {
+            return 'Generate a script first before continuing'
+        }
     }
     
-    // Series mode requires episode title
-    if (request.jobType === 'series' && !request.episodeTitle.trim()) {
-        missingFields.push('Episode Title')
-    }
-    
-    // Both modes require script idea
-    if (!request.scriptIdea.trim()) {
-        missingFields.push('Video Idea & Context')
-    }
-    
-    // No missing fields
-    if (missingFields.length === 0) return null
-    
-    // Format the message with proper pluralization
-    return `Missing required field${missingFields.length > 1 ? 's' : ''}: ${missingFields.join(', ')}`
+    return null
 }
 
 /**
@@ -62,13 +71,16 @@ export function getMissingFieldsMessage(
  * 
  * @param request - The current video job request state
  * @param currentStep - The current step number in the wizard
+ * @param currentPath - The current route path (optional, used for path-based checking)
  * @returns true if the button should be disabled, false otherwise
  */
 export function isStep2ContinueDisabled(
     request: VideoJobRequest,
-    currentStep: number
+    currentStep: number,
+    currentPath?: string
 ): boolean {
-    if (currentStep !== 2) return false
+    const isScriptStep = currentPath === 'script' || currentStep === 2
+    if (!isScriptStep) return false
     
     return (
         !request.scriptIdea.trim() ||

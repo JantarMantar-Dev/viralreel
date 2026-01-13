@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useNavigate, useLocation, Outlet, useSearchParams } from "react-router-dom"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { toast } from "sonner"
@@ -33,13 +33,25 @@ import {
 } from "./context/creation-context"
 import { getMissingFieldsMessage } from "./utils/step-validation"
 
-const STEPS = [
+// Base steps without editor mode
+const BASE_STEPS = [
     { id: 1, title: "Choose Niche", path: "niche" },
     { id: 2, title: "Script & Idea", path: "script" },
     { id: 3, title: "AI Voice", path: "voice" },
     { id: 4, title: "Background Music", path: "music" },
     { id: 5, title: "Subtitles", path: "subtitles" },
     { id: 6, title: "Review", path: "review" }
+]
+
+// Steps with editor mode (includes script-editor after script)
+const EDITOR_MODE_STEPS = [
+    { id: 1, title: "Choose Niche", path: "niche" },
+    { id: 2, title: "Script & Idea", path: "script" },
+    { id: 3, title: "Script Editor", path: "script-editor" },
+    { id: 4, title: "AI Voice", path: "voice" },
+    { id: 5, title: "Background Music", path: "music" },
+    { id: 6, title: "Subtitles", path: "subtitles" },
+    { id: 7, title: "Review", path: "review" }
 ]
 
 
@@ -60,6 +72,11 @@ export default function CreateVideoLayout() {
 
     const navigate = useNavigate()
     const location = useLocation()
+
+    // Dynamic steps based on editor mode
+    const STEPS = useMemo(() => {
+        return request.editorMode ? EDITOR_MODE_STEPS : BASE_STEPS
+    }, [request.editorMode])
 
     const updateRequest = (data: Partial<VideoJobRequest>) => {
         setRequest(prev => ({ ...prev, ...data }))
@@ -225,7 +242,21 @@ export default function CreateVideoLayout() {
     }
 
     // Get missing fields message for tooltip (uses extracted utility)
-    const missingFieldsMessage = getMissingFieldsMessage(request, currentStep)
+    const missingFieldsMessage = getMissingFieldsMessage(request, currentStep, path)
+
+    /**
+     * Footer Visibility Logic
+     * 
+     * The footer navigation bar should be visible when:
+     * 1. User has selected a niche (completed step 1) - nicheId is set
+     * 2. User is editing an existing video - editVideoId is present
+     * 3. A step has custom navigation logic - customNext is set
+     */
+    const hasCompletedNicheStep = !!request.nicheId
+    const isEditingExistingVideo = !!editVideoId
+    const hasCustomNavigation = !!customNext
+    
+    const shouldShowFooter = hasCompletedNicheStep || isEditingExistingVideo || hasCustomNavigation
 
     return (
         <CreationContext.Provider value={{
@@ -328,7 +359,7 @@ export default function CreateVideoLayout() {
                 </main>
 
                 {/* Sticky Footer Navigation */}
-                {(request.nicheId || editVideoId || customNext) && (
+                {shouldShowFooter && (
                     <footer className="sticky bottom-0 z-30 w-full bg-white/80 backdrop-blur-md border-t border-slate-200 px-4 md:px-6 py-4 mt-auto">
                         <div className="max-w-6xl mx-auto w-full flex items-center justify-between gap-4">
                             <div className="flex items-center gap-6">
@@ -343,21 +374,21 @@ export default function CreateVideoLayout() {
                                     </Button>
                                 )}
 
-                                {currentStep === 3 && request.voiceName && (
+                                {path === 'voice' && request.voiceName && (
                                     <div className="hidden sm:flex items-center gap-2 px-4 py-2 bg-purple-50 rounded-xl border border-purple-100 animate-in fade-in slide-in-from-left-4 duration-300">
                                         <span className="text-sm font-bold text-slate-500 uppercase tracking-wider">Selected:</span>
                                         <span className="text-lg font-extrabold text-purple-600 font-display">{request.voiceName}</span>
                                     </div>
                                 )}
 
-                                {currentStep === 4 && request.musicName && (
+                                {path === 'music' && request.musicName && (
                                     <div className="hidden lg:flex items-center gap-2 px-4 py-2 bg-purple-50 rounded-xl border border-purple-100 animate-in fade-in slide-in-from-left-4 duration-300">
                                         <span className="text-sm font-bold text-slate-500 uppercase tracking-wider">Music:</span>
                                         <span className="text-lg font-extrabold text-purple-600 font-display">{request.musicName}</span>
                                     </div>
                                 )}
 
-                                {currentStep === 5 && request.subtitleTemplateName && (
+                                {path === 'subtitles' && request.subtitleTemplateName && (
                                     <div className="hidden lg:flex items-center gap-2 px-4 py-2 bg-purple-50 rounded-xl border border-purple-100 animate-in fade-in slide-in-from-left-4 duration-300">
                                         <span className="text-sm font-bold text-slate-500 uppercase tracking-wider">Style:</span>
                                         <span className="text-lg font-extrabold text-purple-600 font-display">{request.subtitleTemplateName}</span>
@@ -366,7 +397,7 @@ export default function CreateVideoLayout() {
                             </div>
 
                             <div className="flex items-center gap-4 w-full md:w-auto">
-                                {currentStep === 6 && (
+                                {path === 'review' && (
                                     <Button
                                         variant="outline"
                                         onClick={handleSaveDraft}
@@ -382,27 +413,28 @@ export default function CreateVideoLayout() {
                                             <Button
                                                 onClick={() => nextStep()}
                                                 disabled={
-                                                    (currentStep === 1 && !canContinue) ||
-                                                    (currentStep === 2 && (!request.scriptIdea.trim() || (request.jobType === 'series' && !request.seriesName.trim()) || !request.episodeTitle.trim())) ||
+                                                    (path === 'niche' && !canContinue) ||
+                                                    (path === 'script' && (!request.scriptIdea.trim() || (request.jobType === 'series' && !request.seriesName.trim()) || !request.episodeTitle.trim())) ||
+                                                    (path === 'script-editor' && !request.generatedScript) ||
                                                     isPending ||
                                                     !!isStepLoading
                                                 }
                                                 className={cn(
                                                     "w-full h-12 rounded-xl transition-all font-bold text-lg shadow-xl",
-                                                    currentStep === 6
+                                                    path === 'review'
                                                         ? "bg-purple-600 hover:bg-purple-700 text-white md:w-60 shadow-purple-200 hover:scale-[1.02] active:scale-[0.98]"
                                                         : "bg-purple-600 hover:bg-purple-700 text-white max-w-xs shadow-purple-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:shadow-none"
                                                 )}
                                             >
                                                 {isPending || isStepLoading ? (
                                                     <Loader2 className="h-5 w-5 animate-spin" />
-                                                ) : currentStep === 6 ? (
+                                                ) : path === 'review' ? (
                                                     <>
                                                         <Wand2 className="mr-2 h-5 w-5" />
                                                         {editVideoId ? "Update Episode" : (request.seriesId ? "Generate Episode" : (request.jobType === "series" ? "Generate Series" : "Generate Video"))}
                                                     </>
                                                 ) : (
-                                                    currentStep === 1 && customNext ? "Create & Continue" : `Continue to Step ${currentStep + 1}`
+                                                    path === 'niche' && customNext ? "Create & Continue" : `Continue to Step ${currentStep + 1}`
                                                 )}
                                             </Button>
                                         </span>
