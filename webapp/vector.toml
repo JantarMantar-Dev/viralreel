@@ -1,0 +1,66 @@
+# -------------------------------------------------------------------------
+# 1. SOURCE: Read Docker Logs - Capture ALL containers
+# -------------------------------------------------------------------------
+[sources.docker_swarm_logs]
+type = "docker_logs"
+docker_host = "unix:///var/run/docker.sock"
+# Exclude only the vector container itself to avoid recursive logging
+exclude_containers = ["webapp-vector-prod"]
+
+# -------------------------------------------------------------------------
+# 2. TRANSFORM: Clean up Metadata
+# -------------------------------------------------------------------------
+[transforms.enrich_logs]
+type = "remap"
+inputs = ["docker_swarm_logs"]
+source = '''
+  # --- Standardize Timestamp ---
+  .timestamp = parse_timestamp!(.timestamp, format: "%Y-%m-%dT%H:%M:%S.%fZ")
+
+  # --- Extract Swarm Metadata ---
+  .service = .label."com.docker.swarm.service.name" || .image
+  .stack = .label."com.docker.stack.namespace" || "standalone"
+  .node_id = .label."com.docker.swarm.node.id" || "unknown"
+  .container = .container_name
+  
+  # Add the actual hostname of the server
+  .host = get_hostname!() 
+'''
+
+# -------------------------------------------------------------------------
+# 3. SINK: Send to OpenObserve
+# -------------------------------------------------------------------------
+[sinks.openobserve]
+type = "http"
+inputs = ["enrich_logs"]
+uri = "http://openobserve:5080/api/default/default/_json"
+method = "post"
+auth.strategy = "basic"
+auth.user = "test@gmail.com"
+auth.password = "test1234"
+compression = "gzip"
+encoding.codec = "json"
+encoding.timestamp_format = "rfc3339"
+
+[api]
+enabled = true
+address = "0.0.0.0:8686"
+
+# -------------------------------------------------------------------------
+# 4. SOURCE: Scrape Container Metrics
+# -------------------------------------------------------------------------
+[sources.cadvisor_metrics]
+type = "prometheus_scrape"
+endpoints = ["http://cadvisor:8080/metrics"]
+scrape_interval_secs = 10
+
+# -------------------------------------------------------------------------
+# 5. SINK: Send Metrics to OpenObserve
+# -------------------------------------------------------------------------
+[sinks.openobserve_metrics]
+type = "prometheus_remote_write"
+inputs = ["cadvisor_metrics"]
+endpoint = "http://openobserve:5080/api/default/prometheus/api/v1/write"
+auth.strategy = "basic"
+auth.user = "test@gmail.com"
+auth.password = "test1234"

@@ -4,7 +4,7 @@ import { series, video, renderJob, contentNiche, script } from "../db/schema.js"
 import { eq, desc, and, isNull } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { z } from "zod";
-import { createVideoJob, deleteVideo, queueVideoRender, updateVideoMetadata } from "../services/video-service.js";
+import { createVideoJob, deleteVideo, queueVideoRender, updateVideoMetadata, retryVideoProcessing } from "../services/video-service.js";
 import { storageProvider } from "../lib/storage.js";
 
 export const baseJobSchema = z.object({
@@ -177,7 +177,7 @@ export default async function jobRoutes(fastify: FastifyInstance) {
         }
     });
 
-    // POST /api/jobs/:videoId/retry - Retry processing if URL is missing
+    // POST /api/jobs/:videoId/retry - Retry processing for a failed video
     fastify.post("/:videoId/retry", async (request, reply) => {
         const userId = request.session.userId;
         if (!userId) {
@@ -186,9 +186,16 @@ export default async function jobRoutes(fastify: FastifyInstance) {
 
         const { videoId } = request.params as { videoId: string };
 
-        request.log.info(`[RETRY] Request to retry video ${videoId}. we will process request.`);
-
-        return { success: true, message: "Retry request processed" };
+        try {
+            const result = await retryVideoProcessing(videoId, userId);
+            return result;
+        } catch (error: any) {
+            fastify.log.error(error);
+            if (error?.name === 'AppError') {
+                return reply.status(error.statusCode).send({ key: error.key, message: error.message });
+            }
+            return reply.status(error.message.includes("not found") ? 404 : 400).send({ error: error.message });
+        }
     });
 
     // PATCH /api/jobs/:videoId - Update metadata (Edit)

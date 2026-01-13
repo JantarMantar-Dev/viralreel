@@ -17,7 +17,8 @@ import {
     Trash2,
     Edit,
     Zap,
-    Download
+    Download,
+    RotateCcw
 } from "lucide-react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
@@ -111,6 +112,15 @@ function EpisodeStatusBadge({ status }: { status: Episode["status"] }) {
             </div>
         )
     }
+
+    if (status === "Failed") {
+        return (
+            <div className="bg-red-50 text-red-700 px-2 py-0.5 rounded-full text-[10px] font-medium border border-red-100">
+                Failed
+            </div>
+        )
+    }
+
     return (
         <div className="bg-green-50 text-green-700 px-2 py-0.5 rounded-full text-[10px] font-medium border border-green-100">
             Completed
@@ -166,6 +176,24 @@ export default function SeriesDetailsPage() {
         },
         onSuccess: () => {
             toast.success("Rendering queued!")
+            queryClient.invalidateQueries({ queryKey: ['series', id] })
+        }
+    })
+
+    const { mutate: retryEpisode } = useMutation({
+        mutationFn: async (videoId: string) => {
+            const res = await fetch(`${API_BASE_URL}/api/jobs/${videoId}/retry`, {
+                method: 'POST',
+                credentials: 'include'
+            })
+            if (!res.ok) {
+                const errorData = await res.json()
+                throw new Error(errorData.error || errorData.message || 'Failed to retry episode')
+            }
+            return res.json()
+        },
+        onSuccess: () => {
+            toast.success("Episode queued for reprocessing!")
             queryClient.invalidateQueries({ queryKey: ['series', id] })
         }
     })
@@ -340,6 +368,15 @@ export default function SeriesDetailsPage() {
                                                 <DropdownMenuItem onClick={(e) => { e.stopPropagation(); renderEpisode(ep.id); }}>
                                                     <Zap className="h-4 w-4 mr-2 text-yellow-500" />
                                                     Render Now
+                                                </DropdownMenuItem>
+                                            )}
+                                            {ep.status === "Failed" && (
+                                                <DropdownMenuItem 
+                                                    className="text-orange-600 font-medium"
+                                                    onClick={(e) => { e.stopPropagation(); retryEpisode(ep.id); }}
+                                                >
+                                                    <RotateCcw className="h-4 w-4 mr-2" />
+                                                    Retry
                                                 </DropdownMenuItem>
                                             )}
                                             <DropdownMenuItem onClick={(e) => { e.stopPropagation(); navigate(`/create?editVideoId=${ep.id}`); }}>

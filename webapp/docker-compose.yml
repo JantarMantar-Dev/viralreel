@@ -19,7 +19,10 @@ services:
       - webapp-network
 
   server:
-    build: ./server
+    build:
+      context: ./server
+      args:
+        - DATABASE_URL=postgresql://user:password@postgres:5432/webapp
     container_name: webapp-server
     ports:
       - "3000:3000"
@@ -37,6 +40,7 @@ services:
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
       - TRUSTED_ORIGINS=${TRUSTED_ORIGINS}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
     depends_on:
       postgres:
         condition: service_healthy
