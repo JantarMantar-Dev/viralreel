@@ -261,6 +261,52 @@ export async function updateVideoMetadata(videoId: string, userId: string, body:
     return { success: true, message: "Video updated successfully" };
 }
 
+export async function retryVideoProcessing(videoId: string, userId: string) {
+    // Ensure the video belongs to the user
+    const existingVideo = await db.select()
+        .from(video)
+        .where(and(eq(video.id, videoId), eq(video.userId, userId)))
+        .limit(1);
+
+    if (existingVideo.length === 0) {
+        throw new Error("Video not found or access denied");
+    }
+
+    const v = existingVideo[0];
+
+    // Only allow retry for failed videos
+    if (v.status !== "FAILED") {
+        throw new Error("Only failed videos can be retried");
+    }
+
+    // Check credits
+    const canAfford = await hasEnoughCredits(userId, 1);
+    if (!canAfford) {
+        throw new AppError("InsuffCredits", "Insufficient credits to retry this video", 402);
+    }
+
+    // Reset video status to SCRIPTING (start of pipeline)
+    await db.update(video)
+        .set({ 
+            status: "SCRIPTING", 
+            updatedAt: new Date() 
+        })
+        .where(eq(video.id, videoId));
+
+    // Reset render_job status to QUEUED so ScriptProcessor will pick it up
+    await db.update(renderJob)
+        .set({ 
+            status: "QUEUED", 
+            error: null,
+            retryCount: 0,
+            progress: 0,
+            updatedAt: new Date() 
+        })
+        .where(eq(renderJob.videoId, videoId));
+
+    return { success: true, message: "Video queued for reprocessing" };
+}
+
 export async function deleteSeries(seriesId: string, userId: string) {
     // 1. Ensure the series belongs to the user
     const existingSeries = await db.select()

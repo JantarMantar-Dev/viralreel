@@ -1,0 +1,209 @@
+services:
+  postgres:
+    image: postgres:15
+    container_name: webapp-postgres-prod
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: ${POSTGRES_DB:-webapp}
+    volumes:
+      - postgres_data_prod:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-user} -d ${POSTGRES_DB:-webapp}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - webapp-network-prod
+
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+      args:
+        PORT: 3000
+        TRUSTED_ORIGINS: ${TRUSTED_ORIGINS:-http://localhost:5173}
+        CLIENT_URL: ${CLIENT_URL:-http://localhost:5173}
+        BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
+        BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
+        GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+        GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+        DATABASE_URL: ${DATABASE_URL:-postgresql://user:password@postgres:5432/webapp}
+        STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+        S3_ENDPOINT_URL: ${S3_ENDPOINT_URL}
+        S3_REGION: ${S3_REGION}
+        S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID}
+        S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
+        S3_BUCKET_NAME: ${S3_BUCKET_NAME}
+        SMTP_OUT_SERVER: ${SMTP_OUT_SERVER}
+        SMTP_PORT: ${SMTP_PORT}
+        SMTP_EMAIL_USER: ${SMTP_EMAIL_USER}
+        SMTP_EMAIL_PASS: ${SMTP_EMAIL_PASS}
+        MOCK_EMAIL: ${MOCK_EMAIL}
+        GOOGLE_API_KEY: ${GOOGLE_API_KEY}
+        VIDEO_WORK_DIR: ${VIDEO_WORK_DIR:-/app/work_dir}
+    container_name: webapp-server-prod
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL:-postgresql://user:password@postgres:5432/webapp}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - webapp-network-prod
+
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:3000}
+        VITE_LENDING_URL: ${VITE_LENDING_URL:-http://localhost:3001}
+    container_name: webapp-client-prod
+    ports:
+      - "5173:80"
+    depends_on:
+      - server
+    networks:
+      - webapp-network-prod
+
+  worker-script:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile
+      args:
+        DATABASE_URL: ${DATABASE_URL:-postgresql://user:password@postgres:5432/webapp}
+        S3_ENDPOINT_URL: ${S3_ENDPOINT_URL}
+        S3_REGION: ${S3_REGION}
+        S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID}
+        S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
+        S3_BUCKET_NAME: ${S3_BUCKET_NAME}
+        GOOGLE_API_KEY: ${GOOGLE_API_KEY}
+        GOOGLE_SCRIPT_MODEL: ${GOOGLE_SCRIPT_MODEL}
+        GOOGLE_TTS_MODEL: ${GOOGLE_TTS_MODEL}
+        GOOGLE_IMAGE_MODEL: ${GOOGLE_IMAGE_MODEL}
+        OPENAI_API_KEY: ${OPENAI_API_KEY}
+        GROQ_API_KEY: ${GROQ_API_KEY}
+        VIDEO_WORK_DIR: ${VIDEO_WORK_DIR:-/app/work_dir}
+    container_name: webapp-worker-script-prod
+    environment:
+      - NODE_ENV=production
+      - SCRIPT_WORKER_SIZE=1
+    command: npm run start:script
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - webapp-network-prod
+  
+  worker-ai:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile
+      args:
+        DATABASE_URL: ${DATABASE_URL:-postgresql://user:password@postgres:5432/webapp}
+        S3_ENDPOINT_URL: ${S3_ENDPOINT_URL}
+        S3_REGION: ${S3_REGION}
+        S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID}
+        S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
+        S3_BUCKET_NAME: ${S3_BUCKET_NAME}
+        GOOGLE_API_KEY: ${GOOGLE_API_KEY}
+        GOOGLE_SCRIPT_MODEL: ${GOOGLE_SCRIPT_MODEL}
+        GOOGLE_TTS_MODEL: ${GOOGLE_TTS_MODEL}
+        GOOGLE_IMAGE_MODEL: ${GOOGLE_IMAGE_MODEL}
+        OPENAI_API_KEY: ${OPENAI_API_KEY}
+        GROQ_API_KEY: ${GROQ_API_KEY}
+        VIDEO_WORK_DIR: ${VIDEO_WORK_DIR:-/app/work_dir}
+    container_name: webapp-worker-ai-prod
+    environment:
+      - NODE_ENV=production
+      - AI_GEN_WORKER_SIZE=1
+    command: npm run start:ai
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - webapp-network-prod
+
+  worker-video:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile
+      args:
+        DATABASE_URL: ${DATABASE_URL:-postgresql://user:password@postgres:5432/webapp}
+        S3_ENDPOINT_URL: ${S3_ENDPOINT_URL}
+        S3_REGION: ${S3_REGION}
+        S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID}
+        S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
+        S3_BUCKET_NAME: ${S3_BUCKET_NAME}
+        GOOGLE_API_KEY: ${GOOGLE_API_KEY}
+        GOOGLE_SCRIPT_MODEL: ${GOOGLE_SCRIPT_MODEL}
+        GOOGLE_TTS_MODEL: ${GOOGLE_TTS_MODEL}
+        GOOGLE_IMAGE_MODEL: ${GOOGLE_IMAGE_MODEL}
+        OPENAI_API_KEY: ${OPENAI_API_KEY}
+        GROQ_API_KEY: ${GROQ_API_KEY}
+        VIDEO_WORK_DIR: ${VIDEO_WORK_DIR:-/app/work_dir}
+    container_name: webapp-worker-video-prod
+    environment:
+      - NODE_ENV=production
+      - VIDEO_WORKER_SIZE=1
+    command: npm run start:video
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - webapp-network-prod
+
+  openobserve:
+    image: public.ecr.aws/zinclabs/openobserve:latest
+    container_name: openobserve
+    networks:
+      - webapp-network-prod
+    environment:
+      - ZO_ROOT_USER_EMAIL=test@gmail.com
+      - ZO_ROOT_USER_PASSWORD=test1234
+      - ZO_DATA_DIR=/data
+    volumes:
+      - openobserve_data_prod:/data
+    ports:
+      - "5080:5080"
+
+  vector:
+    image: timberio/vector:latest-alpine
+    container_name: webapp-vector-prod
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./vector.toml:/etc/vector/vector.toml:ro
+    environment:
+      - VECTOR_CONFIG=/etc/vector/vector.toml
+    depends_on:
+      - openobserve
+      - cadvisor
+    networks:
+      - webapp-network-prod
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.47.2
+    container_name: cadvisor
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    ports:
+      - "8080:8080"
+    networks:
+      - webapp-network-prod
+
+networks:
+  webapp-network-prod:
+    driver: bridge
+
+volumes:
+  postgres_data_prod:
+  openobserve_data_prod:

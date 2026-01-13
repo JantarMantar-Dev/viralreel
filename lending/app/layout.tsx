@@ -53,14 +53,18 @@ export const metadata: Metadata = {
 
 import { PHProvider } from "../components/posthog-provider";
 
-export default function RootLayout({
+import { headers } from "next/headers";
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const nonce = (await headers()).get("x-nonce") || undefined;
+
   return (
     <html lang="en" suppressHydrationWarning>
-      <PHProvider>
+      <PHProvider nonce={nonce}>
         <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased bg-zinc-50 text-slate-900`}
         >

@@ -3,14 +3,34 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-if (!process.env.STRIPE_SECRET_KEY) {
-    console.warn('STRIPE_SECRET_KEY is not defined in environment variables');
+let stripeInstance: Stripe | null = null;
+
+function getStripe(): Stripe {
+    if (!stripeInstance) {
+        if (!process.env.STRIPE_SECRET_KEY) {
+            throw new Error('STRIPE_SECRET_KEY is not defined in environment variables');
+        }
+        stripeInstance = new Stripe(process.env.STRIPE_SECRET_KEY, {
+            apiVersion: '2025-12-15.clover',
+            typescript: true,
+        });
+    }
+    return stripeInstance;
 }
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-    apiVersion: '2025-12-15.clover',
-    typescript: true,
+// Export a proxy that lazily initializes Stripe only when accessed
+export const stripe = new Proxy({} as Stripe, {
+    get(_, prop) {
+        return getStripe()[prop as keyof Stripe];
+    }
 });
+
+/**
+ * Check if Stripe is configured
+ */
+export function isStripeConfigured(): boolean {
+    return !!process.env.STRIPE_SECRET_KEY;
+}
 
 /**
  * Helper to create a Stripe Checkout Session

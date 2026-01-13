@@ -19,7 +19,9 @@ services:
       - webapp-network
 
   server:
-    build: ./server
+    build:
+      context: ./server
+      dockerfile: Dockerfile.dev
     container_name: webapp-server
     ports:
       - "3000:3000"
@@ -37,6 +39,7 @@ services:
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
       - TRUSTED_ORIGINS=${TRUSTED_ORIGINS}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
     depends_on:
       postgres:
         condition: service_healthy
@@ -46,9 +49,7 @@ services:
   client:
     build:
       context: ./client
-      target: build
-      args:
-        - VITE_API_URL=http://localhost:3000
+      dockerfile: Dockerfile.dev
     container_name: webapp-client
     ports:
       - "5173:5173"

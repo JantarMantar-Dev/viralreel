@@ -16,7 +16,8 @@ import {
     Trash2,
     Zap,
     Edit,
-    Download
+    Download,
+    RotateCcw
 } from "lucide-react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
@@ -129,7 +130,7 @@ function VideoTypeBadge({ type }: { type: Project["type"] }) {
     return null
 }
 
-function VideoCard({ project, onClick, onDelete, onRender, onOpen }: { project: Project, onClick: () => void, onDelete: () => void, onRender?: () => void, onOpen?: () => void }) {
+function VideoCard({ project, onClick, onDelete, onRender, onRetry, onOpen }: { project: Project, onClick: () => void, onDelete: () => void, onRender?: () => void, onRetry?: () => void, onOpen?: () => void }) {
     return (
         <Card
             onClick={onClick}
@@ -229,6 +230,18 @@ function VideoCard({ project, onClick, onDelete, onRender, onOpen }: { project: 
                                 Render Now
                             </DropdownMenuItem>
                         )}
+                        {project.type === "Single Video" && project.status === "Failed" && onRetry && (
+                            <DropdownMenuItem
+                                className="text-orange-600 font-medium"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onRetry();
+                                }}
+                            >
+                                <RotateCcw className="h-4 w-4 mr-2" />
+                                Retry
+                            </DropdownMenuItem>
+                        )}
                         <Separator className="my-1" />
                         <DropdownMenuItem
                             className="text-red-600 focus:text-red-600"
@@ -276,10 +289,11 @@ interface VideoListViewProps {
     isLoading: boolean
     onDelete: (project: Project) => void
     onRender: (project: Project) => void
+    onRetry: (project: Project) => void
     onOpen: (project: Project) => void
 }
 
-function VideoListView({ filter, setFilter, navigate, projects, isLoading, onDelete, onRender, onOpen }: VideoListViewProps) {
+function VideoListView({ filter, setFilter, navigate, projects, isLoading, onDelete, onRender, onRetry, onOpen }: VideoListViewProps) {
     return (
         <div className="flex flex-col w-full h-full">
             {/* Top Bar (Search & Actions) - Full Width Header */}
@@ -397,6 +411,7 @@ function VideoListView({ filter, setFilter, navigate, projects, isLoading, onDel
                                         }}
                                         onDelete={() => onDelete(project)}
                                         onRender={() => onRender(project)}
+                                        onRetry={() => onRetry(project)}
                                         onOpen={() => onOpen(project)}
                                     />
                                 ))}
@@ -501,6 +516,26 @@ export default function MyVideosPage() {
         }
     });
 
+    const { mutate: retryProject } = useMutation({
+        mutationFn: async (project: Project) => {
+            const res = await fetch(`${API_BASE_URL}/api/jobs/${project.id}/retry`, {
+                method: 'POST',
+                credentials: 'include'
+            });
+
+            if (!res.ok) {
+                const errorData = await res.json();
+                throw new Error(errorData.error || errorData.message || 'Failed to retry video');
+            }
+
+            return res.json();
+        },
+        onSuccess: () => {
+            toast.success("Video queued for reprocessing!");
+            queryClient.invalidateQueries({ queryKey: ['projects'] });
+        }
+    });
+
     if (!isLoading && projects.length === 0) {
         return <VideosEmptyState onTypeSelect={(type) => navigate(`/create?type=${type}`)} />
     }
@@ -515,6 +550,7 @@ export default function MyVideosPage() {
                 isLoading={isLoading}
                 onDelete={(p) => setDeleteTarget(p)}
                 onRender={(p) => renderProject(p)}
+                onRetry={(p) => retryProject(p)}
                 onOpen={(p) => setPlayerProject(p)}
             />
 
