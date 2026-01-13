@@ -11,7 +11,8 @@
         "start:video": "tsx src/video_renderer.ts",
         "start:worker": "tsx src/worker.ts",
         "build": "tsc",
-        "preview": "remotion preview src/remotion/index.ts"
+        "preview": "remotion preview src/remotion/index.ts",
+        "test:subtitles": "tsx scripts/test-subtitle-condition.ts"
     },
     "dependencies": {
         "@aws-sdk/client-s3": "^3.958.0",

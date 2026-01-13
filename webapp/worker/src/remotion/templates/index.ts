@@ -28,7 +28,10 @@ export const TEMPLATES = {
                 color: 'white',
                 fontSize: 50
             },
-            subtitleTemplateId: 'classic-capcut'
+            // Note: subtitleTemplateId is intentionally NOT set here
+            // When undefined, no subtitles will be rendered (this is the expected behavior)
+            // The video processor will pass subtitleTemplateId only when user selects a template
+            subtitleTemplateId: undefined
         },
         calculateDuration: (props: z.infer<typeof SimpleCompositionSchema>) => {
             const fps = 30;
@@ -42,7 +45,7 @@ export const TEMPLATES = {
         component: TailwindTest,
         schema: TailwindTestSchema,
         defaultProps: {
-            subtitleTemplateId: "classic-capcut",
+            subtitleTemplateId: undefined, // Can be set to test specific styles
             previewText: "TESTING",
             name: "Default Style"
         },
