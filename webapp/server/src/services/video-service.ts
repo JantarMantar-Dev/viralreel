@@ -35,6 +35,9 @@ export async function createVideoJob({ userId, body, existingSeriesId, isDraft =
         nicheId: body.nicheId ?? undefined,
         aspectRatio: body.aspectRatio || "portrait",
         templateId: "simple",
+        editorMode: body.editorMode || false,
+        // Store generated script in metadata if provided (for editor mode)
+        generatedScript: body.generatedScript,
     };
 
     let seriesId: string | null = existingSeriesId || null;
@@ -102,6 +105,12 @@ export async function createVideoJob({ userId, body, existingSeriesId, isDraft =
         }
     }
 
+    // Determine initial status based on editor mode
+    // If editor mode is enabled and we have a generated script, start from SCRIPT_READY
+    // Otherwise, start from SCRIPTING (normal flow)
+    const hasPreGeneratedScript = body.editorMode && body.generatedScript?.story;
+    const initialStatus = isDraft ? "DRAFT" : (hasPreGeneratedScript ? "SCRIPT_READY" : "SCRIPTING");
+
     await db.insert(video).values({
         id: videoId,
         userId,
@@ -109,19 +118,40 @@ export async function createVideoJob({ userId, body, existingSeriesId, isDraft =
         nicheId: body.nicheId || null,
         title,
         episodeNumber,
-        status: isDraft ? "DRAFT" : "SCRIPTING", // Initial status
+        status: initialStatus,
         metadata: metadata
     });
 
     createdVideos.push(videoId);
 
     // 4. Create Render Job
+    // If editor mode with pre-generated script, start with SCRIPTING status (so ScriptProcessor processes script to audio/subtitles)
+    // Otherwise start with QUEUED
+    const renderJobStatus = isDraft ? "DRAFT" : "QUEUED";
+    
     await db.insert(renderJob).values({
         id: nanoid(),
         videoId,
-        status: isDraft ? "DRAFT" : "QUEUED",
+        status: renderJobStatus,
         progress: 0
     });
+
+    // 5. If editor mode with generated script, save the script to database
+    if (hasPreGeneratedScript && body.generatedScript) {
+        const scriptId = nanoid();
+        await db.insert(script).values({
+            id: scriptId,
+            videoId,
+            content: {
+                title: "",
+                segments: [], // Will be populated by worker with audio/subtitle processing
+                subtitles: [],
+                rawStory: body.generatedScript.story, // Store the raw story for worker to process
+            },
+            rawText: body.generatedScript.story,
+            isApproved: true, // User approved it in editor mode
+        });
+    }
 
     // 5. Credit deduction moved to worker completion
 

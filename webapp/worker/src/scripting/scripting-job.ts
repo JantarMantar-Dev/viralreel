@@ -3,7 +3,7 @@ import { db } from '../db/index.js';
 import { video, contentNiche, script } from '../db/schema.js';
 import { eq } from 'drizzle-orm';
 import { ScriptingJobInterface } from './types.js';
-import { runContentPipeline } from './agents.js';
+import { runContentPipeline, runContentPipelineFromStory } from './agents.js';
 import { resolveWorkDir, writeToFile, addWavHeader } from './utils.js';
 import { nanoid } from 'nanoid';
 
@@ -54,11 +54,23 @@ export class ScriptingJob implements ScriptingJobInterface {
         const durationSeconds = durationMinutes * 60;
         const voiceId = metadata?.voiceId || 'Zephyr';
 
-        // Construct the initial user prompt
-        const prompt = `Idea: ${idea}. \nNiche: ${nicheName || 'General'}. \nTarget Duration: ${durationSeconds} seconds. \nVoice: ${voiceId}.`;
+        let finalScriptContent: any;
 
-        // 2. Run the Linked Flow
-        const { script: finalScriptContent } = await runContentPipeline(this.videoId, prompt, voiceId);
+        // Check if we have a pre-generated script from editor mode
+        const isEditorMode = metadata?.editorMode === true;
+        const preGeneratedStory = metadata?.generatedScript?.story;
+
+        if (isEditorMode && preGeneratedStory) {
+            console.log(`[ScriptingJob] Editor mode detected, using pre-generated story for video ${this.videoId}`);
+            // Use the pre-generated story instead of generating a new one
+            const result = await runContentPipelineFromStory(this.videoId, preGeneratedStory, voiceId);
+            finalScriptContent = result.script;
+        } else {
+            // Normal flow: generate story from prompt
+            const prompt = `Idea: ${idea}. \nNiche: ${nicheName || 'General'}. \nTarget Duration: ${durationSeconds} seconds. \nVoice: ${voiceId}.`;
+            const result = await runContentPipeline(this.videoId, prompt, voiceId);
+            finalScriptContent = result.script;
+        }
 
         // 3. Save to Script Table (Upsert Logic)
         const existingScript = await db.select()

@@ -447,4 +447,120 @@ export const runContentPipeline = async (videoId: string, prompt: string, voiceI
     };
 };
 
+/**
+ * Orchestrator Pipeline - From Pre-Generated Story (Editor Mode)
+ * Skips story generation and uses the provided story directly
+ */
+export const runContentPipelineFromStory = async (videoId: string, story: string, voiceId: string = DEFAULT_VOICE) => {
+    console.log(`[ContentPipeline] Starting flow from pre-generated story for Video ${videoId}`);
+
+    // 1. Skip story generation - use provided story
+    console.log(`[ContentPipeline] 1. Using pre-generated story: ${story.substring(0, 50)}...`);
+
+    // 2. Generate Audio
+    console.log(`[ContentPipeline] 2. Generating Audio...`);
+    const { durationFrames: audioDurationFrames } = await generateAudio(story, voiceId, videoId);
+
+    // 3. Generate Subtitles
+    console.log(`[ContentPipeline] 3. Generating Subtitles...`);
+    const subtitles = await generateSubtitles(videoId);
+
+    // 4. Reconstruct Story from Subtitles (Ground Truth)
+    const groundTruthStory = reconstructStoryFromSubtitles(subtitles);
+    console.log(`[ContentPipeline] 4. Reconstructed Story: ${groundTruthStory.substring(0, 50)}...`);
+
+    // 5. Segment Story
+    console.log(`[ContentPipeline] 5. Segmenting Story...`);
+    const segmenter = createSegmenter();
+    const segmenterOutput = await runSingleAgent<SegmenterOutput>(segmenter, JSON.stringify(subtitles));
+
+    // 6. Visualizer
+    console.log(`[ContentPipeline] 6. Generating Visuals...`);
+    let segments = segmenterOutput.segments;
+
+    // Post-processing segments for duration and alignment
+    if (segments.length > 0) {
+        // Force first segment to start at 0
+        segments[0].start = 0;
+
+        // Bridge gaps between segments to ensure continuous video flow
+        for (let i = 0; i < segments.length - 1; i++) {
+            const currentSeg = segments[i];
+            const nextSeg = segments[i + 1];
+
+            // If there is a gap (or slight overlap), snap current end to next start
+            if (currentSeg.end < nextSeg.start) {
+                currentSeg.end = nextSeg.start;
+            }
+        }
+
+        // Adjust last segment to match total audio duration + buffer
+        const lastSegment = segments[segments.length - 1];
+
+        // Calculate missing frames from end of last segment to end of audio
+        const missingFrames = Math.max(0, audioDurationFrames - lastSegment.end);
+
+        // Add missing frames + 15 extra frames for safety trimming
+        lastSegment.end += missingFrames + 15;
+
+        // Recalculate durations for all segments
+        segments = segments.map(s => {
+            const duration = (s.end - s.start) / 30;
+            return {
+                ...s,
+                duration: parseFloat(duration.toFixed(2))
+            };
+        });
+
+        const finalLastSeg = segments[segments.length - 1];
+        console.log(`[ContentPipeline] Refined Last Segment: end=${finalLastSeg.end}, duration=${finalLastSeg.duration}s`);
+    }
+
+    // Map simplified segments to ScriptSegment type (add empty visualPrompt)
+    let scriptSegments = segments.map(s => ({
+        ...s,
+        visualPrompt: "",
+        duration: s.duration || 0
+    }));
+
+    const visualizer = createVisualizer();
+    const visualizerOutput = await runSingleAgent<VisualizerOutput>(visualizer, JSON.stringify({ segments: scriptSegments }));
+
+    // Merge visual prompts back into our aligned segments
+    const finalSegments = scriptSegments.map((seg, index) => {
+        const visualSeg = visualizerOutput.segments[index];
+        return {
+            ...seg,
+            visualPrompt: visualSeg ? visualSeg.visualPrompt : "Cinematic scene matching the dialogue."
+        };
+    });
+
+    const scriptContent: ScriptContent = {
+        title: "",
+        segments: finalSegments,
+        subtitles: subtitles || []
+    };
+
+    // Save final script
+    try {
+        const workDir = await resolveWorkDir(videoId);
+        const scriptPath = path.join(workDir, 'script.json');
+
+        try {
+            await fs.promises.unlink(scriptPath);
+        } catch (err) {
+            // Ignore if file doesn't exist
+        }
+
+        await writeToFile(workDir, 'script.json', JSON.stringify(scriptContent, null, 2));
+        console.log(`[ContentPipeline] Saved local script to: ${scriptPath}`);
+    } catch (err) {
+        console.error(`[ContentPipeline] Failed to save local script file:`, err);
+    }
+
+    return {
+        script: scriptContent,
+    };
+};
+
 export { LlmAgent, SequentialAgent };

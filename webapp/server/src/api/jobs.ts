@@ -19,6 +19,13 @@ export const baseJobSchema = z.object({
     musicId: z.string().optional(),
     aspectRatio: z.enum(["portrait", "landscape"]).default("portrait"),
     isDraft: z.boolean().default(false),
+    // Editor mode fields
+    editorMode: z.boolean().default(false),
+    generatedScript: z.object({
+        story: z.string(),
+        wordCount: z.number(),
+        estimatedDurationSeconds: z.number(),
+    }).optional(),
 });
 
 export const createJobSchema = z.discriminatedUnion("jobType", [

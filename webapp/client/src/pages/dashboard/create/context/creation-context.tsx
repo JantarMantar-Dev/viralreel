@@ -1,5 +1,11 @@
 import { createContext, useContext, ReactNode } from "react"
 
+export interface GeneratedScript {
+    story: string
+    wordCount: number
+    estimatedDurationSeconds: number
+}
+
 export interface VideoJobRequest {
     jobType: "video" | "series"
     seriesId?: string // Optional: for adding episodes to existing series
@@ -21,6 +27,9 @@ export interface VideoJobRequest {
     musicDetails?: string
     aspectRatio: "portrait" | "landscape"
     isDraft: boolean
+    // Editor mode fields
+    editorMode: boolean
+    generatedScript?: GeneratedScript
 }
 
 export interface CreationContextType {
@@ -62,5 +71,7 @@ export const INITIAL_REQUEST: VideoJobRequest = {
     musicId: undefined,
     subtitleTemplateId: undefined,
     aspectRatio: "portrait",
-    isDraft: false
+    isDraft: false,
+    editorMode: false,
+    generatedScript: undefined
 }

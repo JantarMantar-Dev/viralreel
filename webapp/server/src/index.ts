@@ -151,6 +151,8 @@ import paymentsRoutes from "./api/payments.js";
 fastify.register(paymentsRoutes, { prefix: "/api/payments" });
 import publicRoutes from "./api/public.js";
 fastify.register(publicRoutes, { prefix: "/api/public" });
+import scriptingRoutes from "./api/scripting.js";
+fastify.register(scriptingRoutes, { prefix: "/api/scripting" });
 
 // Run the server
 const start = async () => {
