@@ -1,4 +1,4 @@
-import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
+import { SESClient, SendRawEmailCommand } from "@aws-sdk/client-ses";
 import { render } from "@react-email/render";
 import WelcomeEmail from "../emails/welcome.js";
 import VerifyEmail from "../emails/verify.js";
@@ -22,6 +22,7 @@ const sesClient = new SESClient({
 const FROM_EMAIL = process.env.SMTP_EMAIL_USER || "noreply@getviralreel.com";
 const DEV_EMAIL = "test@getviralreel.com";
 const IS_DEV = process.env.NODE_ENV === "development" || process.env.MOCK_EMAIL === "true";
+const UNSUBSCRIBE_URL = "https://opnform.com/forms/unsubscribe-form-getviralreelcom-kris9p";
 
 interface EmailResult {
     success: boolean;
@@ -30,7 +31,42 @@ interface EmailResult {
 }
 
 /**
- * Generic function to send an email using Amazon SES.
+ * Build a raw MIME email message with proper headers including List-Unsubscribe
+ */
+function buildRawEmail(
+    from: string,
+    to: string,
+    subject: string,
+    htmlBody: string
+): string {
+    const boundary = `----=_Part_${Date.now()}_${Math.random().toString(36).substring(2)}`;
+    
+    // Encode subject for UTF-8 support (RFC 2047)
+    const encodedSubject = `=?UTF-8?B?${Buffer.from(subject).toString('base64')}?=`;
+    
+    const rawEmail = [
+        `From: ViralReel <${from}>`,
+        `To: ${to}`,
+        `Subject: ${encodedSubject}`,
+        `MIME-Version: 1.0`,
+        `Content-Type: multipart/alternative; boundary="${boundary}"`,
+        `List-Unsubscribe: <${UNSUBSCRIBE_URL}>`,
+        `List-Unsubscribe-Post: List-Unsubscribe=One-Click`,
+        ``,
+        `--${boundary}`,
+        `Content-Type: text/html; charset=UTF-8`,
+        `Content-Transfer-Encoding: 7bit`,
+        ``,
+        htmlBody,
+        ``,
+        `--${boundary}--`,
+    ].join('\r\n');
+    
+    return rawEmail;
+}
+
+/**
+ * Generic function to send an email using Amazon SES with List-Unsubscribe headers.
  */
 export const sendEmail = async (
     to: string,
@@ -43,33 +79,23 @@ export const sendEmail = async (
         const recipient = IS_DEV ? DEV_EMAIL : to;
         const finalSubject = IS_DEV ? `[DEV to: ${to}] ${subject}` : subject;
 
-        if (process.env.MOCK_EMAIL === "true") {
+        if (IS_DEV) {
             console.log("================ MOCK EMAIL ================");
             console.log(`To: ${recipient} (Original: ${to})`);
             console.log(`Subject: ${finalSubject}`);
+            console.log(`List-Unsubscribe: <${UNSUBSCRIBE_URL}>`);
             console.log("--------------------------------------------");
             console.log(emailHtml);
             console.log("============================================");
             return { success: true };
         }
 
-        const command = new SendEmailCommand({
-            Destination: {
-                ToAddresses: [recipient],
+        const rawEmailData = buildRawEmail(FROM_EMAIL, recipient, finalSubject, emailHtml);
+        
+        const command = new SendRawEmailCommand({
+            RawMessage: {
+                Data: Buffer.from(rawEmailData),
             },
-            Message: {
-                Body: {
-                    Html: {
-                        Charset: "UTF-8",
-                        Data: emailHtml,
-                    },
-                },
-                Subject: {
-                    Charset: "UTF-8",
-                    Data: finalSubject,
-                },
-            },
-            Source: FROM_EMAIL,
         });
 
         const response = await sesClient.send(command);

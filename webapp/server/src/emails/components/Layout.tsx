@@ -5,11 +5,14 @@ import {
     Hr,
     Html,
     Img,
+    Link,
     Preview,
     Section,
     Text,
 } from "@react-email/components";
 import * as React from "react";
+
+const UNSUBSCRIBE_URL = "https://opnform.com/forms/unsubscribe-form-getviralreelcom-kris9p";
 
 interface EmailLayoutProps {
     preview?: string;
@@ -33,6 +36,17 @@ export const EmailLayout = ({ preview, children }: EmailLayoutProps) => {
                     <Section style={footer}>
                         <Text style={footerText}>
                             © {new Date().getFullYear()} ViralReel Inc. All rights reserved.
+                        </Text>
+                        <Text style={unsubscribeText}>
+                            You're receiving this email because you signed up for ViralReel.
+                            <br />
+                            <Link href={UNSUBSCRIBE_URL} style={unsubscribeLink}>
+                                Unsubscribe
+                            </Link>
+                            {" · "}
+                            <Link href="https://getviralreel.com/privacy" style={unsubscribeLink}>
+                                Privacy Policy
+                            </Link>
                         </Text>
                     </Section>
                 </Container>
@@ -90,5 +104,17 @@ const footer = {
 const footerText = {
     color: "#9ca3af",
     fontSize: "12px",
+    margin: "0 0 12px",
+};
+
+const unsubscribeText = {
+    color: "#9ca3af",
+    fontSize: "11px",
+    lineHeight: "18px",
     margin: "0",
+};
+
+const unsubscribeLink = {
+    color: "#7c3aed",
+    textDecoration: "none",
 };
