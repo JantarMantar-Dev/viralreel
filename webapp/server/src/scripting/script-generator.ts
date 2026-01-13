@@ -2,34 +2,35 @@ import {
     LlmAgent,
     Gemini,
     LLMRegistry,
-    InMemoryRunner
+    InMemoryRunner,
+    BuiltInCodeExecutor
 } from '@google/adk';
-import { Schema, Type } from '@google/genai';
+import type { LlmRequest } from '@google/adk';
 import {
-    ScriptWriterOutput,
-    GenerateScriptOptions,
-    ScriptContent
+    GenerateScriptOptions
 } from './types.js';
-
-// Manual JSON schema for script writer output (Zod 4 is incompatible with ADK's zodObjectToSchema)
-const ScriptWriterOutputJsonSchema: Schema = {
-    type: Type.OBJECT,
-    properties: {
-        story: { type: Type.STRING, description: 'The narrative story text' }
-    },
-    required: ['story']
-};
 import { CustomGeminiTTS } from './custom_tts_model.js';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-const MODEL_NAME = process.env.GOOGLE_SCRIPT_MODEL || 'gemini-2.5-flash-preview-05-20';
+const MODEL_NAME = process.env.GOOGLE_SCRIPT_MODEL || 'gemini-3-flash-preview';
 const API_KEY = process.env.GOOGLE_API_KEY;
 
 // Ensure the Gemini model is registered
 LLMRegistry.register(Gemini);
 LLMRegistry.register(CustomGeminiTTS);
+
+/**
+ * No-op code executor that doesn't throw for Gemini 3 models.
+ * ADK's InMemoryRunner auto-assigns BuiltInCodeExecutor which only supports Gemini 2.
+ * This override prevents that error while still satisfying ADK's instanceof check.
+ */
+class NoOpCodeExecutor extends BuiltInCodeExecutor {
+    processLlmRequest(_llmRequest: LlmRequest): void {
+        // Do nothing - we don't need code execution for script generation
+    }
+}
 
 function getGeminiModel() {
     if (!API_KEY) {
@@ -40,6 +41,7 @@ function getGeminiModel() {
 
 /**
  * Creates a script writer agent for generating story content
+ * Outputs plain text story (no JSON wrapper needed)
  */
 export const createScriptWriter = () => {
     return new LlmAgent({
@@ -49,15 +51,16 @@ export const createScriptWriter = () => {
         instruction: `You are a professional video script writer. 
 Your sole job is to write a compelling story for the requested video topic and duration. 
 Focus only on the narrative text. Write in a conversational, engaging tone suitable for short-form video content.
-The story should be well-paced and suitable for voice-over narration.`,
-        outputSchema: ScriptWriterOutputJsonSchema
+The story should be well-paced and suitable for voice-over narration.
+Output ONLY the story text itself - no titles, no formatting, no JSON, just the pure narrative.`,
+        codeExecutor: new NoOpCodeExecutor()  // Disable code execution
     });
 };
 
 /**
- * Runs a single agent and returns the parsed output
+ * Runs a single agent and returns the plain text output
  */
-async function runSingleAgent<T>(agent: LlmAgent, input: string): Promise<T> {
+async function runSingleAgentText(agent: LlmAgent, input: string): Promise<string> {
     const runner = new InMemoryRunner({
         agent: agent,
         appName: 'script-generator'
@@ -72,24 +75,19 @@ async function runSingleAgent<T>(agent: LlmAgent, input: string): Promise<T> {
         newMessage: { role: 'user', parts: [{ text: input }] }
     });
 
-    let finalOutput: T | null = null;
+    let finalOutput: string = '';
     for await (const event of eventGenerator) {
         if (event.author === agent.name && event.content?.parts) {
-            const text = event.content.parts.map((p: any) => p.text).join('');
-            try {
-                if (text.trim().startsWith('{')) {
-                    const parsed = JSON.parse(text);
-                    finalOutput = parsed as T;
-                }
-            } catch (e) {
-                // Ignore partials
+            const text = event.content.parts.map((p: any) => p.text).filter(Boolean).join('');
+            if (text.trim()) {
+                finalOutput = text;
             }
         }
     }
-    if (!finalOutput) {
-        throw new Error(`Agent ${agent.name} failed to produce valid JSON output.`);
+    if (!finalOutput.trim()) {
+        throw new Error(`Agent ${agent.name} failed to produce output.`);
     }
-    return finalOutput;
+    return finalOutput.trim();
 }
 
 /**
@@ -108,12 +106,12 @@ Target Duration: ${durationSeconds} seconds.
 Write a compelling narrative story that can be narrated in approximately ${durationSeconds} seconds.`;
 
     const scriptWriter = createScriptWriter();
-    const scriptWriterOutput = await runSingleAgent<ScriptWriterOutput>(scriptWriter, prompt);
+    const story = await runSingleAgentText(scriptWriter, prompt);
 
-    console.log(`[ScriptGenerator] Story generated: ${scriptWriterOutput.story.substring(0, 100)}...`);
+    console.log(`[ScriptGenerator] Story generated: ${story.substring(0, 100)}...`);
 
     return {
-        story: scriptWriterOutput.story
+        story
     };
 };
 
