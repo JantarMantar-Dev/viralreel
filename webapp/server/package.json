@@ -22,7 +22,10 @@
     "give-credit": "tsx src/scripts/give-credit.ts",
     "give-credit:prod": "node dist/scripts/give-credit.js",
     "test:emails": "tsx src/scripts/test-emails.ts",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:ui": "vitest --ui"
   },
   "keywords": [],
   "author": "",

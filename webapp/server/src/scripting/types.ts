@@ -60,6 +60,8 @@ export interface GenerateScriptOptions {
     duration: number; // in minutes
     voiceId: string;
     videoId?: string; // optional, for file saving
+    feedback?: string; // user feedback for regeneration
+    previousScript?: string; // previous generated script for context
 }
 
 export interface GenerateScriptResult {

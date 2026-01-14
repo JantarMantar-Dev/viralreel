@@ -29,7 +29,10 @@ import {
 import {
     CreationContext,
     VideoJobRequest,
-    INITIAL_REQUEST
+    INITIAL_REQUEST,
+    isReadyForEditorSubmission,
+    toSimpleJobRequest,
+    toEditorJobRequest
 } from "./context/creation-context"
 import { getMissingFieldsMessage } from "./utils/step-validation"
 
@@ -166,14 +169,30 @@ export default function CreateVideoLayout() {
 
     const { mutate: createJob, isPending } = useMutation({
         mutationFn: async (data: VideoJobRequest) => {
-            let url = data.seriesId
-                ? `${API_BASE_URL}/api/jobs/series/${data.seriesId}/episode`
-                : `${API_BASE_URL}/api/jobs`;
+            // Determine base URL based on mode
+            const isEditorMode = isReadyForEditorSubmission(data);
+            const apiBase = isEditorMode ? "/api/editor-jobs" : "/api/jobs";
+
+            // Convert to appropriate API request format
+            const requestBody = isEditorMode 
+                ? toEditorJobRequest(data) 
+                : toSimpleJobRequest(data);
+
+            let url: string;
             let method = "POST";
 
             if (editVideoId) {
-                url = `${API_BASE_URL}/api/jobs/${editVideoId}`;
+                // Editing existing video
+                url = isEditorMode 
+                    ? `${API_BASE_URL}/api/editor-jobs/${editVideoId}`
+                    : `${API_BASE_URL}/api/jobs/${editVideoId}`;
                 method = "PATCH";
+            } else if (data.seriesId) {
+                // Adding episode to existing series
+                url = `${API_BASE_URL}${apiBase}/series/${data.seriesId}/episode`;
+            } else {
+                // Creating new video/series
+                url = `${API_BASE_URL}${apiBase}`;
             }
 
             const response = await fetch(url, {
@@ -182,7 +201,7 @@ export default function CreateVideoLayout() {
                     "Content-Type": "application/json",
                 },
                 credentials: "include",
-                body: JSON.stringify(data),
+                body: JSON.stringify(requestBody),
             })
 
             if (!response.ok) {

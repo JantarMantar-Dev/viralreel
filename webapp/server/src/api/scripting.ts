@@ -9,6 +9,11 @@ const generateScriptSchema = z.object({
     voiceId: z.string().optional().default("Zephyr"),
 });
 
+const regenerateScriptSchema = generateScriptSchema.extend({
+    feedback: z.string().optional(),
+    previousScript: z.string().optional(),
+});
+
 export type GenerateScriptBody = z.infer<typeof generateScriptSchema>;
 
 export default async function scriptingRoutes(fastify: FastifyInstance) {
@@ -72,7 +77,7 @@ export default async function scriptingRoutes(fastify: FastifyInstance) {
             return reply.status(401).send({ error: "Unauthorized" });
         }
 
-        const validation = generateScriptSchema.safeParse(request.body);
+        const validation = regenerateScriptSchema.safeParse(request.body);
 
         if (!validation.success) {
             return reply.status(400).send({
@@ -84,13 +89,15 @@ export default async function scriptingRoutes(fastify: FastifyInstance) {
         const body = validation.data;
 
         try {
-            console.log(`[ScriptingRoute] Regenerating script for user ${userId}`);
+            console.log(`[ScriptingRoute] Regenerating script for user ${userId}${body.feedback ? ' with feedback' : ''}`);
 
             const result = await generateScriptOnly({
                 scriptIdea: body.scriptIdea,
                 nicheName: body.nicheName,
                 duration: body.duration,
                 voiceId: body.voiceId || "Zephyr",
+                feedback: body.feedback,
+                previousScript: body.previousScript,
             });
 
             const { wordCount, estimatedSeconds } = estimateStoryDuration(result.story);

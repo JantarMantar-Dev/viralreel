@@ -23,7 +23,11 @@ import VoiceStep from '../steps/voice-step'
 
 // Mock fetch for API calls
 const mockFetch = vi.fn()
-global.fetch = mockFetch
+Object.defineProperty(globalThis, 'fetch', {
+    writable: true,
+    configurable: true,
+    value: mockFetch
+})
 
 /**
  * Creates a test QueryClient with caching/retries disabled

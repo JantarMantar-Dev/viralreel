@@ -145,6 +145,8 @@ fastify.register(musicRoutes, { prefix: "/api/music" });
 fastify.register(subtitleRoutes, { prefix: "/api/subtitles" });
 import jobRoutes from "./api/jobs.js";
 fastify.register(jobRoutes, { prefix: "/api/jobs" });
+import editorJobRoutes from "./api/editor-jobs.js";
+fastify.register(editorJobRoutes, { prefix: "/api/editor-jobs" });
 import projectsRoutes from "./api/projects.js";
 fastify.register(projectsRoutes, { prefix: "/api/projects" });
 import paymentsRoutes from "./api/payments.js";

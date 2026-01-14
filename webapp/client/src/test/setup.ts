@@ -38,7 +38,11 @@ class ResizeObserverMock {
     disconnect = vi.fn()
 }
 
-global.ResizeObserver = ResizeObserverMock
+Object.defineProperty(globalThis, 'ResizeObserver', {
+    writable: true,
+    configurable: true,
+    value: ResizeObserverMock
+})
 
 // Mock IntersectionObserver as a proper class
 class IntersectionObserverMock {
@@ -53,7 +57,11 @@ class IntersectionObserverMock {
     takeRecords = vi.fn().mockReturnValue([])
 }
 
-global.IntersectionObserver = IntersectionObserverMock as unknown as typeof IntersectionObserver
+Object.defineProperty(globalThis, 'IntersectionObserver', {
+    writable: true,
+    configurable: true,
+    value: IntersectionObserverMock
+})
 
 // Mock scrollIntoView which is not implemented in jsdom
 Element.prototype.scrollIntoView = vi.fn()
@@ -70,4 +78,8 @@ class PointerEventMock extends MouseEvent {
     }
 }
 
-global.PointerEvent = PointerEventMock as unknown as typeof PointerEvent
+Object.defineProperty(globalThis, 'PointerEvent', {
+    writable: true,
+    configurable: true,
+    value: PointerEventMock
+})

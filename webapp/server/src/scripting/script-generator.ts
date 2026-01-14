@@ -95,20 +95,50 @@ async function runSingleAgentText(agent: LlmAgent, input: string): Promise<strin
  * This is a lighter version that doesn't include audio/subtitle generation
  */
 export const generateScriptOnly = async (options: GenerateScriptOptions): Promise<{ story: string }> => {
-    const { scriptIdea, nicheName, duration } = options;
+    const { scriptIdea, nicheName, duration, feedback, previousScript } = options;
     const durationSeconds = duration * 60;
 
-    console.log(`[ScriptGenerator] Generating script for idea: ${scriptIdea.substring(0, 50)}...`);
+    const isRegeneration = feedback && previousScript;
 
-    const prompt = `Idea: ${scriptIdea}. 
-Niche: ${nicheName || 'General'}. 
-Target Duration: ${durationSeconds} seconds.
-Write a compelling narrative story that can be narrated in approximately ${durationSeconds} seconds.`;
+    console.log(`[ScriptGenerator] ${isRegeneration ? 'Regenerating' : 'Generating'} script for idea: ${scriptIdea.substring(0, 50)}...`);
+
+    let prompt: string;
+
+    if (isRegeneration) {
+        // Guided prompt for regeneration with user feedback
+        prompt = `You are revising a video script based on user feedback.
+
+            === ORIGINAL IDEA ===
+            ${scriptIdea}
+
+            === NICHE ===
+            ${nicheName || 'General'}
+
+            === TARGET DURATION ===
+            ${durationSeconds} seconds
+
+            === PREVIOUSLY GENERATED SCRIPT ===
+            ${previousScript}
+
+            === USER'S REQUESTED CHANGES ===
+            ${feedback}
+
+            === YOUR TASK ===
+            Rewrite the script incorporating the user's requested changes while maintaining the core idea and target duration.
+            Keep the same engaging, conversational tone suitable for short-form video content.
+            Output ONLY the revised story text - no titles, no formatting, no JSON, just the pure narrative.`;
+    } else {
+        // Standard prompt for initial generation
+        prompt = `Idea: ${scriptIdea}. 
+            Niche: ${nicheName || 'General'}. 
+            Target Duration: ${durationSeconds} seconds.
+            Write a compelling narrative story that can be narrated in approximately ${durationSeconds} seconds.`;
+    }
 
     const scriptWriter = createScriptWriter();
     const story = await runSingleAgentText(scriptWriter, prompt);
 
-    console.log(`[ScriptGenerator] Story generated: ${story.substring(0, 100)}...`);
+    console.log(`[ScriptGenerator] Story ${isRegeneration ? 'regenerated' : 'generated'}: ${story.substring(0, 100)}...`);
 
     return {
         story
