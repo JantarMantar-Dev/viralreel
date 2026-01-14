@@ -80,16 +80,13 @@ export async function createTestFastify(options: TestFastifyOptions = {}): Promi
 
   // Add session/user to requests based on authentication setting
   fastify.addHook('preHandler', async (request) => {
+    const req = request as unknown as { session: MockSession; user: MockUser | null };
     if (authenticated) {
-      // @ts-expect-error - Adding session to request
-      request.session = session;
-      // @ts-expect-error - Adding user to request
-      request.user = user;
+      req.session = session;
+      req.user = user;
     } else {
-      // @ts-expect-error - Adding empty session
-      request.session = { userId: null };
-      // @ts-expect-error - No user
-      request.user = null;
+      req.session = { userId: null };
+      req.user = null;
     }
   });
 

@@ -20,7 +20,7 @@ export interface MockDbChain {
   returning: Mock;
   leftJoin: Mock;
   innerJoin: Mock;
-  then: <T>(onfulfilled?: (value: T[]) => unknown, onrejected?: (reason: unknown) => unknown) => Promise<unknown>;
+  then: (onfulfilled?: ((value: unknown[]) => unknown) | null, onrejected?: ((reason: unknown) => unknown) | null) => Promise<unknown>;
 }
 
 export interface MockDb {
