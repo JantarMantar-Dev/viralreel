@@ -14,7 +14,6 @@ import SettingsPage from "./pages/dashboard/settings"
 import CreateLayout from "./pages/dashboard/create/layout"
 import NicheStep from "./pages/dashboard/create/steps/niche-step"
 import ScriptStep from "./pages/dashboard/create/steps/script-step"
-import ScriptEditorStep from "./pages/dashboard/create/steps/script-editor-step"
 import VoiceStep from "./pages/dashboard/create/steps/voice-step"
 import MusicStep from "./pages/dashboard/create/steps/music-step"
 import SubtitleStep from "./pages/dashboard/create/steps/subtitle-step"
@@ -25,6 +24,15 @@ import NotFoundPage from "./pages/dashboard/not-found"
 import PricingPage from "./pages/dashboard/settings/pricing"
 import ContactSalesPage from "./pages/dashboard/settings/contact-sales"
 import FeedbackPage from "./pages/dashboard/feedback"
+
+// Editor Mode imports
+import EditorModeLayout from "./pages/dashboard/editor/layout"
+import SharedNicheStep from "./pages/dashboard/shared/steps/niche-step"
+import EditorScriptStep from "./pages/dashboard/editor/steps/script-step"
+import EditorAudioStep from "./pages/dashboard/editor/steps/audio-step"
+import EditorVisualsStep from "./pages/dashboard/editor/steps/visuals-step"
+import EditorSubtitlesStep from "./pages/dashboard/editor/steps/subtitles-step"
+import EditorReviewStep from "./pages/dashboard/editor/steps/review-step"
 
 function App() {
   return (
@@ -58,13 +66,24 @@ function App() {
             <Route index element={<Navigate to="niche" replace />} />
             <Route path="niche" element={<NicheStep />} />
             <Route path="script" element={<ScriptStep />} />
-            <Route path="script-editor" element={<ScriptEditorStep />} />
             <Route path="voice" element={<VoiceStep />} />
             {/* Removed Visuals Route */}
             <Route path="subtitles" element={<SubtitleStep />} />
             <Route path="music" element={<MusicStep />} />
             <Route path="review" element={<ReviewStep />} />
           </Route>
+          
+          {/* Editor Mode Routes */}
+          <Route path="editor" element={<EditorModeLayout />}>
+            <Route index element={<Navigate to="niche" replace />} />
+            <Route path="niche" element={<SharedNicheStep />} />
+            <Route path="script" element={<EditorScriptStep />} />
+            <Route path="audio" element={<EditorAudioStep />} />
+            <Route path="visuals" element={<EditorVisualsStep />} />
+            <Route path="subtitles" element={<EditorSubtitlesStep />} />
+            <Route path="review" element={<EditorReviewStep />} />
+          </Route>
+          
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Route>
       </Routes>

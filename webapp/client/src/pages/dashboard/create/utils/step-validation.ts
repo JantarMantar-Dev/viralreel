@@ -1,11 +1,13 @@
 /**
  * Step Validation Utilities
  * 
- * This file contains validation logic for the video creation wizard steps.
+ * This file contains validation logic for the video creation wizard steps (Auto Mode).
  * Extracted into a separate file for:
  * - Better testability
  * - Reusability across components
  * - Separation of concerns
+ * 
+ * Note: Editor Mode has its own validation in the editor context.
  */
 
 import { VideoJobRequest } from '../context/creation-context'
@@ -53,14 +55,6 @@ export function getMissingFieldsMessage(
         
         // Format the message with proper pluralization
         return `Missing required field${missingFields.length > 1 ? 's' : ''}: ${missingFields.join(', ')}`
-    }
-    
-    // Script editor step validation
-    const isScriptEditorStep = currentPath === 'script-editor'
-    if (isScriptEditorStep) {
-        if (!request.generatedScript) {
-            return 'Generate a script first before continuing'
-        }
     }
     
     return null

@@ -1,7 +1,7 @@
 import { createContext, useContext, ReactNode } from "react"
 
 // =============================================================================
-// GENERATED SCRIPT (shared between modes when viewing script)
+// GENERATED SCRIPT (used by Editor Mode only, kept here for type exports)
 // =============================================================================
 export interface GeneratedScript {
     story: string
@@ -10,10 +10,9 @@ export interface GeneratedScript {
 }
 
 // =============================================================================
-// VIDEO JOB REQUEST - Unified type for creation context state
-// Supports both simple mode and editor mode
+// AUTO JOB REQUEST - Type for Auto Mode (clean, no editor fields)
 // =============================================================================
-export interface VideoJobRequest {
+export interface AutoJobRequest {
     jobType: "video" | "series"
     seriesId?: string
     seriesName: string
@@ -34,13 +33,12 @@ export interface VideoJobRequest {
     musicDetails?: string
     aspectRatio: "portrait" | "landscape"
     isDraft: boolean
-    // Mode selection
-    editorMode: boolean
-    // Editor mode specific fields (only used when editorMode is true)
-    generatedScript?: GeneratedScript
-    scriptGenerationCount: number // Track number of generation attempts (max 3)
-    scriptFeedback?: string // User feedback for regeneration
 }
+
+// =============================================================================
+// VIDEO JOB REQUEST - Alias for AutoJobRequest (for backward compatibility)
+// =============================================================================
+export type VideoJobRequest = AutoJobRequest
 
 // =============================================================================
 // SIMPLE MODE REQUEST (for API submission - script idea only)
@@ -65,6 +63,7 @@ export interface SimpleJobRequest {
 
 // =============================================================================
 // EDITOR MODE REQUEST (for API submission - pre-generated script)
+// Note: This is also defined in editor-creation-context.tsx for Editor Mode
 // =============================================================================
 export interface EditorJobRequest {
     jobType: "video" | "series"
@@ -91,16 +90,6 @@ export interface EditorJobRequest {
 // =============================================================================
 
 /**
- * Check if the request is ready for editor mode submission
- * (has a valid generated script)
- */
-export function isReadyForEditorSubmission(request: VideoJobRequest): boolean {
-    return request.editorMode === true && 
-           request.generatedScript !== undefined &&
-           request.generatedScript.story.length > 0
-}
-
-/**
  * Convert VideoJobRequest to SimpleJobRequest for API submission
  */
 export function toSimpleJobRequest(request: VideoJobRequest): SimpleJobRequest {
@@ -120,34 +109,6 @@ export function toSimpleJobRequest(request: VideoJobRequest): SimpleJobRequest {
         musicId: request.musicId,
         aspectRatio: request.aspectRatio,
         isDraft: request.isDraft,
-    }
-}
-
-/**
- * Convert VideoJobRequest to EditorJobRequest for API submission
- * Throws if generatedScript is not present
- */
-export function toEditorJobRequest(request: VideoJobRequest): EditorJobRequest {
-    if (!request.generatedScript) {
-        throw new Error("Cannot convert to EditorJobRequest: generatedScript is required")
-    }
-    return {
-        jobType: request.jobType,
-        seriesId: request.seriesId,
-        seriesName: request.seriesName || undefined,
-        episodeTitle: request.episodeTitle,
-        nicheId: request.nicheId,
-        scriptIdea: request.scriptIdea,
-        duration: request.duration,
-        segments: request.segments,
-        visualFormat: request.visualFormat,
-        voiceId: request.voiceId,
-        visualStyle: request.visualStyle,
-        subtitleTemplateId: request.subtitleTemplateId,
-        musicId: request.musicId,
-        aspectRatio: request.aspectRatio,
-        isDraft: request.isDraft,
-        generatedScript: request.generatedScript,
     }
 }
 
@@ -197,8 +158,4 @@ export const INITIAL_REQUEST: VideoJobRequest = {
     subtitleTemplateId: undefined,
     aspectRatio: "portrait",
     isDraft: false,
-    editorMode: false,
-    generatedScript: undefined,
-    scriptGenerationCount: 0,
-    scriptFeedback: undefined
 }

@@ -17,7 +17,9 @@ import {
     Zap,
     Edit,
     Download,
-    RotateCcw
+    RotateCcw,
+    Wand2,
+    SlidersHorizontal
 } from "lucide-react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
@@ -29,6 +31,10 @@ import {
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
+    DropdownMenuSub,
+    DropdownMenuSubTrigger,
+    DropdownMenuSubContent,
+    DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
 import {
     Dialog,
@@ -329,12 +335,35 @@ function VideoListView({ filter, setFilter, navigate, projects, isLoading, onDel
                                 <Plus className="mr-2 h-4 w-4" /> Create New
                             </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => navigate("/create?type=series")}>
-                                <Layers className="mr-2 h-4 w-4" /> Create Series
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => navigate("/create?type=video")}>
-                                <Play className="mr-2 h-4 w-4" /> Create Single Video
+                        <DropdownMenuContent align="end" className="w-56">
+                            {/* Auto Mode with sub-menu */}
+                            <DropdownMenuSub>
+                                <DropdownMenuSubTrigger className="cursor-pointer">
+                                    <Wand2 className="mr-2 h-4 w-4 text-purple-600" />
+                                    <div className="flex flex-col">
+                                        <span className="font-semibold">Auto Mode</span>
+                                        <span className="text-[10px] text-slate-500 font-normal">Quick automated creation</span>
+                                    </div>
+                                </DropdownMenuSubTrigger>
+                                <DropdownMenuSubContent className="w-48">
+                                    <DropdownMenuItem onClick={() => navigate("/create?type=series")} className="cursor-pointer">
+                                        <Layers className="mr-2 h-4 w-4" /> Create Series
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => navigate("/create?type=video")} className="cursor-pointer">
+                                        <Play className="mr-2 h-4 w-4" /> Single Video
+                                    </DropdownMenuItem>
+                                </DropdownMenuSubContent>
+                            </DropdownMenuSub>
+                            
+                            <DropdownMenuSeparator />
+                            
+                            {/* Editor Mode - direct navigation */}
+                            <DropdownMenuItem onClick={() => navigate("/editor/niche")} className="cursor-pointer">
+                                <SlidersHorizontal className="mr-2 h-4 w-4 text-purple-600" />
+                                <div className="flex flex-col">
+                                    <span className="font-semibold">Editor Mode</span>
+                                    <span className="text-[10px] text-slate-500 font-normal">Full creative control</span>
+                                </div>
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>

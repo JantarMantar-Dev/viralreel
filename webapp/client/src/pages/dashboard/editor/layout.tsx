@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 import { useNavigate, useLocation, Outlet, useSearchParams } from "react-router-dom"
-import { useMutation, useQuery } from "@tanstack/react-query"
+import { useMutation } from "@tanstack/react-query"
 import { toast } from "sonner"
 import {
     ChevronLeft,
@@ -27,32 +27,28 @@ import {
     TooltipTrigger,
 } from "@/components/ui/tooltip"
 import {
-    CreationContext,
-    VideoJobRequest,
-    INITIAL_REQUEST,
-    toSimpleJobRequest,
-} from "./context/creation-context"
-import { SharedContext, createSharedFromAutoContext } from "../shared/context/shared-creation-interface"
-import { getMissingFieldsMessage } from "./utils/step-validation"
+    EditorCreationContext,
+    EditorModeRequest,
+    INITIAL_EDITOR_REQUEST,
+    isReadyForEditorSubmission,
+    toEditorJobRequest,
+} from "./context/editor-creation-context"
+import { SharedContext, createSharedFromEditorContext } from "../shared/context/shared-creation-interface"
 
-// Auto Mode steps (no editor mode steps - those are now in separate /editor route)
+// Editor Mode steps (6 steps with full control)
 const STEPS = [
     { id: 1, title: "Choose Niche", path: "niche" },
-    { id: 2, title: "Script & Idea", path: "script" },
-    { id: 3, title: "AI Voice", path: "voice" },
-    { id: 4, title: "Background Music", path: "music" },
+    { id: 2, title: "Script & Details", path: "script" },
+    { id: 3, title: "Audio Synthesis", path: "audio" },
+    { id: 4, title: "Visuals", path: "visuals" },
     { id: 5, title: "Subtitles", path: "subtitles" },
-    { id: 6, title: "Review", path: "review" }
+    { id: 6, title: "Review & Render", path: "review" }
 ]
 
-
-export default function CreateVideoLayout() {
+export default function EditorModeLayout() {
     const [searchParams] = useSearchParams()
-    // Initialize jobType from URL or default to "series"
-    const [request, setRequest] = useState<VideoJobRequest>(() => ({
-        ...INITIAL_REQUEST,
-        jobType: (searchParams.get("type") as "video" | "series") || "series",
-        seriesId: searchParams.get("seriesId") || undefined,
+    const [request, setRequest] = useState<EditorModeRequest>(() => ({
+        ...INITIAL_EDITOR_REQUEST,
         nicheId: searchParams.get("nicheId") || null,
     }))
     const [customNext, setCustomNext] = useState<(() => void) | undefined>()
@@ -64,82 +60,9 @@ export default function CreateVideoLayout() {
     const navigate = useNavigate()
     const location = useLocation()
 
-    const updateRequest = (data: Partial<VideoJobRequest>) => {
+    const updateRequest = (data: Partial<EditorModeRequest>) => {
         setRequest(prev => ({ ...prev, ...data }))
     }
-
-    // --- Add Episode & Edit Logic ---
-    const seriesId = searchParams.get("seriesId")
-    const editVideoId = searchParams.get("editVideoId")
-
-    const { data: seriesData } = useQuery({
-        queryKey: ["series", seriesId],
-        queryFn: async () => {
-            const res = await fetch(`${API_BASE_URL}/api/projects/series/${seriesId}`, {
-                credentials: "include"
-            })
-            if (!res.ok) throw new Error("Failed to fetch series")
-            return res.json()
-        },
-        enabled: !!seriesId
-    })
-
-    const { data: editVideoResponse } = useQuery({
-        queryKey: ["editVideo", editVideoId],
-        queryFn: async () => {
-            const res = await fetch(`${API_BASE_URL}/api/jobs/${editVideoId}`, {
-                credentials: "include"
-            })
-            if (!res.ok) throw new Error("Failed to fetch video details")
-            return res.json()
-        },
-        enabled: !!editVideoId
-    })
-
-    useEffect(() => {
-        if (seriesId && seriesData?.series) {
-            const series = seriesData.series;
-            updateRequest({
-                jobType: "series",
-                seriesId: series.id,
-                seriesName: series.name,
-                nicheId: series.nicheId,
-                nicheName: series.nicheName,
-            })
-
-            // If we are on the first step (niche), skip to script step
-            if (location.pathname.endsWith("/niche") || location.pathname.endsWith("/create")) {
-                navigate("script");
-            }
-        }
-    }, [seriesId, seriesData, navigate, location.pathname])
-
-    useEffect(() => {
-        if (editVideoId && editVideoResponse?.video) {
-            const v = editVideoResponse.video;
-            const meta = v.metadata || {};
-            updateRequest({
-                jobType: v.seriesId ? "series" : "video",
-                seriesId: v.seriesId,
-                seriesName: v.seriesName || "",
-                nicheId: v.nicheId,
-                scriptIdea: meta.scriptIdea || "",
-                episodeTitle: v.title,
-                duration: meta.duration || 1,
-                segments: meta.segments || 3,
-                visualFormat: meta.visualFormat || "image",
-                visualStyle: meta.visualStyle || undefined,
-                voiceId: meta.voiceId || undefined,
-                subtitleTemplateId: meta.subtitleTemplateId || undefined,
-                musicId: meta.musicId || undefined,
-            })
-
-            // If we are on the first step (niche), skip to script step
-            if (location.pathname.endsWith("/niche") || location.pathname.endsWith("/create")) {
-                navigate("script");
-            }
-        }
-    }, [editVideoId, editVideoResponse, navigate, location.pathname])
 
     // Determine current step based on route path
     const path = location.pathname.split("/").filter(Boolean).pop()
@@ -151,27 +74,16 @@ export default function CreateVideoLayout() {
     }
 
     const { mutate: createJob, isPending } = useMutation({
-        mutationFn: async (data: VideoJobRequest) => {
-            // Auto mode always uses simple job request
-            const requestBody = toSimpleJobRequest(data);
-
-            let url: string;
-            let method = "POST";
-
-            if (editVideoId) {
-                // Editing existing video
-                url = `${API_BASE_URL}/api/jobs/${editVideoId}`;
-                method = "PATCH";
-            } else if (data.seriesId) {
-                // Adding episode to existing series
-                url = `${API_BASE_URL}/api/jobs/series/${data.seriesId}/episode`;
-            } else {
-                // Creating new video/series
-                url = `${API_BASE_URL}/api/jobs`;
+        mutationFn: async (data: EditorModeRequest) => {
+            if (!isReadyForEditorSubmission(data)) {
+                throw new Error("Script must be approved before submission")
             }
 
+            const requestBody = toEditorJobRequest(data)
+            const url = `${API_BASE_URL}/api/editor-jobs`
+
             const response = await fetch(url, {
-                method,
+                method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                 },
@@ -181,7 +93,6 @@ export default function CreateVideoLayout() {
 
             if (!response.ok) {
                 const errorData = await response.json()
-                // Pass the whole error object if it has a key, otherwise throw generic error
                 if (errorData.key) {
                     throw errorData
                 }
@@ -191,15 +102,13 @@ export default function CreateVideoLayout() {
             return response.json()
         },
         onSuccess: () => {
-            toast.success(editVideoId ? "Job updated successfully!" : "Job created successfully!")
+            toast.success("Video rendering started!")
             navigate("/videos")
         },
         onError: (error: any) => {
-            // Check if it's our trusted error format
             if (error?.key === "InsuffCredits") {
                 setShowInsufficientCreditsDialog(true)
             } else {
-                // Fallback for generic errors
                 toast.error(error.message || "Something went wrong. Please try again.")
             }
         }
@@ -212,7 +121,7 @@ export default function CreateVideoLayout() {
         }
 
         if (currentStep < STEPS.length) {
-            const nextPath = `/create/${STEPS[currentStep].path}`
+            const nextPath = `/editor/${STEPS[currentStep].path}`
             navigate(nextPath)
         } else if (currentStep === STEPS.length) {
             createJob(request)
@@ -226,7 +135,7 @@ export default function CreateVideoLayout() {
         }
 
         if (currentStep > 1) {
-            const prevPath = `/create/${STEPS[currentStep - 2].path}`
+            const prevPath = `/editor/${STEPS[currentStep - 2].path}`
             navigate(prevPath)
         }
     }
@@ -235,25 +144,26 @@ export default function CreateVideoLayout() {
         createJob({ ...request, isDraft: true })
     }
 
-    // Get missing fields message for tooltip (uses extracted utility)
-    const missingFieldsMessage = getMissingFieldsMessage(request, currentStep, path)
+    // Get missing fields message for tooltip
+    const getMissingFieldsMessage = (): string | null => {
+        if (path === 'niche' && !request.nicheId) {
+            return "Please select a niche to continue"
+        }
+        if (path === 'script' && !request.approvedScript) {
+            return "Please generate and approve a script"
+        }
+        return null
+    }
 
-    /**
-     * Footer Visibility Logic
-     * 
-     * The footer navigation bar should be visible when:
-     * 1. User has selected a niche (completed step 1) - nicheId is set
-     * 2. User is editing an existing video - editVideoId is present
-     * 3. A step has custom navigation logic - customNext is set
-     */
+    const missingFieldsMessage = getMissingFieldsMessage()
+
+    // Footer visibility logic
     const hasCompletedNicheStep = !!request.nicheId
-    const isEditingExistingVideo = !!editVideoId
     const hasCustomNavigation = !!customNext
-    
-    const shouldShowFooter = hasCompletedNicheStep || isEditingExistingVideo || hasCustomNavigation
+    const shouldShowFooter = hasCompletedNicheStep || hasCustomNavigation
 
-    // Create shared context value for shared step components
-    const creationContextValue = {
+    // Create context values
+    const editorContextValue = {
         request,
         updateRequest,
         nextStep,
@@ -269,10 +179,10 @@ export default function CreateVideoLayout() {
         setIsStepLoading
     }
 
-    const sharedContextValue = createSharedFromAutoContext(creationContextValue)
+    const sharedContextValue = createSharedFromEditorContext(editorContextValue)
 
     return (
-        <CreationContext.Provider value={creationContextValue}>
+        <EditorCreationContext.Provider value={editorContextValue}>
             <SharedContext.Provider value={sharedContextValue}>
             <div className="flex flex-col min-h-full bg-slate-50/50">
                 {/* Workflow Header */}
@@ -281,9 +191,7 @@ export default function CreateVideoLayout() {
                         <div className="hidden sm:flex text-sm text-slate-500 items-center gap-2">
                             <span>My Videos</span>
                             <ChevronLeft className="h-4 w-4 rotate-180" />
-                            <span>
-                                {request.seriesId ? "Add Episode" : (request.jobType === "series" ? "Create Series" : "Create Video")}
-                            </span>
+                            <span className="text-purple-600 font-semibold">Editor Mode</span>
                         </div>
                         {/* Mobile back button */}
                         <div className="flex sm:hidden">
@@ -374,24 +282,17 @@ export default function CreateVideoLayout() {
                                     </Button>
                                 )}
 
-                                {path === 'voice' && request.voiceName && (
+                                {path === 'audio' && request.voiceName && (
                                     <div className="hidden sm:flex items-center gap-2 px-4 py-2 bg-purple-50 rounded-xl border border-purple-100 animate-in fade-in slide-in-from-left-4 duration-300">
-                                        <span className="text-sm font-bold text-slate-500 uppercase tracking-wider">Selected:</span>
+                                        <span className="text-sm font-bold text-slate-500 uppercase tracking-wider">Voice:</span>
                                         <span className="text-lg font-extrabold text-purple-600 font-display">{request.voiceName}</span>
                                     </div>
                                 )}
 
-                                {path === 'music' && request.musicName && (
-                                    <div className="hidden lg:flex items-center gap-2 px-4 py-2 bg-purple-50 rounded-xl border border-purple-100 animate-in fade-in slide-in-from-left-4 duration-300">
-                                        <span className="text-sm font-bold text-slate-500 uppercase tracking-wider">Music:</span>
-                                        <span className="text-lg font-extrabold text-purple-600 font-display">{request.musicName}</span>
-                                    </div>
-                                )}
-
-                                {path === 'subtitles' && request.subtitleTemplateName && (
+                                {path === 'subtitles' && request.subtitleStyleName && (
                                     <div className="hidden lg:flex items-center gap-2 px-4 py-2 bg-purple-50 rounded-xl border border-purple-100 animate-in fade-in slide-in-from-left-4 duration-300">
                                         <span className="text-sm font-bold text-slate-500 uppercase tracking-wider">Style:</span>
-                                        <span className="text-lg font-extrabold text-purple-600 font-display">{request.subtitleTemplateName}</span>
+                                        <span className="text-lg font-extrabold text-purple-600 font-display">{request.subtitleStyleName}</span>
                                     </div>
                                 )}
                             </div>
@@ -414,7 +315,7 @@ export default function CreateVideoLayout() {
                                                 onClick={() => nextStep()}
                                                 disabled={
                                                     (path === 'niche' && !canContinue) ||
-                                                    (path === 'script' && (!request.scriptIdea.trim() || (request.jobType === 'series' && !request.seriesName.trim()) || !request.episodeTitle.trim())) ||
+                                                    (path === 'script' && !request.approvedScript) ||
                                                     isPending ||
                                                     !!isStepLoading
                                                 }
@@ -430,7 +331,7 @@ export default function CreateVideoLayout() {
                                                 ) : path === 'review' ? (
                                                     <>
                                                         <Wand2 className="mr-2 h-5 w-5" />
-                                                        {editVideoId ? "Update Episode" : (request.seriesId ? "Generate Episode" : (request.jobType === "series" ? "Generate Series" : "Generate Video"))}
+                                                        Render Video
                                                     </>
                                                 ) : (
                                                     path === 'niche' && customNext ? "Create & Continue" : `Continue to Step ${currentStep + 1}`
@@ -454,7 +355,7 @@ export default function CreateVideoLayout() {
                         <DialogHeader>
                             <DialogTitle>Insufficient Credits</DialogTitle>
                             <DialogDescription>
-                                You don't have enough credits to generate this video. Please upgrade your plan or purchase add-on credits.
+                                You don't have enough credits to render this video. Please upgrade your plan or purchase add-on credits.
                             </DialogDescription>
                         </DialogHeader>
                         <DialogFooter>
@@ -468,6 +369,6 @@ export default function CreateVideoLayout() {
                 </Dialog>
             </div>
             </SharedContext.Provider>
-        </CreationContext.Provider>
+        </EditorCreationContext.Provider>
     )
 }

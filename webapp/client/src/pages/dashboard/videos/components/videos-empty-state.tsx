@@ -3,15 +3,22 @@ import {
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
+    DropdownMenuSub,
+    DropdownMenuSubTrigger,
+    DropdownMenuSubContent,
+    DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
-import { Layers, Play, Plus, Sparkles, Video, ShoppingBag } from "lucide-react"
+import { Layers, Play, Plus, Sparkles, Video, ShoppingBag, Wand2, SlidersHorizontal } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useNavigate } from "react-router-dom"
 
 interface VideosEmptyStateProps {
     onTypeSelect: (type: "series" | "video") => void
 }
 
 export function VideosEmptyState({ onTypeSelect }: VideosEmptyStateProps) {
+    const navigate = useNavigate()
+    
     return (
         <div className="flex flex-1 flex-col items-center justify-center p-8 text-center bg-[radial-gradient(circle_at_center,rgba(124,58,237,0.03)_0%,transparent_70%)] min-h-[calc(100vh-4rem)]">
             {/* Illustration */}
@@ -49,19 +56,42 @@ export function VideosEmptyState({ onTypeSelect }: VideosEmptyStateProps) {
                         Create New
                     </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="center" className="min-w-[200px] p-2 rounded-xl">
-                    <DropdownMenuItem onClick={() => onTypeSelect("series")} className="py-3 px-4 rounded-lg cursor-pointer">
-                        <Layers className="mr-3 h-5 w-5 text-purple-600" />
+                <DropdownMenuContent align="center" className="min-w-[240px] p-2 rounded-xl">
+                    {/* Auto Mode with sub-menu */}
+                    <DropdownMenuSub>
+                        <DropdownMenuSubTrigger className="py-3 px-4 rounded-lg cursor-pointer">
+                            <Wand2 className="mr-3 h-5 w-5 text-purple-600" />
+                            <div className="flex flex-col">
+                                <span className="font-bold">Auto Mode</span>
+                                <span className="text-xs text-slate-500 font-normal">Quick automated creation</span>
+                            </div>
+                        </DropdownMenuSubTrigger>
+                        <DropdownMenuSubContent className="min-w-[200px] p-2 rounded-xl">
+                            <DropdownMenuItem onClick={() => onTypeSelect("series")} className="py-3 px-4 rounded-lg cursor-pointer">
+                                <Layers className="mr-3 h-5 w-5 text-purple-600" />
+                                <div className="flex flex-col">
+                                    <span className="font-bold">Create Series</span>
+                                    <span className="text-xs text-slate-500 font-normal">Maintain consistency across episodes</span>
+                                </div>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => onTypeSelect("video")} className="py-3 px-4 rounded-lg cursor-pointer mt-1">
+                                <Play className="mr-3 h-5 w-5 text-purple-600" />
+                                <div className="flex flex-col">
+                                    <span className="font-bold">Single Video</span>
+                                    <span className="text-xs text-slate-500 font-normal">One-off content generation</span>
+                                </div>
+                            </DropdownMenuItem>
+                        </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+                    
+                    <DropdownMenuSeparator className="my-2" />
+                    
+                    {/* Editor Mode - direct navigation */}
+                    <DropdownMenuItem onClick={() => navigate("/editor/niche")} className="py-3 px-4 rounded-lg cursor-pointer">
+                        <SlidersHorizontal className="mr-3 h-5 w-5 text-purple-600" />
                         <div className="flex flex-col">
-                            <span className="font-bold">Create Series</span>
-                            <span className="text-xs text-slate-500 font-normal">Maintain consistency across episodes</span>
-                        </div>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => onTypeSelect("video")} className="py-3 px-4 rounded-lg cursor-pointer mt-1">
-                        <Play className="mr-3 h-5 w-5 text-purple-600" />
-                        <div className="flex flex-col">
-                            <span className="font-bold">Single Video</span>
-                            <span className="text-xs text-slate-500 font-normal">One-off content generation</span>
+                            <span className="font-bold">Editor Mode</span>
+                            <span className="text-xs text-slate-500 font-normal">Full creative control</span>
                         </div>
                     </DropdownMenuItem>
                 </DropdownMenuContent>
