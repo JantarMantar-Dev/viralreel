@@ -151,67 +151,80 @@ export default function EditorAudioStep() {
                         <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
                     </div>
                 ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                        {voices?.map((voice) => {
-                            const isSelected = selectedVoiceId === voice.id
-                            const isPlayingThis = playingVoiceId === voice.id
+                    <div className="relative">
+                        {/* Scrollable voice container - shows ~2 rows with scroll */}
+                        <div 
+                            data-testid="voice-scroll-container"
+                            className="max-h-[320px] overflow-y-auto scroll-smooth pr-2 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent hover:scrollbar-thumb-slate-400"
+                        >
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                                {voices?.map((voice) => {
+                                    const isSelected = selectedVoiceId === voice.id
+                                    const isPlayingThis = playingVoiceId === voice.id
 
-                            return (
-                                <div
-                                    key={voice.id}
-                                    onClick={() => handleVoiceSelect(voice.id)}
-                                    className={cn(
-                                        "relative p-4 rounded-2xl border-2 cursor-pointer transition-all duration-300 group",
-                                        isSelected
-                                            ? "border-purple-600 bg-purple-50/30 shadow-md ring-2 ring-purple-100"
-                                            : "border-slate-100 bg-slate-50/50 hover:border-purple-200 hover:bg-white"
-                                    )}
-                                >
-                                    {isSelected && (
-                                        <div className="absolute top-3 right-3 bg-purple-600 text-white p-0.5 rounded-full z-10 shadow-md">
-                                            <Check className="h-3 w-3" />
-                                        </div>
-                                    )}
-                                    <div className="flex flex-col items-center gap-3">
-                                        <div className={cn(
-                                            "w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg shadow-sm",
-                                            voice.gender.toLowerCase() === 'female' 
-                                                ? "bg-orange-100 text-orange-600" 
-                                                : "bg-blue-100 text-blue-600"
-                                        )}>
-                                            {voice.name.charAt(0)}
-                                        </div>
-                                        <div className="text-center">
-                                            <h4 className={cn(
-                                                "font-bold text-sm",
-                                                isSelected ? "text-purple-900" : "text-slate-700"
-                                            )}>
-                                                {voice.name}
-                                            </h4>
-                                            <p className="text-xs text-slate-400">{voice.gender}</p>
-                                        </div>
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation()
-                                                playVoicePreview(voice)
-                                            }}
+                                    return (
+                                        <div
+                                            key={voice.id}
+                                            data-testid={`voice-card-${voice.id}`}
+                                            onClick={() => handleVoiceSelect(voice.id)}
                                             className={cn(
-                                                "w-8 h-8 rounded-full flex items-center justify-center transition-all",
-                                                isPlayingThis 
-                                                    ? "bg-purple-600 text-white" 
-                                                    : "bg-slate-100 text-slate-500 hover:bg-purple-100 hover:text-purple-600"
+                                                "relative p-4 rounded-2xl border-2 cursor-pointer transition-all duration-300 group",
+                                                isSelected
+                                                    ? "border-purple-600 bg-purple-50/30 shadow-md ring-2 ring-purple-100"
+                                                    : "border-slate-100 bg-slate-50/50 hover:border-purple-200 hover:bg-white"
                                             )}
                                         >
-                                            {isPlayingThis ? (
-                                                <Pause className="h-3 w-3" />
-                                            ) : (
-                                                <Play className="h-3 w-3 ml-0.5" />
+                                            {isSelected && (
+                                                <div className="absolute top-3 right-3 bg-purple-600 text-white p-0.5 rounded-full z-10 shadow-md">
+                                                    <Check className="h-3 w-3" />
+                                                </div>
                                             )}
-                                        </button>
-                                    </div>
-                                </div>
-                            )
-                        })}
+                                            <div className="flex flex-col items-center gap-3">
+                                                <div className={cn(
+                                                    "w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg shadow-sm",
+                                                    voice.gender.toLowerCase() === 'female' 
+                                                        ? "bg-orange-100 text-orange-600" 
+                                                        : "bg-blue-100 text-blue-600"
+                                                )}>
+                                                    {voice.name.charAt(0)}
+                                                </div>
+                                                <div className="text-center">
+                                                    <h4 className={cn(
+                                                        "font-bold text-sm",
+                                                        isSelected ? "text-purple-900" : "text-slate-700"
+                                                    )}>
+                                                        {voice.name}
+                                                    </h4>
+                                                    <p className="text-xs text-slate-400">{voice.gender}</p>
+                                                </div>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation()
+                                                        playVoicePreview(voice)
+                                                    }}
+                                                    className={cn(
+                                                        "w-8 h-8 rounded-full flex items-center justify-center transition-all",
+                                                        isPlayingThis 
+                                                            ? "bg-purple-600 text-white" 
+                                                            : "bg-slate-100 text-slate-500 hover:bg-purple-100 hover:text-purple-600"
+                                                    )}
+                                                >
+                                                    {isPlayingThis ? (
+                                                        <Pause className="h-3 w-3" />
+                                                    ) : (
+                                                        <Play className="h-3 w-3 ml-0.5" />
+                                                    )}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        </div>
+                        {/* Scroll indicator - shows when there are more voices */}
+                        {voices && voices.length > 8 && (
+                            <div className="absolute bottom-0 left-0 right-2 h-8 bg-gradient-to-t from-white to-transparent pointer-events-none" />
+                        )}
                     </div>
                 )}
             </div>
