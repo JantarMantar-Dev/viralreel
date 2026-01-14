@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useNavigate, useLocation, Outlet, useSearchParams } from "react-router-dom"
 import { useMutation } from "@tanstack/react-query"
 import { toast } from "sonner"
@@ -35,8 +35,7 @@ import {
     toEditorJobRequest,
 } from "./context/editor-creation-context"
 import { SharedContext, createSharedFromEditorContext } from "../shared/context/shared-creation-interface"
-import { useEditorVideo } from "@/hooks/useEditorApi"
-import { useAutoSave } from "@/hooks/useAutoSave"
+import { useEditorVideo, useUpdateVideoMetadata } from "@/hooks/useEditorApi"
 
 // Editor Mode steps (6 steps with full control)
 const STEPS = [
@@ -117,31 +116,86 @@ export default function EditorModeLayout() {
     const currentStep = currentStepIndex !== -1 ? currentStepIndex + 1 : 1
 
     // Map path to phase for auto-save
-    const currentPhase = useMemo(() => {
-        const phaseMap: Record<string, "script" | "audio" | "visuals" | "subtitles" | "review"> = {
-            script: "script",
-            audio: "audio",
-            visuals: "visuals",
-            subtitles: "subtitles",
-            review: "review",
-        }
-        return path ? phaseMap[path] : undefined
-    }, [path])
+    const currentPhase = path as "script" | "audio" | "visuals" | "subtitles" | "review" | undefined
 
-    // Auto-save integration
-    const autoSaveData = useMemo(() => ({
-        currentPhase,
-        episodeTitle: request.episodeTitle,
-        scriptIdea: request.scriptIdea,
-        duration: request.duration,
-        visualStyle: request.visualStyle,
-        voiceId: request.voiceId,
-        voiceName: request.voiceName,
-        tonePrompt: request.tonePrompt,
-        subtitleStyleId: request.subtitleStyleId,
-        subtitleStyleName: request.subtitleStyleName,
-    }), [
-        currentPhase,
+    // Simple debounced auto-save using refs to avoid infinite loops
+    const updateMetadata = useUpdateVideoMetadata()
+    const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const lastSavedRef = useRef<string>("")
+    const [isSaving, setIsSaving] = useState(false)
+    const [isDirty, setIsDirty] = useState(false)
+
+    // Auto-save effect - only runs when request changes and we have a videoId
+    useEffect(() => {
+        if (!request.videoId || !isVideoLoaded) return
+
+        const dataToSave = {
+            currentPhase,
+            episodeTitle: request.episodeTitle,
+            scriptIdea: request.scriptIdea,
+            duration: request.duration,
+            visualStyle: request.visualStyle,
+            voiceId: request.voiceId,
+            voiceName: request.voiceName,
+            tonePrompt: request.tonePrompt,
+            subtitleStyleId: request.subtitleStyleId,
+            subtitleStyleName: request.subtitleStyleName,
+        }
+
+        const serialized = JSON.stringify(dataToSave)
+        
+        // Check if data actually changed
+        if (serialized === lastSavedRef.current) {
+            setIsDirty(false)
+            return
+        }
+
+        setIsDirty(true)
+
+        // Clear existing timeout
+        if (saveTimeoutRef.current) {
+            clearTimeout(saveTimeoutRef.current)
+        }
+
+        // Debounce save by 2 seconds
+        saveTimeoutRef.current = setTimeout(async () => {
+            // Build metadata object, filtering undefined
+            const metadata: Record<string, unknown> = {}
+            if (currentPhase) metadata.currentPhase = currentPhase
+            if (dataToSave.episodeTitle) metadata.episodeTitle = dataToSave.episodeTitle
+            if (dataToSave.scriptIdea) metadata.scriptIdea = dataToSave.scriptIdea
+            if (dataToSave.duration) metadata.duration = dataToSave.duration
+            if (dataToSave.visualStyle) metadata.visualStyle = dataToSave.visualStyle
+            if (dataToSave.voiceId) metadata.voiceId = dataToSave.voiceId
+            if (dataToSave.voiceName) metadata.voiceName = dataToSave.voiceName
+            if (dataToSave.tonePrompt) metadata.tonePrompt = dataToSave.tonePrompt
+            if (dataToSave.subtitleStyleId) metadata.subtitleStyleId = dataToSave.subtitleStyleId
+            if (dataToSave.subtitleStyleName) metadata.subtitleStyleName = dataToSave.subtitleStyleName
+
+            if (Object.keys(metadata).length === 0) return
+
+            setIsSaving(true)
+            try {
+                await updateMetadata.mutateAsync({
+                    videoId: request.videoId!,
+                    metadata: metadata as any,
+                })
+                lastSavedRef.current = serialized
+                setIsDirty(false)
+            } catch (error) {
+                console.error("Auto-save failed:", error)
+            } finally {
+                setIsSaving(false)
+            }
+        }, 2000)
+
+        return () => {
+            if (saveTimeoutRef.current) {
+                clearTimeout(saveTimeoutRef.current)
+            }
+        }
+    }, [
+        request.videoId,
         request.episodeTitle,
         request.scriptIdea,
         request.duration,
@@ -151,16 +205,10 @@ export default function EditorModeLayout() {
         request.tonePrompt,
         request.subtitleStyleId,
         request.subtitleStyleName,
+        currentPhase,
+        isVideoLoaded,
+        updateMetadata,
     ])
-
-    const { isDirty, isSaving } = useAutoSave({
-        videoId: request.videoId,
-        data: autoSaveData,
-        enabled: isVideoLoaded && !!request.videoId,
-        onSaveError: (error) => {
-            console.error("Auto-save failed:", error)
-        },
-    })
 
     const handleExit = () => {
         navigate("/videos")

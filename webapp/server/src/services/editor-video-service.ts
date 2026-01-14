@@ -53,6 +53,15 @@ export async function createEditorDraftVideo(params: CreateEditorDraftParams): P
         approvedScript,
     } = params;
 
+    // Create initial script version
+    const initialScriptVersion = {
+        id: crypto.randomUUID(),
+        story: approvedScript.story,
+        wordCount: approvedScript.wordCount,
+        estimatedDurationSeconds: approvedScript.estimatedDurationSeconds,
+        generatedAt: new Date().toISOString(),
+    };
+
     // Build minimal metadata for draft
     const metadata: VideoMetadata = {
         duration,
@@ -61,10 +70,15 @@ export async function createEditorDraftVideo(params: CreateEditorDraftParams): P
         visualStyle,
         scriptIdea,
         nicheId: nicheId ?? undefined,
+        nicheName, // Save nicheName for reference
         aspectRatio: "portrait",
         templateId: "simple",
         isEditorMode: true,
         generatedScript: approvedScript,
+        // Script version tracking
+        scriptVersions: [initialScriptVersion],
+        scriptGenerationCount: 1,
+        lastScriptGeneratedAt: new Date().toISOString(),
     };
 
     // Determine title

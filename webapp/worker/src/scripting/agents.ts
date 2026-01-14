@@ -18,7 +18,7 @@ import path from 'path';
 dotenv.config();
 
 const MODEL_NAME = process.env.GOOGLE_SCRIPT_MODEL || 'gemini-3-flash-preview';
-const TTS_MODEL_NAME = process.env.GOOGLE_TTS_MODEL || 'gemini-2.0-flash-exp';
+const TTS_MODEL_NAME = process.env.GOOGLE_TTS_MODEL || 'gemini-2.5-flash-preview-tts';
 const DEFAULT_VOICE = process.env.GOOGLE_TTS_VOICE || 'Zephyr';
 const API_KEY = process.env.GOOGLE_API_KEY;
 

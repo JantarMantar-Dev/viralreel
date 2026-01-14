@@ -6,7 +6,7 @@ import { AppError } from "../lib/errors.js";
 import Groq from "groq-sdk";
 import { v4 as uuidv4 } from "uuid";
 
-const TTS_MODEL_NAME = process.env.GOOGLE_TTS_MODEL || 'gemini-2.0-flash-exp';
+const TTS_MODEL_NAME = process.env.GOOGLE_TTS_MODEL || 'gemini-2.5-flash-preview-tts';
 const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
 
 // =============================================================================
@@ -21,11 +21,28 @@ export interface GenerateAudioParams {
     tonePrompt?: string;
 }
 
+export interface AudioVersion {
+    id: string;
+    audioKey: string;
+    durationSeconds: number;
+    voiceId: string;
+    voiceName: string;
+    tonePrompt?: string;
+    subtitles: SubtitleWord[];
+    generatedAt: string;
+}
+
 export interface GenerateAudioResult {
+    audioId: string;
     audioKey: string;
     audioUrl: string;
     durationSeconds: number;
+    voiceId: string;
+    voiceName: string;
+    tonePrompt?: string;
     subtitles: SubtitleWord[];
+    generatedAt: string;
+    audioVersions: AudioVersion[];
 }
 
 export interface SubtitleWord {
@@ -202,6 +219,7 @@ async function transcribeAudio(audioBuffer: Buffer): Promise<SubtitleWord[]> {
 
 /**
  * Generate TTS audio for a video and upload to S3
+ * Uses unique keys for each audio version to support versioning
  */
 export async function generateAudio(params: GenerateAudioParams): Promise<GenerateAudioResult> {
     const { videoId, userId, script, voiceId, tonePrompt } = params;
@@ -238,25 +256,47 @@ export async function generateAudio(params: GenerateAudioParams): Promise<Genera
     const pcmBuffer = Buffer.from(audioBase64, 'base64');
     const wavBuffer = addWavHeader(pcmBuffer, 24000, 1, 16);
 
-    // 6. Upload to S3
-    const audioKey = `videos/${userId}/${videoId}/audio.wav`;
+    // 6. Generate unique audio ID and upload to S3 with unique key
+    const audioId = uuidv4();
+    const audioKey = `videos/${userId}/${videoId}/audio_${audioId}.wav`;
     await storageProvider.uploadFile(wavBuffer, audioKey, 'audio/wav');
     console.log(`[EditorAudioService] Uploaded audio to S3: ${audioKey}`);
 
     // 7. Transcribe for subtitles
     const subtitles = await transcribeAudio(wavBuffer);
 
-    // 8. Update video metadata
+    // 8. Create new audio version object
+    const generatedAt = new Date().toISOString();
+    const newAudioVersion: AudioVersion = {
+        id: audioId,
+        audioKey,
+        durationSeconds,
+        voiceId,
+        voiceName,
+        tonePrompt,
+        subtitles,
+        generatedAt,
+    };
+
+    // 9. Get existing audio versions and append new one
     const currentMetadata = (existingVideo[0].metadata as any) || {};
+    const existingVersions: AudioVersion[] = currentMetadata.audioVersions || [];
+    const updatedVersions = [...existingVersions, newAudioVersion];
+
+    // 10. Update video metadata with new audio as selected
     const updatedMetadata = {
         ...currentMetadata,
         editorMode: true,
         currentPhase: "audio",
-        audioKey,
+        audioKey, // Currently selected audio
         audioDurationSeconds: durationSeconds,
+        voiceId,
+        voiceName,
         tonePrompt: tonePrompt || undefined,
-        audioGenerationCount: (currentMetadata.audioGenerationCount || 0) + 1,
         subtitles,
+        audioVersions: updatedVersions,
+        selectedAudioId: audioId,
+        audioGenerationCount: (currentMetadata.audioGenerationCount || 0) + 1,
     };
 
     await db.update(video)
@@ -266,14 +306,20 @@ export async function generateAudio(params: GenerateAudioParams): Promise<Genera
         })
         .where(eq(video.id, videoId));
 
-    // 9. Generate signed URL for playback
+    // 11. Generate signed URL for playback
     const audioUrl = await storageProvider.getSignedUrl(audioKey);
 
     return {
+        audioId,
         audioKey,
         audioUrl,
         durationSeconds,
-        subtitles
+        voiceId,
+        voiceName,
+        tonePrompt,
+        subtitles,
+        generatedAt,
+        audioVersions: updatedVersions,
     };
 }
 

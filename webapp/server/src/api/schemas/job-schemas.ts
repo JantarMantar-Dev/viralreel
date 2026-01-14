@@ -102,6 +102,7 @@ export interface VideoMetadata {
     musicId?: string;
     scriptIdea: string;
     nicheId?: string;
+    nicheName?: string;
     aspectRatio: AspectRatio;
     templateId: string;
     // Editor mode specific
@@ -111,4 +112,29 @@ export interface VideoMetadata {
         wordCount: number;
         estimatedDurationSeconds: number;
     };
+    // Script version tracking
+    scriptVersions?: Array<{
+        id: string;
+        story: string;
+        wordCount: number;
+        estimatedDurationSeconds: number;
+        feedback?: string;
+        generatedAt: string;
+    }>;
+    scriptGenerationCount?: number;
+    lastScriptGeneratedAt?: string;
+    // Audio version tracking
+    audioKey?: string;
+    audioDurationSeconds?: number;
+    audioVersions?: Array<{
+        id: string;
+        audioKey: string;
+        durationSeconds: number;
+        voiceId: string;
+        voiceName: string;
+        tonePrompt?: string;
+        generatedAt: string;
+    }>;
+    selectedAudioId?: string;
+    audioGenerationCount?: number;
 }

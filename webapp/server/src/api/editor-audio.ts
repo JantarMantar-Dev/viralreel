@@ -1,6 +1,7 @@
 import { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { generateAudio, getAudioUrl } from "../services/editor-audio-service.js";
+import { storageProvider } from "../lib/storage.js";
 import { AppError } from "../lib/errors.js";
 
 // Validation schemas
@@ -41,12 +42,28 @@ export default async function editorAudioRoutes(fastify: FastifyInstance) {
                 tonePrompt,
             });
 
+            // Generate signed URLs for all audio versions
+            const audioVersionsWithUrls = await Promise.all(
+                result.audioVersions.map(async (v) => ({
+                    ...v,
+                    audioUrl: v.audioKey === result.audioKey 
+                        ? result.audioUrl 
+                        : await storageProvider.getSignedUrl(v.audioKey),
+                }))
+            );
+
             return {
                 success: true,
+                audioId: result.audioId,
                 audioKey: result.audioKey,
                 audioUrl: result.audioUrl,
                 durationSeconds: result.durationSeconds,
+                voiceId: result.voiceId,
+                voiceName: result.voiceName,
+                tonePrompt: result.tonePrompt,
                 subtitles: result.subtitles,
+                generatedAt: result.generatedAt,
+                audioVersions: audioVersionsWithUrls,
             };
         } catch (error: any) {
             fastify.log.error(error);

@@ -19,6 +19,21 @@ export interface SubtitleWord {
 }
 
 // =============================================================================
+// AUDIO VERSION - For tracking multiple audio generations
+// =============================================================================
+export interface AudioVersion {
+    id: string
+    audioKey: string
+    audioUrl: string
+    durationSeconds: number
+    voiceId: string
+    voiceName: string
+    tonePrompt?: string
+    subtitles: SubtitleWord[]
+    generatedAt: string
+}
+
+// =============================================================================
 // VISUAL SEGMENT - For per-segment image control in Editor Mode
 // =============================================================================
 export interface VisualSegment {
@@ -69,6 +84,8 @@ export interface EditorModeRequest {
     tonePrompt?: string
     audioGenerationCount: number
     subtitles?: SubtitleWord[]
+    audioVersions: AudioVersion[]  // List of all generated audio versions
+    selectedAudioId?: string       // ID of the currently selected audio version
     
     // Phase 3: Visuals
     segments: VisualSegment[]
@@ -163,6 +180,8 @@ export const INITIAL_EDITOR_REQUEST: EditorModeRequest = {
     tonePrompt: undefined,
     audioGenerationCount: 0,
     subtitles: undefined,
+    audioVersions: [],
+    selectedAudioId: undefined,
     segments: [],
     subtitleStyleId: undefined,
     subtitleStyleName: undefined,

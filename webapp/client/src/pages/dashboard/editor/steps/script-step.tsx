@@ -40,6 +40,7 @@ import {
     TooltipContent,
     TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { useCreateDraftVideo } from "@/hooks/useEditorApi"
 
 const MAX_GENERATIONS = 3
 
@@ -69,6 +70,9 @@ export default function EditorScriptStep() {
 
     const remainingGenerations = MAX_GENERATIONS - request.scriptGenerationCount
 
+    // Draft creation hook
+    const createDraftMutation = useCreateDraftVideo()
+
     // Script generation mutation
     const generateScriptMutation = useMutation({
         mutationFn: async (feedback?: string) => {
@@ -84,6 +88,8 @@ export default function EditorScriptStep() {
                     nicheName: request.nicheName,
                     duration: request.duration,
                     voiceId: request.voiceId || "Zephyr",
+                    // Pass videoId if we have one, so script is saved to DB
+                    ...(request.videoId && { videoId: request.videoId }),
                     ...(feedback && { feedback }),
                     ...(isRegenerate && request.approvedScript && { 
                         previousScript: request.approvedScript.story 
@@ -96,18 +102,40 @@ export default function EditorScriptStep() {
             }
             return response.json()
         },
-        onSuccess: (data) => {
+        onSuccess: async (data) => {
+            // Update script in context
             updateRequest({
                 approvedScript: data.script,
                 scriptGenerationCount: request.scriptGenerationCount + 1,
                 scriptFeedback: undefined
             })
             setLocalFeedback("")
-            toast.success(
-                request.scriptGenerationCount === 0 
-                    ? "Script generated successfully!" 
-                    : "Script regenerated successfully!"
-            )
+
+            // Create draft video if we don't have one yet (enables auto-save)
+            if (!request.videoId) {
+                try {
+                    const draftResult = await createDraftMutation.mutateAsync({
+                        nicheId: request.nicheId,
+                        nicheName: request.nicheName,
+                        episodeTitle: request.episodeTitle,
+                        scriptIdea: request.scriptIdea,
+                        duration: request.duration,
+                        visualStyle: request.visualStyle,
+                        approvedScript: data.script,
+                    })
+                    updateRequest({ videoId: draftResult.videoId })
+                    toast.success("Script generated and saved!")
+                } catch (error) {
+                    console.error("Failed to create draft:", error)
+                    toast.success("Script generated successfully!")
+                }
+            } else {
+                toast.success(
+                    request.scriptGenerationCount === 0 
+                        ? "Script generated successfully!" 
+                        : "Script regenerated successfully!"
+                )
+            }
         },
         onError: (error: Error) => {
             toast.error(error.message)
@@ -122,7 +150,7 @@ export default function EditorScriptStep() {
         generateScriptMutation.mutate(localFeedback || undefined)
     }
 
-    const isGenerating = generateScriptMutation.isPending
+    const isGenerating = generateScriptMutation.isPending || createDraftMutation.isPending
 
     // Check if details are filled enough to generate
     const canGenerate = request.episodeTitle.trim() && request.scriptIdea.trim()

@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { API_BASE_URL } from "@/lib/config"
-import { VisualSegment, SubtitleWord, GeneratedScript } from "@/pages/dashboard/editor/context/editor-creation-context"
+import { VisualSegment, SubtitleWord, GeneratedScript, AudioVersion } from "@/pages/dashboard/editor/context/editor-creation-context"
 
 // =============================================================================
 // DRAFT VIDEO HOOK
@@ -55,10 +55,16 @@ interface GenerateAudioParams {
 
 interface GenerateAudioResult {
     success: boolean
+    audioId: string
     audioKey: string
     audioUrl: string
     durationSeconds: number
+    voiceId: string
+    voiceName: string
+    tonePrompt?: string
     subtitles: SubtitleWord[]
+    generatedAt: string
+    audioVersions: AudioVersion[]
 }
 
 export function useGenerateAudio() {
