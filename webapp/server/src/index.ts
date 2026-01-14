@@ -155,6 +155,12 @@ import publicRoutes from "./api/public.js";
 fastify.register(publicRoutes, { prefix: "/api/public" });
 import scriptingRoutes from "./api/scripting.js";
 fastify.register(scriptingRoutes, { prefix: "/api/scripting" });
+import editorAudioRoutes from "./api/editor-audio.js";
+fastify.register(editorAudioRoutes, { prefix: "/api/editor/audio" });
+import editorVisualsRoutes from "./api/editor-visuals.js";
+fastify.register(editorVisualsRoutes, { prefix: "/api/editor/visuals" });
+import editorRenderRoutes from "./api/editor-render.js";
+fastify.register(editorRenderRoutes, { prefix: "/api/editor/render" });
 
 // Run the server
 const start = async () => {

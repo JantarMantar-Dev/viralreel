@@ -76,7 +76,7 @@ metadata: {
 |-------|----------------------|
 | `video` | Main record - add `mode` column, store editor state in `metadata` |
 | `script` | Store approved script content (same as auto mode) |
-| `render_job` | Reuse for final video rendering job queue |
+| `render_job` | Reuse for final video rendering job queue (status: `VIDEO_QUEUED` / `AI_ASSET_GEN_COMPLETED` → `VIDEO_PROCESSING` → `VIDEO_COMPLETED`) |
 | `content_niche` | Niche selection |
 | `tts_voice` | Voice selection |
 | `subtitle_style` | Subtitle style selection |
@@ -86,11 +86,11 @@ metadata: {
 Use existing `video.status` values with editor-appropriate flow:
 
 ```
-DRAFT → (user editing phases) → RENDERING → COMPLETED/FAILED
+DRAFT → (user editing phases) → GENERATING → COMPLETED/FAILED
 ```
 
 - `DRAFT`: Video is being edited in Editor Mode (phases 1-5)
-- `RENDERING`: Final render submitted via render_job
+- `GENERATING`: Final render submitted via render_job
 - `COMPLETED`: Render finished successfully
 - `FAILED`: Render encountered an error
 
@@ -140,6 +140,14 @@ The existing script generation infrastructure handles:
 - Returns: `audioKey`, `audioUrl` (signed), `durationSeconds`
 - Updates: `video.metadata.audioGenerationCount`, stores audio key in metadata
 
+**Integration Details (Server-Side):**
+- **TTS Provider**: Uses `CustomGeminiTTS` with `gemini-2.0-flash-exp` (or user-configured model).
+- **Subtitles/Transcription**:
+    - **Provider**: **Groq**
+    - **Model**: `whisper-large-v3-turbo`
+    - **Logic**: Post-processing of generated audio to extract word-level timestamps using `groq.audio.transcriptions.create`.
+    - **Why**: High-speed transcription is critical for editor responsiveness.
+
 ### 2.4 Phase 3: Visuals API
 
 | Method | Endpoint | Purpose |
@@ -160,6 +168,19 @@ The existing script generation infrastructure handles:
 - Process: Generate image → Upload to S3 → Update segment in video metadata
 - Returns: `segmentId`, `imageKey`, `imageUrl` (signed)
 
+**Integration Details (Server-Side):**
+- **Image Provider**: **Google Generative AI** (Gemini)
+- **Model**: `gemini-3-pro-image-preview`
+- **Logic**:
+    - Accepts `prompt` and `aspectRatio` (mapped to `9:16`, `16:9`, `1:1`).
+    - Applies visual style via prompt injection (e.g., "Style: Bold comic-book style...").
+    - Uses `generateContent` endpoint with `response_mime_type: image/jpeg` (or inline data handling).
+- **Styles Reference**:
+    - `comic`: "Bold comic-book style, thick outlines"
+    - `anime`: "Clean anime style, sharp linework"
+    - `realism`: "Ultra-realistic photographic style"
+    - (and others defined in `IMAGE_STYLES`)
+
 **POST `/api/editor/visuals/generate-all`**
 - Input: `videoId`, optional `style`
 - Process: Generate images for all segments
@@ -176,9 +197,21 @@ The existing script generation infrastructure handles:
 - Process:
   1. Validate all phases are complete in metadata
   2. Check and deduct user credits
-  3. Update video status to `RENDERING`
-  4. Create `render_job` record (reuse existing job queue)
-- Returns: `videoId`, `renderJobId`, `status: "QUEUED"`
+  3. Update video status to `GENERATING`
+  4. Create `render_job` record (reuse existing job queue) with status `VIDEO_QUEUED`
+- Returns: `videoId`, `renderJobId`, `status: "VIDEO_QUEUED"`
+
+### 2.6 Test Coverage (API & Services)
+
+**Unit Tests**:
+*   `services/editor-audio-service.test.ts`: Mock `Groq` and `GoogleGenerativeAI` responses. Verify correct metadata updates on success. Test error handling (e.g., quota exceeded).
+*   `services/editor-visual-service.test.ts`: Mock image generation. Verify prompt injection logic (style appending). Test segment splitting logic (script alignment).
+*   `api/editor-render.test.ts`: Test validation logic (ensure all phases complete). Verify credit deduction. Check `render_job` creation parameters.
+
+**Integration Tests**:
+*   `tests/integration/audio-flow.test.ts`: Call `/api/editor/audio/generate` with mock S3. Verify signed URL generation and database updates.
+*   `tests/integration/visuals-flow.test.ts`: Call `/api/editor/visuals/analyze`. Verify return structure of segments. Call `/api/editor/visuals/generate-segment`. Verify metadata update.
+*   `tests/integration/renderer-queue.test.ts`: Submit render job. Verify it appears in the queue with correct status.
 
 ---
 
@@ -209,15 +242,9 @@ Editor mode assets follow the existing video-centric path pattern:
 |------------|-----|-------|
 | Editor Audio | 3 hours | Generate on-demand |
 | Editor Images | 3 hours | Generate on-demand |
-| Final Video | 24 hours | Reuse existing video URL strategy |
+| Final Video | 3 hours | Consistency with other assets |
 
-### 3.3 Cleanup Policy
 
-For abandoned drafts (videos in `DRAFT` status with `mode = 'editor'`):
-- Query videos where `updated_at` is older than threshold (e.g., 30 days)
-- Delete corresponding S3 folder
-- Either delete video record or mark as expired
-- Implement as cron job or scheduled task
 
 ---
 
@@ -291,7 +318,7 @@ Create API hooks for each phase:
 - [ ] Add `mode` column to `video` table (default: `'auto'`)
 - [ ] Create and run migration file
 - [ ] Update Drizzle schema with new column
-- [ ] Implement cleanup job for abandoned editor drafts
+
 
 ### Server API Routes
 - [ ] Update existing video routes to handle `mode` parameter

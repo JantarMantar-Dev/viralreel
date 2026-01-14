@@ -1,5 +1,4 @@
 import { useState } from "react"
-import { useMutation } from "@tanstack/react-query"
 import { toast } from "sonner"
 import {
     Image,
@@ -10,98 +9,128 @@ import {
     ChevronDown,
     ChevronUp,
     Pencil,
+    AlertCircle,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useEditorCreation, VisualSegment } from "../context/editor-creation-context"
 import { Button } from "@/components/ui/button"
 import StepHeader from "../../create/components/step-header"
-import { API_BASE_URL } from "@/lib/config"
+import { useAnalyzeVisuals, useGenerateSegmentImage, useGenerateAllImages } from "@/hooks/useEditorApi"
 
 export default function EditorVisualsStep() {
     const { request, updateRequest } = useEditorCreation()
     const [expandedSegment, setExpandedSegment] = useState<string | null>(null)
 
-    // Generate all images mutation
-    const generateAllMutation = useMutation({
-        mutationFn: async () => {
-            if (!request.approvedScript) {
-                throw new Error("No approved script available")
-            }
+    // API hooks
+    const analyzeVisualsMutation = useAnalyzeVisuals()
+    const generateSegmentMutation = useGenerateSegmentImage()
+    const generateAllMutation = useGenerateAllImages()
 
-            const response = await fetch(`${API_BASE_URL}/api/visuals/generate-all`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                credentials: "include",
-                body: JSON.stringify({
+    // Check if we have required data
+    const hasVideoId = !!request.videoId
+    const hasAudio = !!request.audioUrl && !!request.audioDurationSeconds
+    const canAnalyze = hasVideoId && hasAudio && request.approvedScript
+
+    // Generate all images mutation handler
+    const handleGenerateAll = async () => {
+        if (!request.videoId) {
+            toast.error("No video ID found. Please go back to the Audio step.")
+            return
+        }
+
+        if (!request.approvedScript || !request.audioDurationSeconds) {
+            toast.error("Missing required data. Please complete the Audio step first.")
+            return
+        }
+
+        try {
+            // If we don't have segments yet, analyze first
+            if (request.segments.length === 0) {
+                const analyzeResult = await analyzeVisualsMutation.mutateAsync({
+                    videoId: request.videoId,
                     script: request.approvedScript.story,
-                    visualStyle: request.visualStyle,
-                    nicheId: request.nicheId,
-                }),
-            })
+                    audioDurationSeconds: request.audioDurationSeconds,
+                })
 
-            if (!response.ok) {
-                const error = await response.json()
-                throw new Error(error.error || "Failed to generate visuals")
+                updateRequest({ segments: analyzeResult.segments })
             }
 
-            return response.json()
-        },
-        onSuccess: (data) => {
-            updateRequest({ segments: data.segments })
+            // Now generate all images
+            const result = await generateAllMutation.mutateAsync({
+                videoId: request.videoId,
+                style: request.visualStyle,
+            })
+
+            updateRequest({ segments: result.segments })
             toast.success("All images generated successfully!")
-        },
-        onError: (error: Error) => {
-            toast.error(error.message)
-        },
-    })
+        } catch (error: any) {
+            toast.error(error.message || "Failed to generate visuals")
+        }
+    }
 
-    // Regenerate single segment mutation
-    const regenerateSegmentMutation = useMutation({
-        mutationFn: async ({ segmentId, prompt }: { segmentId: string; prompt: string }) => {
-            const response = await fetch(`${API_BASE_URL}/api/visuals/regenerate`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                credentials: "include",
-                body: JSON.stringify({
-                    segmentId,
-                    prompt,
-                    visualStyle: request.visualStyle,
-                }),
+    // Analyze script to get segments (without generating images)
+    const handleAnalyzeScript = async () => {
+        if (!request.videoId || !request.approvedScript || !request.audioDurationSeconds) {
+            toast.error("Missing required data")
+            return
+        }
+
+        try {
+            const result = await analyzeVisualsMutation.mutateAsync({
+                videoId: request.videoId,
+                script: request.approvedScript.story,
+                audioDurationSeconds: request.audioDurationSeconds,
             })
 
-            if (!response.ok) {
-                const error = await response.json()
-                throw new Error(error.error || "Failed to regenerate image")
-            }
+            updateRequest({ segments: result.segments })
+            toast.success("Script analyzed! You can now generate images for each segment.")
+        } catch (error: any) {
+            toast.error(error.message || "Failed to analyze script")
+        }
+    }
 
-            return response.json()
-        },
-        onSuccess: (data, variables) => {
-            const updatedSegments = request.segments.map(seg =>
-                seg.id === variables.segmentId
-                    ? { ...seg, generatedImageUrl: data.imageUrl, isGenerating: false }
-                    : seg
-            )
-            updateRequest({ segments: updatedSegments })
-            toast.success("Image regenerated!")
-        },
-        onError: (error: Error, variables) => {
-            const updatedSegments = request.segments.map(seg =>
-                seg.id === variables.segmentId
-                    ? { ...seg, isGenerating: false }
-                    : seg
-            )
-            updateRequest({ segments: updatedSegments })
-            toast.error(error.message)
-        },
-    })
+    // Regenerate single segment
+    const handleRegenerateSegment = async (segment: VisualSegment) => {
+        if (!request.videoId) {
+            toast.error("No video ID found")
+            return
+        }
 
-    const handleRegenerateSegment = (segment: VisualSegment) => {
+        // Mark segment as generating
         const updatedSegments = request.segments.map(seg =>
             seg.id === segment.id ? { ...seg, isGenerating: true } : seg
         )
         updateRequest({ segments: updatedSegments })
-        regenerateSegmentMutation.mutate({ segmentId: segment.id, prompt: segment.imagePrompt })
+
+        try {
+            const result = await generateSegmentMutation.mutateAsync({
+                videoId: request.videoId,
+                segmentId: segment.id,
+                prompt: segment.imagePrompt,
+                style: request.visualStyle,
+            })
+
+            // Update segment with new image
+            const finalSegments = request.segments.map(seg =>
+                seg.id === segment.id
+                    ? {
+                        ...seg,
+                        ...result.segment,
+                        isGenerating: false,
+                        generatedImageUrl: result.segment.imageUrl, // Legacy field
+                    }
+                    : seg
+            )
+            updateRequest({ segments: finalSegments })
+            toast.success("Image regenerated!")
+        } catch (error: any) {
+            // Reset generating state
+            const resetSegments = request.segments.map(seg =>
+                seg.id === segment.id ? { ...seg, isGenerating: false } : seg
+            )
+            updateRequest({ segments: resetSegments })
+            toast.error(error.message || "Failed to regenerate image")
+        }
     }
 
     const updateSegmentPrompt = (segmentId: string, newPrompt: string) => {
@@ -117,7 +146,23 @@ export default function EditorVisualsStep() {
         return `${mins}:${secs.toString().padStart(2, '0')}`
     }
 
-    const isGeneratingAll = generateAllMutation.isPending
+    // Get time from segment (handle both new and legacy format)
+    const getSegmentStartTime = (segment: VisualSegment): number => {
+        if (segment.timeRange) return segment.timeRange[0]
+        return segment.startTime || 0
+    }
+
+    const getSegmentEndTime = (segment: VisualSegment): number => {
+        if (segment.timeRange) return segment.timeRange[1]
+        return segment.endTime || 0
+    }
+
+    // Get image URL (handle both new and legacy format)
+    const getSegmentImageUrl = (segment: VisualSegment): string | undefined => {
+        return segment.imageUrl || segment.generatedImageUrl
+    }
+
+    const isGeneratingAll = generateAllMutation.isPending || analyzeVisualsMutation.isPending
     const hasSegments = request.segments.length > 0
 
     return (
@@ -126,6 +171,20 @@ export default function EditorVisualsStep() {
                 title="Visual Generation"
                 description="Generate and customize the images for each segment of your video."
             />
+
+            {/* Warning if missing prerequisites */}
+            {!canAnalyze && (
+                <div className="bg-amber-50 rounded-2xl border border-amber-200 p-4 flex items-start gap-3">
+                    <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                        <h4 className="font-bold text-amber-900">Complete previous steps first</h4>
+                        <p className="text-sm text-amber-700 mt-1">
+                            {!hasVideoId && "No video created yet. "}
+                            {!hasAudio && "Audio must be generated before creating visuals."}
+                        </p>
+                    </div>
+                </div>
+            )}
 
             {/* Generate All Button / Gallery Overview */}
             <div className="bg-white rounded-3xl border border-slate-200 p-6 md:p-8 shadow-sm">
@@ -146,8 +205,8 @@ export default function EditorVisualsStep() {
                     {hasSegments && (
                         <Button
                             variant="outline"
-                            onClick={() => generateAllMutation.mutate()}
-                            disabled={isGeneratingAll}
+                            onClick={handleGenerateAll}
+                            disabled={isGeneratingAll || !canAnalyze}
                             className="gap-2"
                         >
                             {isGeneratingAll ? (
@@ -161,23 +220,40 @@ export default function EditorVisualsStep() {
                 </div>
 
                 {!hasSegments ? (
-                    <Button
-                        onClick={() => generateAllMutation.mutate()}
-                        disabled={isGeneratingAll}
-                        className="w-full h-14 bg-purple-600 hover:bg-purple-700 gap-3 text-lg font-bold rounded-xl"
-                    >
-                        {isGeneratingAll ? (
-                            <>
-                                <Loader2 className="h-5 w-5 animate-spin" />
-                                Generating All Images...
-                            </>
-                        ) : (
-                            <>
-                                <Sparkles className="h-5 w-5" />
-                                Generate All Images
-                            </>
-                        )}
-                    </Button>
+                    <div className="space-y-3">
+                        <Button
+                            onClick={handleGenerateAll}
+                            disabled={isGeneratingAll || !canAnalyze}
+                            className="w-full h-14 bg-purple-600 hover:bg-purple-700 gap-3 text-lg font-bold rounded-xl"
+                        >
+                            {isGeneratingAll ? (
+                                <>
+                                    <Loader2 className="h-5 w-5 animate-spin" />
+                                    {analyzeVisualsMutation.isPending ? "Analyzing Script..." : "Generating All Images..."}
+                                </>
+                            ) : (
+                                <>
+                                    <Sparkles className="h-5 w-5" />
+                                    Generate All Images
+                                </>
+                            )}
+                        </Button>
+                        
+                        {/* Option to analyze first without generating */}
+                        <Button
+                            variant="outline"
+                            onClick={handleAnalyzeScript}
+                            disabled={analyzeVisualsMutation.isPending || !canAnalyze}
+                            className="w-full h-10 gap-2 rounded-xl text-sm"
+                        >
+                            {analyzeVisualsMutation.isPending ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                                <Pencil className="h-4 w-4" />
+                            )}
+                            Analyze Script First (Edit Prompts Before Generating)
+                        </Button>
+                    </div>
                 ) : (
                     /* Image Gallery Strip */
                     <div className="flex gap-3 overflow-x-auto pb-4 -mx-2 px-2">
@@ -192,9 +268,9 @@ export default function EditorVisualsStep() {
                                         : "border-slate-200 hover:border-purple-300"
                                 )}
                             >
-                                {segment.generatedImageUrl ? (
+                                {getSegmentImageUrl(segment) ? (
                                     <img
-                                        src={segment.generatedImageUrl}
+                                        src={getSegmentImageUrl(segment)}
                                         alt={`Segment ${index + 1}`}
                                         className="w-full h-full object-cover"
                                     />
@@ -221,6 +297,7 @@ export default function EditorVisualsStep() {
                 <div className="space-y-4">
                     {request.segments.map((segment, index) => {
                         const isExpanded = expandedSegment === segment.id
+                        const imageUrl = getSegmentImageUrl(segment)
 
                         return (
                             <div
@@ -237,9 +314,9 @@ export default function EditorVisualsStep() {
                                 >
                                     {/* Thumbnail */}
                                     <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 bg-slate-100">
-                                        {segment.generatedImageUrl ? (
+                                        {imageUrl ? (
                                             <img
-                                                src={segment.generatedImageUrl}
+                                                src={imageUrl}
                                                 alt={`Segment ${index + 1}`}
                                                 className="w-full h-full object-cover"
                                             />
@@ -260,7 +337,7 @@ export default function EditorVisualsStep() {
                                             <span className="font-bold text-slate-900">Segment {index + 1}</span>
                                             <div className="flex items-center gap-1 text-xs text-slate-400">
                                                 <Clock className="h-3 w-3" />
-                                                {formatTime(segment.startTime)} - {formatTime(segment.endTime)}
+                                                {formatTime(getSegmentStartTime(segment))} - {formatTime(getSegmentEndTime(segment))}
                                             </div>
                                         </div>
                                         <p className="text-sm text-slate-500 line-clamp-1">
@@ -304,10 +381,10 @@ export default function EditorVisualsStep() {
                                         </div>
 
                                         {/* Generated Image Preview */}
-                                        {segment.generatedImageUrl && (
+                                        {imageUrl && (
                                             <div className="rounded-xl overflow-hidden">
                                                 <img
-                                                    src={segment.generatedImageUrl}
+                                                    src={imageUrl}
                                                     alt={`Segment ${index + 1}`}
                                                     className="w-full h-64 object-cover"
                                                 />
@@ -318,7 +395,7 @@ export default function EditorVisualsStep() {
                                         <Button
                                             variant="outline"
                                             onClick={() => handleRegenerateSegment(segment)}
-                                            disabled={segment.isGenerating}
+                                            disabled={segment.isGenerating || !request.videoId}
                                             className="w-full h-10 gap-2 rounded-xl"
                                         >
                                             {segment.isGenerating ? (
@@ -326,7 +403,7 @@ export default function EditorVisualsStep() {
                                             ) : (
                                                 <RefreshCw className="h-4 w-4" />
                                             )}
-                                            Regenerate This Image
+                                            {imageUrl ? "Regenerate This Image" : "Generate Image"}
                                         </Button>
                                     </div>
                                 )}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useNavigate, useLocation, Outlet, useSearchParams } from "react-router-dom"
 import { useMutation } from "@tanstack/react-query"
 import { toast } from "sonner"
@@ -6,8 +6,9 @@ import {
     ChevronLeft,
     X,
     Check,
-    Wand2,
-    Loader2
+    Loader2,
+    Cloud,
+    CloudOff
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -34,6 +35,8 @@ import {
     toEditorJobRequest,
 } from "./context/editor-creation-context"
 import { SharedContext, createSharedFromEditorContext } from "../shared/context/shared-creation-interface"
+import { useEditorVideo } from "@/hooks/useEditorApi"
+import { useAutoSave } from "@/hooks/useAutoSave"
 
 // Editor Mode steps (6 steps with full control)
 const STEPS = [
@@ -47,18 +50,62 @@ const STEPS = [
 
 export default function EditorModeLayout() {
     const [searchParams] = useSearchParams()
+    const videoIdParam = searchParams.get("videoId")
     const [request, setRequest] = useState<EditorModeRequest>(() => ({
         ...INITIAL_EDITOR_REQUEST,
         nicheId: searchParams.get("nicheId") || null,
+        videoId: videoIdParam || undefined,
     }))
     const [customNext, setCustomNext] = useState<(() => void) | undefined>()
     const [customPrev, setCustomPrev] = useState<(() => void) | undefined>()
     const [canContinue, setCanContinue] = useState(true)
     const [isStepLoading, setIsStepLoading] = useState(false)
     const [showInsufficientCreditsDialog, setShowInsufficientCreditsDialog] = useState(false)
+    const [isVideoLoaded, setIsVideoLoaded] = useState(!videoIdParam) // Start loaded if no videoId
 
     const navigate = useNavigate()
     const location = useLocation()
+
+    // Load existing video if videoId is provided
+    const { data: videoData, isLoading: isLoadingVideo, error: videoError } = useEditorVideo(videoIdParam || undefined)
+
+    // Populate request from loaded video
+    useEffect(() => {
+        if (videoData?.video && !isVideoLoaded) {
+            const video = videoData.video
+            const metadata = video.metadata || {}
+            
+            setRequest(prev => ({
+                ...prev,
+                videoId: video.id,
+                nicheId: video.niche?.id || null,
+                nicheName: video.niche?.name,
+                episodeTitle: metadata.episodeTitle || video.title || "",
+                scriptIdea: metadata.scriptIdea || "",
+                duration: metadata.duration || 60,
+                visualStyle: metadata.visualStyle,
+                voiceId: metadata.voiceId,
+                voiceName: metadata.voiceName,
+                tonePrompt: metadata.tonePrompt,
+                subtitleStyleId: metadata.subtitleStyleId,
+                subtitleStyleName: metadata.subtitleStyleName,
+                approvedScript: metadata.approvedScript,
+                audioUrl: video.audioUrl || undefined,
+                audioDurationSeconds: video.audioDurationSeconds || undefined,
+                subtitles: metadata.subtitles || [],
+                segments: video.segments || metadata.segments || [],
+            }))
+            setIsVideoLoaded(true)
+        }
+    }, [videoData, isVideoLoaded])
+
+    // Handle video load error
+    useEffect(() => {
+        if (videoError) {
+            toast.error("Failed to load video. Starting fresh.")
+            setIsVideoLoaded(true)
+        }
+    }, [videoError])
 
     const updateRequest = (data: Partial<EditorModeRequest>) => {
         setRequest(prev => ({ ...prev, ...data }))
@@ -68,6 +115,52 @@ export default function EditorModeLayout() {
     const path = location.pathname.split("/").filter(Boolean).pop()
     const currentStepIndex = STEPS.findIndex(s => s.path === path)
     const currentStep = currentStepIndex !== -1 ? currentStepIndex + 1 : 1
+
+    // Map path to phase for auto-save
+    const currentPhase = useMemo(() => {
+        const phaseMap: Record<string, "script" | "audio" | "visuals" | "subtitles" | "review"> = {
+            script: "script",
+            audio: "audio",
+            visuals: "visuals",
+            subtitles: "subtitles",
+            review: "review",
+        }
+        return path ? phaseMap[path] : undefined
+    }, [path])
+
+    // Auto-save integration
+    const autoSaveData = useMemo(() => ({
+        currentPhase,
+        episodeTitle: request.episodeTitle,
+        scriptIdea: request.scriptIdea,
+        duration: request.duration,
+        visualStyle: request.visualStyle,
+        voiceId: request.voiceId,
+        voiceName: request.voiceName,
+        tonePrompt: request.tonePrompt,
+        subtitleStyleId: request.subtitleStyleId,
+        subtitleStyleName: request.subtitleStyleName,
+    }), [
+        currentPhase,
+        request.episodeTitle,
+        request.scriptIdea,
+        request.duration,
+        request.visualStyle,
+        request.voiceId,
+        request.voiceName,
+        request.tonePrompt,
+        request.subtitleStyleId,
+        request.subtitleStyleName,
+    ])
+
+    const { isDirty, isSaving } = useAutoSave({
+        videoId: request.videoId,
+        data: autoSaveData,
+        enabled: isVideoLoaded && !!request.videoId,
+        onSaveError: (error) => {
+            console.error("Auto-save failed:", error)
+        },
+    })
 
     const handleExit = () => {
         navigate("/videos")
@@ -158,9 +251,11 @@ export default function EditorModeLayout() {
     const missingFieldsMessage = getMissingFieldsMessage()
 
     // Footer visibility logic
+    // Hide footer on review step since it has its own render button
+    const isReviewStep = path === 'review'
     const hasCompletedNicheStep = !!request.nicheId
     const hasCustomNavigation = !!customNext
-    const shouldShowFooter = hasCompletedNicheStep || hasCustomNavigation
+    const shouldShowFooter = (hasCompletedNicheStep || hasCustomNavigation) && !isReviewStep
 
     // Create context values
     const editorContextValue = {
@@ -250,6 +345,34 @@ export default function EditorModeLayout() {
                     </div>
 
                     <div className="flex items-center gap-1 md:gap-3">
+                        {/* Auto-save indicator */}
+                        {request.videoId && (
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                                        {isSaving ? (
+                                            <>
+                                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                <span className="hidden sm:inline">Saving...</span>
+                                            </>
+                                        ) : isDirty ? (
+                                            <>
+                                                <CloudOff className="h-3.5 w-3.5" />
+                                                <span className="hidden sm:inline">Unsaved</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Cloud className="h-3.5 w-3.5 text-green-500" />
+                                                <span className="hidden sm:inline text-green-600">Saved</span>
+                                            </>
+                                        )}
+                                    </div>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    {isSaving ? "Saving changes..." : isDirty ? "Changes not yet saved" : "All changes saved"}
+                                </TooltipContent>
+                            </Tooltip>
+                        )}
                         <Button
                             variant="ghost"
                             size="icon"
@@ -263,7 +386,14 @@ export default function EditorModeLayout() {
 
                 {/* Main Content Area */}
                 <main className="flex-1 max-w-6xl mx-auto w-full px-4 md:px-6 py-8 md:py-12">
-                    <Outlet />
+                    {isLoadingVideo ? (
+                        <div className="flex flex-col items-center justify-center py-20">
+                            <Loader2 className="h-8 w-8 animate-spin text-purple-600 mb-4" />
+                            <p className="text-slate-500">Loading your video...</p>
+                        </div>
+                    ) : (
+                        <Outlet />
+                    )}
                 </main>
 
                 {/* Sticky Footer Navigation */}
@@ -298,16 +428,6 @@ export default function EditorModeLayout() {
                             </div>
 
                             <div className="flex items-center gap-4 w-full md:w-auto">
-                                {path === 'review' && (
-                                    <Button
-                                        variant="outline"
-                                        onClick={handleSaveDraft}
-                                        disabled={isPending}
-                                        className="flex-1 md:w-40 h-12 rounded-xl font-bold border-2 border-slate-200 text-slate-600 hover:text-slate-900 transition-all"
-                                    >
-                                        {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Draft"}
-                                    </Button>
-                                )}
                                 <Tooltip>
                                     <TooltipTrigger asChild>
                                         <span className="w-full md:w-auto">
@@ -319,20 +439,10 @@ export default function EditorModeLayout() {
                                                     isPending ||
                                                     !!isStepLoading
                                                 }
-                                                className={cn(
-                                                    "w-full h-12 rounded-xl transition-all font-bold text-lg shadow-xl",
-                                                    path === 'review'
-                                                        ? "bg-purple-600 hover:bg-purple-700 text-white md:w-60 shadow-purple-200 hover:scale-[1.02] active:scale-[0.98]"
-                                                        : "bg-purple-600 hover:bg-purple-700 text-white max-w-xs shadow-purple-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:shadow-none"
-                                                )}
+                                                className="w-full h-12 rounded-xl transition-all font-bold text-lg shadow-xl bg-purple-600 hover:bg-purple-700 text-white max-w-xs shadow-purple-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:shadow-none"
                                             >
                                                 {isPending || isStepLoading ? (
                                                     <Loader2 className="h-5 w-5 animate-spin" />
-                                                ) : path === 'review' ? (
-                                                    <>
-                                                        <Wand2 className="mr-2 h-5 w-5" />
-                                                        Render Video
-                                                    </>
                                                 ) : (
                                                     path === 'niche' && customNext ? "Create & Continue" : `Continue to Step ${currentStep + 1}`
                                                 )}

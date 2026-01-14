@@ -185,10 +185,14 @@ export const video = pgTable("video", {
     description: text("description"),
     episodeNumber: integer("episode_number").default(1), // Order in series
 
+    // Workflow Mode: 'auto' (simple mode) or 'editor' (editor mode with full control)
+    mode: text("mode").notNull().default("auto"),
+
     // Lifecycle Status
     status: text("status").notNull().default("DRAFT"), // DRAFT, SCRIPTING, SCRIPT_READY, GENERATING, COMPLETED, FAILED
 
     // Configuration / Metadata (Voice, Style, Music, etc.)
+    // For editor mode, metadata includes: currentPhase, scriptIdea, approvedScript, tonePrompt, segments, etc.
     metadata: json("metadata"),
 
     // Output

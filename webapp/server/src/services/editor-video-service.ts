@@ -22,6 +22,74 @@ interface CreateEditorVideoJobParams {
     isDraft?: boolean;
 }
 
+interface CreateEditorDraftParams {
+    userId: string;
+    nicheId: string | null;
+    nicheName?: string;
+    episodeTitle?: string;
+    scriptIdea?: string;
+    duration?: number;
+    visualStyle?: string;
+    approvedScript: {
+        story: string;
+        wordCount: number;
+        estimatedDurationSeconds: number;
+    };
+}
+
+/**
+ * Creates a draft video for editor mode workflow
+ * Called when the user approves the script to get a videoId for subsequent steps
+ */
+export async function createEditorDraftVideo(params: CreateEditorDraftParams): Promise<{ videoId: string }> {
+    const {
+        userId,
+        nicheId,
+        nicheName,
+        episodeTitle = "",
+        scriptIdea = "",
+        duration = 0.5,
+        visualStyle = "comic",
+        approvedScript,
+    } = params;
+
+    // Build minimal metadata for draft
+    const metadata: VideoMetadata = {
+        duration,
+        segments: 0, // Will be updated when visuals are generated
+        visualFormat: "image",
+        visualStyle,
+        scriptIdea,
+        nicheId: nicheId ?? undefined,
+        aspectRatio: "portrait",
+        templateId: "simple",
+        isEditorMode: true,
+        generatedScript: approvedScript,
+    };
+
+    // Determine title
+    const title = episodeTitle || nicheName || "Untitled Video";
+
+    // Create video record as DRAFT
+    const videoId = await createVideoRecord({
+        userId,
+        seriesId: null,
+        nicheId,
+        title,
+        episodeNumber: 1,
+        status: "DRAFT",
+        metadata
+    });
+
+    // Create render job in DRAFT status
+    await createRenderJob(videoId, true);
+
+    // Save the approved script to database
+    await createScriptRecord(videoId, approvedScript.story);
+
+    return { videoId };
+}
+
 /**
  * Creates a video job using editor mode with a pre-generated script
  * The script has already been generated and approved by the user

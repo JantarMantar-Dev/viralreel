@@ -1,11 +1,11 @@
-import { useState, useEffect, useRef } from "react"
+import { useState, useRef } from "react"
 import { useNavigate } from "react-router-dom"
+import { toast } from "sonner"
 import {
     Pencil,
     Play,
     Pause,
     Wand2,
-    ArrowRight,
     FileText,
     Mic,
     Image,
@@ -14,17 +14,23 @@ import {
     Hash,
     Volume2,
     Ban,
+    Loader2,
+    AlertCircle,
+    CheckCircle2,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useEditorCreation } from "../context/editor-creation-context"
 import { Button } from "@/components/ui/button"
 import { IMAGE_STYLES } from "./script-step"
+import { useSubmitRender } from "@/hooks/useEditorApi"
 
 export default function EditorReviewStep() {
     const { request } = useEditorCreation()
     const navigate = useNavigate()
     const [isPlayingAudio, setIsPlayingAudio] = useState(false)
     const audioRef = useRef<HTMLAudioElement | null>(null)
+
+    const submitRenderMutation = useSubmitRender()
 
     const selectedImageStyle = IMAGE_STYLES.find(s => s.id === request.visualStyle)
 
@@ -39,16 +45,46 @@ export default function EditorReviewStep() {
         setIsPlayingAudio(!isPlayingAudio)
     }
 
+    // Handle render submission
+    const handleRenderVideo = async () => {
+        if (!request.videoId) {
+            toast.error("No video found. Please complete all steps first.")
+            return
+        }
+
+        try {
+            const result = await submitRenderMutation.mutateAsync({
+                videoId: request.videoId,
+            })
+
+            toast.success(result.message || "Video rendering started!")
+            navigate("/videos")
+        } catch (error: any) {
+            toast.error(error.message || "Failed to start rendering")
+        }
+    }
+
     // Calculate stats
     const wordCount = request.approvedScript?.wordCount || 0
     const segmentCount = request.segments.length
-    const estimatedDuration = request.approvedScript?.estimatedDurationSeconds || 0
+    const estimatedDuration = request.audioDurationSeconds || request.approvedScript?.estimatedDurationSeconds || 0
 
     const formatDuration = (seconds: number) => {
         const mins = Math.floor(seconds / 60)
         const secs = Math.floor(seconds % 60)
         return `${mins}:${secs.toString().padStart(2, '0')}`
     }
+
+    // Validation checks
+    const hasScript = !!request.approvedScript
+    const hasAudio = !!request.audioUrl
+    const hasVisuals = request.segments.length > 0 && request.segments.some(s => s.imageUrl || s.generatedImageUrl)
+    const hasVideoId = !!request.videoId
+
+    const isReadyToRender = hasScript && hasAudio && hasVisuals && hasVideoId
+
+    // Get segment images count
+    const segmentsWithImages = request.segments.filter(s => s.imageUrl || s.generatedImageUrl).length
 
     return (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-5xl mx-auto space-y-8 pb-32">
@@ -58,6 +94,33 @@ export default function EditorReviewStep() {
                     Review all your settings before rendering. Click "Edit" to make changes to any section.
                 </p>
             </div>
+
+            {/* Readiness Check */}
+            {!isReadyToRender && (
+                <div className="bg-amber-50 rounded-2xl border border-amber-200 p-4 flex items-start gap-3">
+                    <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                        <h4 className="font-bold text-amber-900">Complete all steps before rendering</h4>
+                        <ul className="text-sm text-amber-700 mt-2 space-y-1">
+                            {!hasScript && <li>- Script needs to be generated and approved</li>}
+                            {!hasAudio && <li>- Audio needs to be generated</li>}
+                            {!hasVisuals && <li>- Visuals need to be generated ({segmentsWithImages}/{segmentCount} segments have images)</li>}
+                        </ul>
+                    </div>
+                </div>
+            )}
+
+            {isReadyToRender && (
+                <div className="bg-green-50 rounded-2xl border border-green-200 p-4 flex items-start gap-3">
+                    <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                        <h4 className="font-bold text-green-900">Ready to render!</h4>
+                        <p className="text-sm text-green-700 mt-1">
+                            All steps are complete. Click the "Render Video" button below to start processing.
+                        </p>
+                    </div>
+                </div>
+            )}
 
             {/* Quick Stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -90,7 +153,7 @@ export default function EditorReviewStep() {
                         </div>
                         <div>
                             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Segments</span>
-                            <span className="text-lg font-bold text-slate-900">{segmentCount}</span>
+                            <span className="text-lg font-bold text-slate-900">{segmentsWithImages}/{segmentCount}</span>
                         </div>
                     </div>
                 </div>
@@ -179,6 +242,7 @@ export default function EditorReviewStep() {
                             <h3 className="text-lg font-bold text-slate-900">Audio</h3>
                             <p className="text-sm font-semibold text-slate-400">
                                 {request.voiceName || "No voice selected"}
+                                {request.audioDurationSeconds && ` (${formatDuration(request.audioDurationSeconds)})`}
                             </p>
                         </div>
                     </div>
@@ -251,7 +315,7 @@ export default function EditorReviewStep() {
                         </div>
                         <div>
                             <h3 className="text-lg font-bold text-slate-900">Visuals</h3>
-                            <p className="text-sm font-semibold text-slate-400">{segmentCount} segments</p>
+                            <p className="text-sm font-semibold text-slate-400">{segmentsWithImages} of {segmentCount} segments</p>
                         </div>
                     </div>
                     <Button 
@@ -265,27 +329,30 @@ export default function EditorReviewStep() {
 
                 {request.segments.length > 0 ? (
                     <div className="flex gap-3 overflow-x-auto pb-2 -mx-2 px-2">
-                        {request.segments.map((segment, index) => (
-                            <div
-                                key={segment.id}
-                                className="relative flex-shrink-0 w-28 h-36 rounded-xl overflow-hidden border-2 border-slate-200"
-                            >
-                                {segment.generatedImageUrl ? (
-                                    <img
-                                        src={segment.generatedImageUrl}
-                                        alt={`Segment ${index + 1}`}
-                                        className="w-full h-full object-cover"
-                                    />
-                                ) : (
-                                    <div className="w-full h-full bg-slate-100 flex items-center justify-center">
-                                        <Image className="h-6 w-6 text-slate-400" />
+                        {request.segments.map((segment, index) => {
+                            const imageUrl = segment.imageUrl || segment.generatedImageUrl
+                            return (
+                                <div
+                                    key={segment.id}
+                                    className="relative flex-shrink-0 w-28 h-36 rounded-xl overflow-hidden border-2 border-slate-200"
+                                >
+                                    {imageUrl ? (
+                                        <img
+                                            src={imageUrl}
+                                            alt={`Segment ${index + 1}`}
+                                            className="w-full h-full object-cover"
+                                        />
+                                    ) : (
+                                        <div className="w-full h-full bg-slate-100 flex items-center justify-center">
+                                            <Image className="h-6 w-6 text-slate-400" />
+                                        </div>
+                                    )}
+                                    <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1">
+                                        <span className="text-white text-xs font-bold">#{index + 1}</span>
                                     </div>
-                                )}
-                                <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1">
-                                    <span className="text-white text-xs font-bold">#{index + 1}</span>
                                 </div>
-                            </div>
-                        ))}
+                            )
+                        })}
                     </div>
                 ) : (
                     <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 flex items-center gap-4">
@@ -340,6 +407,42 @@ export default function EditorReviewStep() {
                             </div>
                         </div>
                     )}
+                </div>
+            </div>
+
+            {/* Render Button - Fixed at bottom on mobile */}
+            <div className="bg-white rounded-[24px] border border-slate-200 p-8 shadow-lg">
+                <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div>
+                        <h3 className="text-xl font-bold text-slate-900">Ready to create your video?</h3>
+                        <p className="text-slate-500 mt-1">
+                            {isReadyToRender 
+                                ? "All steps are complete. Click to start rendering."
+                                : "Please complete all steps before rendering."}
+                        </p>
+                    </div>
+                    <Button
+                        onClick={handleRenderVideo}
+                        disabled={!isReadyToRender || submitRenderMutation.isPending}
+                        className={cn(
+                            "h-14 px-8 rounded-xl text-lg font-bold gap-3 transition-all",
+                            isReadyToRender
+                                ? "bg-purple-600 hover:bg-purple-700 text-white shadow-xl shadow-purple-200 hover:scale-[1.02]"
+                                : "bg-slate-300 text-slate-500 cursor-not-allowed"
+                        )}
+                    >
+                        {submitRenderMutation.isPending ? (
+                            <>
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                                Starting Render...
+                            </>
+                        ) : (
+                            <>
+                                <Wand2 className="h-5 w-5" />
+                                Render Video
+                            </>
+                        )}
+                    </Button>
                 </div>
             </div>
         </div>

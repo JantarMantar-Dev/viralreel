@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react"
-import { useMutation, useQuery } from "@tanstack/react-query"
+import { useQuery } from "@tanstack/react-query"
 import { toast } from "sonner"
 import {
     Play,
@@ -16,6 +16,7 @@ import { useEditorCreation } from "../context/editor-creation-context"
 import { Button } from "@/components/ui/button"
 import StepHeader from "../../create/components/step-header"
 import { API_BASE_URL } from "@/lib/config"
+import { useGenerateAudio, useCreateDraftVideo } from "@/hooks/useEditorApi"
 
 interface Voice {
     id: string
@@ -33,6 +34,10 @@ export default function EditorAudioStep() {
     const voicePreviewRef = useRef<HTMLAudioElement | null>(null)
     const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null)
 
+    // API hooks
+    const generateAudioMutation = useGenerateAudio()
+    const createDraftMutation = useCreateDraftVideo()
+
     // Fetch available voices
     const { data: voices, isLoading: voicesLoading } = useQuery({
         queryKey: ["voices"],
@@ -45,44 +50,62 @@ export default function EditorAudioStep() {
         },
     })
 
-    // Audio synthesis mutation
-    const synthesizeMutation = useMutation({
-        mutationFn: async () => {
-            if (!request.approvedScript) {
-                throw new Error("No approved script available")
+    // Handle audio synthesis with the new API
+    const handleSynthesizeAudio = async () => {
+        if (!request.approvedScript) {
+            toast.error("No approved script available")
+            return
+        }
+
+        if (!selectedVoiceId) {
+            toast.error("Please select a voice")
+            return
+        }
+
+        try {
+            let videoId = request.videoId
+
+            // If we don't have a videoId yet, create a draft video first
+            if (!videoId) {
+                const draftResult = await createDraftMutation.mutateAsync({
+                    nicheId: request.nicheId,
+                    nicheName: request.nicheName,
+                    episodeTitle: request.episodeTitle,
+                    scriptIdea: request.scriptIdea,
+                    duration: request.duration,
+                    visualStyle: request.visualStyle,
+                    approvedScript: request.approvedScript,
+                })
+                
+                videoId = draftResult.videoId
+                updateRequest({ videoId })
             }
 
-            const response = await fetch(`${API_BASE_URL}/api/audio/synthesize`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                credentials: "include",
-                body: JSON.stringify({
-                    script: request.approvedScript.story,
-                    voiceId: selectedVoiceId,
-                    tonePrompt: tonePrompt || undefined,
-                }),
+            // Now generate audio with the videoId
+            const result = await generateAudioMutation.mutateAsync({
+                videoId,
+                script: request.approvedScript.story,
+                voiceId: selectedVoiceId,
+                tonePrompt: tonePrompt || undefined,
             })
 
-            if (!response.ok) {
-                const error = await response.json()
-                throw new Error(error.error || "Failed to synthesize audio")
-            }
-
-            return response.json()
-        },
-        onSuccess: (data) => {
+            // Update context with all the audio data
             updateRequest({
-                audioUrl: data.audioUrl,
+                audioUrl: result.audioUrl,
+                audioKey: result.audioKey,
+                audioDurationSeconds: result.durationSeconds,
                 voiceId: selectedVoiceId,
                 voiceName: voices?.find(v => v.id === selectedVoiceId)?.name,
                 tonePrompt: tonePrompt || undefined,
+                subtitles: result.subtitles,
+                audioGenerationCount: (request.audioGenerationCount || 0) + 1,
             })
+
             toast.success("Audio synthesized successfully!")
-        },
-        onError: (error: Error) => {
-            toast.error(error.message)
-        },
-    })
+        } catch (error: any) {
+            toast.error(error.message || "Failed to synthesize audio")
+        }
+    }
 
     const handlePlayPause = () => {
         if (!audioRef.current || !request.audioUrl) return
@@ -123,7 +146,15 @@ export default function EditorAudioStep() {
         }
     }, [])
 
-    const isSynthesizing = synthesizeMutation.isPending
+    const isSynthesizing = generateAudioMutation.isPending || createDraftMutation.isPending
+
+    // Format duration for display
+    const formatDuration = (seconds: number | undefined) => {
+        if (!seconds) return "0:00"
+        const mins = Math.floor(seconds / 60)
+        const secs = Math.floor(seconds % 60)
+        return `${mins}:${secs.toString().padStart(2, '0')}`
+    }
 
     return (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-4xl mx-auto space-y-8">
@@ -265,7 +296,7 @@ export default function EditorAudioStep() {
                         <h3 className="text-xl font-bold text-slate-900">Audio Preview</h3>
                         <p className="text-slate-500 text-sm font-medium mt-1">
                             {request.audioUrl 
-                                ? "Listen to your synthesized audio" 
+                                ? `Listen to your synthesized audio (${formatDuration(request.audioDurationSeconds)})` 
                                 : "Generate audio to preview how your video will sound"}
                         </p>
                     </div>
@@ -308,6 +339,9 @@ export default function EditorAudioStep() {
                                         ))}
                                     </div>
                                 </div>
+                                <div className="text-sm font-medium text-slate-500">
+                                    {formatDuration(request.audioDurationSeconds)}
+                                </div>
                             </div>
                             <audio
                                 ref={audioRef}
@@ -316,9 +350,16 @@ export default function EditorAudioStep() {
                             />
                         </div>
 
+                        {/* Show generation count */}
+                        {request.audioGenerationCount > 0 && (
+                            <p className="text-xs text-slate-400 text-center">
+                                Generated {request.audioGenerationCount} time{request.audioGenerationCount > 1 ? 's' : ''}
+                            </p>
+                        )}
+
                         <Button
                             variant="outline"
-                            onClick={() => synthesizeMutation.mutate()}
+                            onClick={handleSynthesizeAudio}
                             disabled={isSynthesizing}
                             className="w-full h-12 gap-2 rounded-xl border-2"
                         >
@@ -332,14 +373,14 @@ export default function EditorAudioStep() {
                     </div>
                 ) : (
                     <Button
-                        onClick={() => synthesizeMutation.mutate()}
+                        onClick={handleSynthesizeAudio}
                         disabled={isSynthesizing || !selectedVoiceId}
                         className="w-full h-14 bg-purple-600 hover:bg-purple-700 gap-3 text-lg font-bold rounded-xl disabled:opacity-50"
                     >
                         {isSynthesizing ? (
                             <>
                                 <Loader2 className="h-5 w-5 animate-spin" />
-                                Synthesizing Audio...
+                                {createDraftMutation.isPending ? "Creating video..." : "Synthesizing Audio..."}
                             </>
                         ) : (
                             <>

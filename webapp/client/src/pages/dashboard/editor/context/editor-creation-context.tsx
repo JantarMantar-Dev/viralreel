@@ -10,16 +10,31 @@ export interface GeneratedScript {
 }
 
 // =============================================================================
+// SUBTITLE WORD - For word-level subtitle timing
+// =============================================================================
+export interface SubtitleWord {
+    text: string
+    start: number // frames at 30fps
+    end: number   // frames at 30fps
+}
+
+// =============================================================================
 // VISUAL SEGMENT - For per-segment image control in Editor Mode
 // =============================================================================
 export interface VisualSegment {
     id: string
-    startTime: number
-    endTime: number
+    index: number
+    timeRange: [number, number] // [start, end] in seconds
     subtitleText: string
     imagePrompt: string
-    generatedImageUrl?: string
+    imageKey?: string
+    imageUrl?: string
+    generatedAt?: string
     isGenerating?: boolean
+    // Legacy fields for backward compatibility
+    startTime?: number
+    endTime?: number
+    generatedImageUrl?: string
 }
 
 // =============================================================================
@@ -39,6 +54,9 @@ export interface EditorModeRequest {
     visualStyle?: string
     aspectRatio: "portrait"  // Fixed for now
     
+    // Video ID (set after first save)
+    videoId?: string
+    
     // Phase 1: Script
     approvedScript?: GeneratedScript
     scriptGenerationCount: number
@@ -46,7 +64,11 @@ export interface EditorModeRequest {
     
     // Phase 2: Audio
     audioUrl?: string
+    audioKey?: string
+    audioDurationSeconds?: number
     tonePrompt?: string
+    audioGenerationCount: number
+    subtitles?: SubtitleWord[]
     
     // Phase 3: Visuals
     segments: VisualSegment[]
@@ -131,11 +153,16 @@ export const INITIAL_EDITOR_REQUEST: EditorModeRequest = {
     voiceId: undefined,
     voiceName: undefined,
     aspectRatio: "portrait",
+    videoId: undefined,
     approvedScript: undefined,
     scriptGenerationCount: 0,
     scriptFeedback: undefined,
     audioUrl: undefined,
+    audioKey: undefined,
+    audioDurationSeconds: undefined,
     tonePrompt: undefined,
+    audioGenerationCount: 0,
+    subtitles: undefined,
     segments: [],
     subtitleStyleId: undefined,
     subtitleStyleName: undefined,
