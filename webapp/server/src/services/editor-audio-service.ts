@@ -28,7 +28,7 @@ export interface AudioVersion {
     voiceId: string;
     voiceName: string;
     tonePrompt?: string;
-    subtitles: SubtitleWord[];
+    subtitles?: SubtitleWord[]; // Optional - generated separately via transcription step
     generatedAt: string;
 }
 
@@ -40,7 +40,6 @@ export interface GenerateAudioResult {
     voiceId: string;
     voiceName: string;
     tonePrompt?: string;
-    subtitles: SubtitleWord[];
     generatedAt: string;
     audioVersions: AudioVersion[];
 }
@@ -162,8 +161,12 @@ async function generateTTSAudio(text: string, voiceName: string): Promise<{ audi
 async function transcribeAudio(audioBuffer: Buffer): Promise<SubtitleWord[]> {
     const groqApiKey = process.env.GROQ_TTS_KEY || process.env.GROQ_API_KEY;
     if (!groqApiKey) {
-        console.warn("[EditorAudioService] GROQ_API_KEY not configured, skipping transcription");
-        return [];
+        console.error("[EditorAudioService] GROQ_API_KEY not configured");
+        throw new AppError(
+            "TranscriptionError", 
+            "Transcription service is temporarily unavailable. Please try again later.", 
+            500
+        );
     }
 
     const groq = new Groq({ apiKey: groqApiKey });
@@ -206,10 +209,28 @@ async function transcribeAudio(audioBuffer: Buffer): Promise<SubtitleWord[]> {
             return subtitles;
         }
 
-        return [];
-    } catch (error) {
+        throw new AppError("TranscriptionError", "Transcription failed. Please try again.", 500);
+    } catch (error: any) {
         console.error("[EditorAudioService] Groq Transcription Error:", error);
-        return [];
+        
+        // Re-throw AppErrors as-is
+        if (error?.name === 'AppError') {
+            throw error;
+        }
+        
+        // Handle specific Groq API errors with user-friendly messages
+        if (error?.status === 401 || error?.status === 403) {
+            throw new AppError("TranscriptionError", "Transcription service is temporarily unavailable. Please try again later.", 500);
+        }
+        if (error?.status === 429) {
+            throw new AppError("TranscriptionError", "Service is busy. Please try again in a few moments.", 429);
+        }
+        
+        throw new AppError(
+            "TranscriptionError", 
+            "Transcription failed. Please try again.", 
+            500
+        );
     }
 }
 
@@ -262,10 +283,7 @@ export async function generateAudio(params: GenerateAudioParams): Promise<Genera
     await storageProvider.uploadFile(wavBuffer, audioKey, 'audio/wav');
     console.log(`[EditorAudioService] Uploaded audio to S3: ${audioKey}`);
 
-    // 7. Transcribe for subtitles
-    const subtitles = await transcribeAudio(wavBuffer);
-
-    // 8. Create new audio version object
+    // 7. Create new audio version object (without subtitles - generated separately)
     const generatedAt = new Date().toISOString();
     const newAudioVersion: AudioVersion = {
         id: audioId,
@@ -274,16 +292,16 @@ export async function generateAudio(params: GenerateAudioParams): Promise<Genera
         voiceId,
         voiceName,
         tonePrompt,
-        subtitles,
+        // subtitles are NOT included - they will be generated in a separate transcription step
         generatedAt,
     };
 
-    // 9. Get existing audio versions and append new one
+    // 8. Get existing audio versions and append new one
     const currentMetadata = (existingVideo[0].metadata as any) || {};
     const existingVersions: AudioVersion[] = currentMetadata.audioVersions || [];
     const updatedVersions = [...existingVersions, newAudioVersion];
 
-    // 10. Update video metadata with new audio as selected
+    // 9. Update video metadata with new audio as selected (no subtitles yet)
     const updatedMetadata = {
         ...currentMetadata,
         editorMode: true,
@@ -293,7 +311,7 @@ export async function generateAudio(params: GenerateAudioParams): Promise<Genera
         voiceId,
         voiceName,
         tonePrompt: tonePrompt || undefined,
-        subtitles,
+        // subtitles are NOT set here - they will be set after transcription step
         audioVersions: updatedVersions,
         selectedAudioId: audioId,
         audioGenerationCount: (currentMetadata.audioGenerationCount || 0) + 1,
@@ -306,7 +324,7 @@ export async function generateAudio(params: GenerateAudioParams): Promise<Genera
         })
         .where(eq(video.id, videoId));
 
-    // 11. Generate signed URL for playback
+    // 10. Generate signed URL for playback
     const audioUrl = await storageProvider.getSignedUrl(audioKey);
 
     return {
@@ -317,7 +335,6 @@ export async function generateAudio(params: GenerateAudioParams): Promise<Genera
         voiceId,
         voiceName,
         tonePrompt,
-        subtitles,
         generatedAt,
         audioVersions: updatedVersions,
     };
@@ -348,5 +365,177 @@ export async function getAudioUrl(params: GetAudioUrlParams): Promise<{ audioUrl
     return {
         audioUrl,
         durationSeconds: metadata.audioDurationSeconds || 0
+    };
+}
+
+// =============================================================================
+// TRANSCRIPTION GENERATION (Separate Step)
+// =============================================================================
+
+export interface GenerateTranscriptionParams {
+    videoId: string;
+    userId: string;
+    audioId: string;  // The ID of the audio version to transcribe
+}
+
+export interface GenerateTranscriptionResult {
+    success: boolean;
+    audioId: string;
+    subtitles: SubtitleWord[];
+    wordCount: number;
+}
+
+/**
+ * Generate transcription for a specific audio version
+ * This is a separate step from audio generation for better control and error handling
+ */
+export async function generateTranscription(params: GenerateTranscriptionParams): Promise<GenerateTranscriptionResult> {
+    const { videoId, userId, audioId } = params;
+
+    // 1. Verify video belongs to user
+    const existingVideo = await db.select()
+        .from(video)
+        .where(and(eq(video.id, videoId), eq(video.userId, userId)))
+        .limit(1);
+
+    if (existingVideo.length === 0) {
+        throw new AppError("NotFound", "Video not found or access denied", 404);
+    }
+
+    const currentMetadata = (existingVideo[0].metadata as any) || {};
+    const audioVersions: AudioVersion[] = currentMetadata.audioVersions || [];
+
+    // 2. Find the audio version to transcribe
+    const audioVersionIndex = audioVersions.findIndex(v => v.id === audioId);
+    if (audioVersionIndex === -1) {
+        throw new AppError("NotFound", "Audio version not found", 404);
+    }
+
+    const audioVersion = audioVersions[audioVersionIndex];
+
+    // 3. Download audio from S3
+    console.log(`[EditorAudioService] Downloading audio for transcription: ${audioVersion.audioKey}`);
+    const audioBuffer = await storageProvider.downloadFile(audioVersion.audioKey);
+
+    if (!audioBuffer) {
+        throw new AppError("NotFound", "Audio file not found in storage", 404);
+    }
+
+    // 4. Transcribe the audio
+    console.log(`[EditorAudioService] Starting transcription for audio version: ${audioId}`);
+    const subtitles = await transcribeAudio(audioBuffer);
+
+    if (subtitles.length === 0) {
+        throw new AppError("TranscriptionError", "Transcription failed - no words detected. Please try again.", 500);
+    }
+
+    // 5. Update the audio version with subtitles
+    const updatedAudioVersion: AudioVersion = {
+        ...audioVersion,
+        subtitles,
+    };
+
+    const updatedVersions = [...audioVersions];
+    updatedVersions[audioVersionIndex] = updatedAudioVersion;
+
+    // 6. Update video metadata with transcription
+    const isSelectedAudio = currentMetadata.selectedAudioId === audioId;
+    const updatedMetadata = {
+        ...currentMetadata,
+        audioVersions: updatedVersions,
+        // If this is the currently selected audio, also update the main subtitles
+        ...(isSelectedAudio && { subtitles }),
+    };
+
+    await db.update(video)
+        .set({
+            metadata: updatedMetadata,
+            updatedAt: new Date()
+        })
+        .where(eq(video.id, videoId));
+
+    console.log(`[EditorAudioService] Transcription complete: ${subtitles.length} words`);
+
+    return {
+        success: true,
+        audioId,
+        subtitles,
+        wordCount: subtitles.length,
+    };
+}
+
+// =============================================================================
+// SAVE EDITED TRANSCRIPTION
+// =============================================================================
+
+export interface SaveTranscriptionParams {
+    videoId: string;
+    userId: string;
+    audioId: string;
+    subtitles: SubtitleWord[];
+}
+
+export interface SaveTranscriptionResult {
+    success: boolean;
+    audioId: string;
+    wordCount: number;
+}
+
+/**
+ * Save edited transcription for a specific audio version
+ */
+export async function saveTranscription(params: SaveTranscriptionParams): Promise<SaveTranscriptionResult> {
+    const { videoId, userId, audioId, subtitles } = params;
+
+    // 1. Verify video belongs to user
+    const existingVideo = await db.select()
+        .from(video)
+        .where(and(eq(video.id, videoId), eq(video.userId, userId)))
+        .limit(1);
+
+    if (existingVideo.length === 0) {
+        throw new AppError("NotFound", "Video not found or access denied", 404);
+    }
+
+    const currentMetadata = (existingVideo[0].metadata as any) || {};
+    const audioVersions: AudioVersion[] = currentMetadata.audioVersions || [];
+
+    // 2. Find the audio version to update
+    const audioVersionIndex = audioVersions.findIndex(v => v.id === audioId);
+    if (audioVersionIndex === -1) {
+        throw new AppError("NotFound", "Audio version not found", 404);
+    }
+
+    // 3. Update the audio version with edited subtitles
+    const updatedAudioVersion: AudioVersion = {
+        ...audioVersions[audioVersionIndex],
+        subtitles,
+    };
+
+    const updatedVersions = [...audioVersions];
+    updatedVersions[audioVersionIndex] = updatedAudioVersion;
+
+    // 4. Update video metadata
+    const isSelectedAudio = currentMetadata.selectedAudioId === audioId;
+    const updatedMetadata = {
+        ...currentMetadata,
+        audioVersions: updatedVersions,
+        // If this is the currently selected audio, also update the main subtitles
+        ...(isSelectedAudio && { subtitles }),
+    };
+
+    await db.update(video)
+        .set({
+            metadata: updatedMetadata,
+            updatedAt: new Date()
+        })
+        .where(eq(video.id, videoId));
+
+    console.log(`[EditorAudioService] Saved edited transcription: ${subtitles.length} words`);
+
+    return {
+        success: true,
+        audioId,
+        wordCount: subtitles.length,
     };
 }

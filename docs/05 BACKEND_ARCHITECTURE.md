@@ -49,12 +49,36 @@ metadata: {
   // Phase 2: Audio
   tonePrompt: string,
   audioGenerationCount: number,
+  audioKey: string,                    // Currently selected audio S3 key
+  audioDurationSeconds: number,
+  selectedAudioId: string,             // ID of currently selected audio version
+  audioVersions: AudioVersion[],       // All generated audio versions
+  subtitles: SubtitleWord[],           // Subtitles for selected audio (if transcribed)
   
   // Phase 3: Visuals
   visualStyle: string,
   segments: VisualSegment[],
   
   // Existing fields in metadata still apply (voiceId, subtitleStyleId, etc.)
+}
+
+// AudioVersion structure
+AudioVersion: {
+  id: string,
+  audioKey: string,
+  durationSeconds: number,
+  voiceId: string,
+  voiceName: string,
+  tonePrompt?: string,
+  subtitles?: SubtitleWord[],          // Optional - generated separately
+  generatedAt: string
+}
+
+// SubtitleWord structure
+SubtitleWord: {
+  text: string,
+  start: number,                       // frames at 30fps
+  end: number                          // frames at 30fps
 }
 ```
 
@@ -131,22 +155,45 @@ The existing script generation infrastructure handles:
 
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
-| POST | `/api/editor/audio/generate` | Generate TTS audio |
+| POST | `/api/editor/audio/generate` | Generate TTS audio (without transcription) |
 | GET | `/api/editor/audio/:videoId` | Get signed URL for audio playback |
+| POST | `/api/editor/audio/transcribe` | Generate transcription for selected audio |
+| POST | `/api/editor/audio/save-transcription` | Save edited transcription |
 
 **POST `/api/editor/audio/generate`**
 - Input: `videoId`, `script`, `voiceId`, optional `tonePrompt`
-- Process: Generate TTS → Upload to S3 → Update video metadata → Return signed URL
-- Returns: `audioKey`, `audioUrl` (signed), `durationSeconds`
+- Process: Generate TTS → Upload to S3 → Update video metadata
+- Returns: `audioId`, `audioKey`, `audioUrl` (signed), `durationSeconds`, `audioVersions`
 - Updates: `video.metadata.audioGenerationCount`, stores audio key in metadata
+- **Note**: Transcription is NOT generated here - it's a separate step for better control
+
+**POST `/api/editor/audio/transcribe`**
+- Input: `videoId`, `audioId`
+- Process: Download audio from S3 → Call Groq Whisper → Update audio version with subtitles
+- Returns: `audioId`, `subtitles[]`, `wordCount`
+- Updates: `video.metadata.audioVersions[].subtitles`, `video.metadata.subtitles` (if selected)
+- **Error Handling**: Returns user-friendly errors (e.g., "Transcription failed. Please try again.")
+
+**POST `/api/editor/audio/save-transcription`**
+- Input: `videoId`, `audioId`, `subtitles[]`
+- Process: Validate user owns video → Update audio version subtitles → Update main subtitles if selected
+- Returns: `audioId`, `wordCount`
+- **Use Case**: User edits transcription words in the UI to fix errors
 
 **Integration Details (Server-Side):**
-- **TTS Provider**: Uses `CustomGeminiTTS` with `gemini-2.0-flash-exp` (or user-configured model).
-- **Subtitles/Transcription**:
+- **TTS Provider**: Uses `CustomGeminiTTS` with `gemini-2.5-flash-preview-tts` (or user-configured model).
+- **Subtitles/Transcription** (Separate Step):
     - **Provider**: **Groq**
     - **Model**: `whisper-large-v3-turbo`
     - **Logic**: Post-processing of generated audio to extract word-level timestamps using `groq.audio.transcriptions.create`.
-    - **Why**: High-speed transcription is critical for editor responsiveness.
+    - **Why**: Decoupled from audio generation for better error handling and user control.
+    - **Environment Variable**: `GROQ_TTS_KEY` or `GROQ_API_KEY`
+
+**Audio Versioning:**
+- Multiple audio versions are stored in `metadata.audioVersions[]`
+- Each version has: `id`, `audioKey`, `durationSeconds`, `voiceId`, `voiceName`, `tonePrompt`, `subtitles?`, `generatedAt`
+- `metadata.selectedAudioId` tracks the currently selected version
+- Subtitles are optional per version - only generated when user clicks "Get Transcription"
 
 ### 2.4 Phase 3: Visuals API
 
@@ -204,12 +251,22 @@ The existing script generation infrastructure handles:
 ### 2.6 Test Coverage (API & Services)
 
 **Unit Tests**:
-*   `services/editor-audio-service.test.ts`: Mock `Groq` and `GoogleGenerativeAI` responses. Verify correct metadata updates on success. Test error handling (e.g., quota exceeded).
+*   `services/editor-audio-service.test.ts`: 
+    - Mock `Groq` and `GoogleGenerativeAI` responses. 
+    - Verify correct metadata updates on success. 
+    - Test error handling (e.g., quota exceeded, missing API key).
+    - Test decoupled audio generation (no transcription).
+    - Test transcription generation separately.
+    - Test transcription save functionality.
 *   `services/editor-visual-service.test.ts`: Mock image generation. Verify prompt injection logic (style appending). Test segment splitting logic (script alignment).
 *   `api/editor-render.test.ts`: Test validation logic (ensure all phases complete). Verify credit deduction. Check `render_job` creation parameters.
 
 **Integration Tests**:
-*   `tests/integration/audio-flow.test.ts`: Call `/api/editor/audio/generate` with mock S3. Verify signed URL generation and database updates.
+*   `tests/integration/audio-flow.test.ts`: 
+    - Call `/api/editor/audio/generate` with mock S3. 
+    - Verify signed URL generation and database updates.
+    - Call `/api/editor/audio/transcribe` and verify subtitles generated.
+    - Call `/api/editor/audio/save-transcription` with edited subtitles.
 *   `tests/integration/visuals-flow.test.ts`: Call `/api/editor/visuals/analyze`. Verify return structure of segments. Call `/api/editor/visuals/generate-segment`. Verify metadata update.
 *   `tests/integration/renderer-queue.test.ts`: Submit render job. Verify it appears in the queue with correct status.
 
@@ -257,10 +314,16 @@ Client-side state mirrors the video metadata structure:
 **Required Fields**:
 - Video: `videoId`, `currentPhase`
 - Phase 1 (Script): `nicheId`, `nicheName`, `scriptIdea`, `episodeTitle`, `duration`, `approvedScript`, `scriptGenerationCount`
-- Phase 2 (Audio): `voiceId`, `voiceName`, `audioUrl`, `audioKey`, `tonePrompt`, `audioGenerationCount`
+- Phase 2 (Audio): `voiceId`, `voiceName`, `audioUrl`, `audioKey`, `tonePrompt`, `audioGenerationCount`, `audioVersions[]`, `selectedAudioId`, `subtitles[]`
 - Phase 3 (Visuals): `visualStyle`, `segments[]`
 - Phase 4 (Subtitles): `subtitleStyleId`, `subtitleStyleName`
 - Phase 5 (Review): `aspectRatio`, `isDraft`
+
+**AudioVersion Type**:
+- `id`, `audioKey`, `audioUrl`, `durationSeconds`, `voiceId`, `voiceName`, `tonePrompt?`, `subtitles?`, `generatedAt`
+
+**SubtitleWord Type**:
+- `text`, `start` (frames at 30fps), `end` (frames at 30fps)
 
 ### 4.2 Auto-Save Strategy
 
@@ -295,7 +358,7 @@ Each phase should have a dedicated step component:
 | Step | Purpose |
 |------|---------|
 | `script-step` | Title input, idea input, duration selector, generate/preview script |
-| `audio-step` | Voice selection, audio player, tone prompt, regenerate option |
+| `audio-step` | Voice selection, tone prompt, audio versioning, transcription generation, transcription editor |
 | `visuals-step` | Gallery strip, segment cards, individual/bulk regeneration |
 | `subtitles-step` | Style gallery, live preview of selected style |
 | `review-step` | Summary of all sections, stats, render button |
@@ -306,7 +369,7 @@ Create API hooks for each phase:
 
 - **Video**: `useEditorVideo`, `useCreateEditorVideo`, `useUpdateVideoMetadata`
 - **Script**: Reuse existing script generation hooks
-- **Audio**: `useGenerateAudio`, `useAudioUrl`
+- **Audio**: `useGenerateAudio`, `useGenerateTranscription`, `useSaveTranscription`, `useAudioUrl`
 - **Visuals**: `useAnalyzeVisuals`, `useGenerateSegmentImage`, `useGenerateAllImages`
 - **Render**: `useSubmitRender`
 
@@ -359,8 +422,10 @@ Create API hooks for each phase:
 
 | Endpoint | Method | Phase | Purpose |
 |----------|--------|-------|---------|
-| `/api/editor/audio/generate` | POST | 2 | Generate TTS |
+| `/api/editor/audio/generate` | POST | 2 | Generate TTS audio |
 | `/api/editor/audio/:videoId` | GET | 2 | Get audio URL |
+| `/api/editor/audio/transcribe` | POST | 2 | Generate transcription for audio |
+| `/api/editor/audio/save-transcription` | POST | 2 | Save edited transcription |
 | `/api/editor/visuals/analyze` | POST | 3 | Script → Segments |
 | `/api/editor/visuals/generate-segment` | POST | 3 | Generate 1 image |
 | `/api/editor/visuals/generate-all` | POST | 3 | Generate all images |

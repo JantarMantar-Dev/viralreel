@@ -13,13 +13,17 @@ import {
     Clock,
     CheckCircle2,
     Trash2,
+    FileText,
+    AlertCircle,
+    Save,
+    Edit3,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { useEditorCreation, AudioVersion } from "../context/editor-creation-context"
+import { useEditorCreation, AudioVersion, SubtitleWord } from "../context/editor-creation-context"
 import { Button } from "@/components/ui/button"
 import StepHeader from "../../create/components/step-header"
 import { API_BASE_URL } from "@/lib/config"
-import { useGenerateAudio, useCreateDraftVideo } from "@/hooks/useEditorApi"
+import { useGenerateAudio, useCreateDraftVideo, useGenerateTranscription } from "@/hooks/useEditorApi"
 
 interface Voice {
     id: string
@@ -29,7 +33,7 @@ interface Voice {
 }
 
 export default function EditorAudioStep() {
-    const { request, updateRequest } = useEditorCreation()
+    const { request, updateRequest, setCanContinue, setCustomNext, nextStep } = useEditorCreation()
     const [tonePrompt, setTonePrompt] = useState(request.tonePrompt || "")
     const [selectedVoiceId, setSelectedVoiceId] = useState<string | undefined>(request.voiceId)
     const voicePreviewRef = useRef<HTMLAudioElement | null>(null)
@@ -42,6 +46,16 @@ export default function EditorAudioStep() {
     // API hooks
     const generateAudioMutation = useGenerateAudio()
     const createDraftMutation = useCreateDraftVideo()
+    const generateTranscriptionMutation = useGenerateTranscription()
+
+    // Transcription error state
+    const [transcriptionError, setTranscriptionError] = useState<string | null>(null)
+
+    // Transcription editing state
+    const [editedSubtitles, setEditedSubtitles] = useState<SubtitleWord[] | null>(null)
+    const [isEditingTranscription, setIsEditingTranscription] = useState(false)
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+    const [isSavingTranscription, setIsSavingTranscription] = useState(false)
 
     // Fetch available voices
     const { data: voices, isLoading: voicesLoading } = useQuery({
@@ -86,7 +100,7 @@ export default function EditorAudioStep() {
                 updateRequest({ videoId })
             }
 
-            // Now generate audio with the videoId
+            // Now generate audio with the videoId (subtitles are generated separately)
             const result = await generateAudioMutation.mutateAsync({
                 videoId,
                 script: request.approvedScript.story,
@@ -94,7 +108,7 @@ export default function EditorAudioStep() {
                 tonePrompt: tonePrompt || undefined,
             })
 
-            // Create the new AudioVersion with the URL from the response
+            // Create the new AudioVersion with the URL from the response (no subtitles yet)
             const newVersion: AudioVersion = {
                 id: result.audioId,
                 audioKey: result.audioKey,
@@ -103,11 +117,11 @@ export default function EditorAudioStep() {
                 voiceId: result.voiceId,
                 voiceName: result.voiceName,
                 tonePrompt: result.tonePrompt,
-                subtitles: result.subtitles,
+                // subtitles are NOT included - they will be generated via transcription step
                 generatedAt: result.generatedAt,
             }
 
-            // Update context with all the audio data
+            // Update context with all the audio data (no subtitles yet)
             updateRequest({
                 audioUrl: result.audioUrl,
                 audioKey: result.audioKey,
@@ -115,7 +129,7 @@ export default function EditorAudioStep() {
                 voiceId: selectedVoiceId,
                 voiceName: voices?.find(v => v.id === selectedVoiceId)?.name,
                 tonePrompt: tonePrompt || undefined,
-                subtitles: result.subtitles,
+                // subtitles will be set after transcription step
                 audioGenerationCount: (request.audioGenerationCount || 0) + 1,
                 audioVersions: result.audioVersions.map(v => ({
                     ...v,
@@ -125,7 +139,10 @@ export default function EditorAudioStep() {
                 selectedAudioId: result.audioId,
             })
 
-            toast.success("Audio synthesized successfully!")
+            // Clear any previous transcription error
+            setTranscriptionError(null)
+
+            toast.success("Audio synthesized! Select and finalize to generate transcription.")
         } catch (error: any) {
             toast.error(error.message || "Failed to synthesize audio")
         }
@@ -181,7 +198,114 @@ export default function EditorAudioStep() {
             voiceName: version.voiceName,
             tonePrompt: version.tonePrompt,
         })
+        setTranscriptionError(null)
         toast.success(`Selected audio version from ${formatDate(version.generatedAt)}`)
+    }
+
+    // Generate transcription for the selected audio version
+    const handleGenerateTranscription = async (audioId: string) => {
+        if (!request.videoId) {
+            toast.error("No video ID available")
+            return
+        }
+
+        setTranscriptionError(null)
+
+        try {
+            const result = await generateTranscriptionMutation.mutateAsync({
+                videoId: request.videoId,
+                audioId,
+            })
+
+            // Update the audio version with subtitles
+            const updatedVersions = request.audioVersions.map(v => 
+                v.id === audioId 
+                    ? { ...v, subtitles: result.subtitles }
+                    : v
+            )
+
+            // Update context with transcription
+            updateRequest({
+                subtitles: result.subtitles,
+                audioVersions: updatedVersions,
+            })
+
+            toast.success(`Transcription generated! ${result.wordCount} words detected.`)
+        } catch (error: any) {
+            const errorMessage = error.message || "Failed to generate transcription"
+            setTranscriptionError(errorMessage)
+            toast.error(errorMessage)
+        }
+    }
+
+    // Handle editing a word in the transcription
+    const handleEditWord = (index: number, newText: string) => {
+        const currentSubtitles = editedSubtitles || selectedVersion?.subtitles || []
+        const updated = [...currentSubtitles]
+        updated[index] = { ...updated[index], text: newText }
+        setEditedSubtitles(updated)
+        setHasUnsavedChanges(true)
+    }
+
+    // Start editing transcription
+    const handleStartEditing = () => {
+        setEditedSubtitles(selectedVersion?.subtitles || [])
+        setIsEditingTranscription(true)
+    }
+
+    // Cancel editing
+    const handleCancelEditing = () => {
+        setEditedSubtitles(null)
+        setIsEditingTranscription(false)
+        setHasUnsavedChanges(false)
+    }
+
+    // Save edited transcription
+    const handleSaveTranscription = async () => {
+        if (!request.videoId || !selectedVersion || !editedSubtitles) {
+            return
+        }
+
+        setIsSavingTranscription(true)
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/editor/audio/save-transcription`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify({
+                    videoId: request.videoId,
+                    audioId: selectedVersion.id,
+                    subtitles: editedSubtitles,
+                }),
+            })
+
+            if (!response.ok) {
+                const error = await response.json()
+                throw new Error(error.message || "Failed to save transcription")
+            }
+
+            // Update the audio version with edited subtitles
+            const updatedVersions = request.audioVersions.map(v => 
+                v.id === selectedVersion.id 
+                    ? { ...v, subtitles: editedSubtitles }
+                    : v
+            )
+
+            updateRequest({
+                subtitles: editedSubtitles,
+                audioVersions: updatedVersions,
+            })
+
+            setHasUnsavedChanges(false)
+            setIsEditingTranscription(false)
+            setEditedSubtitles(null)
+            toast.success("Transcription saved!")
+        } catch (error: any) {
+            toast.error(error.message || "Failed to save transcription")
+        } finally {
+            setIsSavingTranscription(false)
+        }
     }
 
     // Get signed URL for an audio key (if audioUrl is not cached)
@@ -230,6 +354,7 @@ export default function EditorAudioStep() {
     }, [])
 
     const isSynthesizing = generateAudioMutation.isPending || createDraftMutation.isPending
+    const isTranscribing = generateTranscriptionMutation.isPending
 
     // Format duration for display
     const formatDuration = (seconds: number | undefined) => {
@@ -248,6 +373,66 @@ export default function EditorAudioStep() {
     // Get the currently selected version
     const selectedVersion = request.audioVersions.find(v => v.id === request.selectedAudioId)
     const hasVersions = request.audioVersions.length > 0
+    const selectedHasTranscription = selectedVersion?.subtitles && selectedVersion.subtitles.length > 0
+    const needsTranscription = selectedVersion && !selectedHasTranscription
+
+    // Control whether the user can continue to the next step
+    // They can only continue if they have a selected audio version WITH transcription
+    useEffect(() => {
+        const canProceed = !!(selectedVersion && selectedHasTranscription)
+        setCanContinue(canProceed)
+        
+        // Cleanup: reset canContinue when leaving this step
+        return () => {
+            setCanContinue(true)
+        }
+    }, [selectedVersion, selectedHasTranscription, setCanContinue])
+
+    // Set up custom next handler to auto-save unsaved transcription changes
+    useEffect(() => {
+        if (hasUnsavedChanges && editedSubtitles && selectedVersion && request.videoId) {
+            // If there are unsaved changes, set a custom next that saves first
+            setCustomNext(async () => {
+                try {
+                    const response = await fetch(`${API_BASE_URL}/api/editor/audio/save-transcription`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        credentials: "include",
+                        body: JSON.stringify({
+                            videoId: request.videoId,
+                            audioId: selectedVersion.id,
+                            subtitles: editedSubtitles,
+                        }),
+                    })
+
+                    if (response.ok) {
+                        // Update context with saved subtitles
+                        const updatedVersions = request.audioVersions.map(v => 
+                            v.id === selectedVersion.id 
+                                ? { ...v, subtitles: editedSubtitles }
+                                : v
+                        )
+                        updateRequest({
+                            subtitles: editedSubtitles,
+                            audioVersions: updatedVersions,
+                        })
+                        toast.success("Transcription auto-saved")
+                    }
+                } catch (error) {
+                    console.error("Failed to auto-save transcription:", error)
+                }
+                // Proceed to next step regardless
+                nextStep(true)
+            })
+        } else {
+            // No unsaved changes, clear custom next
+            setCustomNext(undefined)
+        }
+
+        return () => {
+            setCustomNext(undefined)
+        }
+    }, [hasUnsavedChanges, editedSubtitles, selectedVersion, request.videoId, request.audioVersions, setCustomNext, nextStep, updateRequest])
 
     return (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-4xl mx-auto space-y-8">
@@ -400,6 +585,8 @@ export default function EditorAudioStep() {
                             const isSelected = version.id === request.selectedAudioId
                             const isPlaying = playingVersionId === version.id
                             const versionNumber = request.audioVersions.length - index
+                            const hasTranscription = version.subtitles && version.subtitles.length > 0
+                            const isTranscribingThis = isTranscribing && generateTranscriptionMutation.variables?.audioId === version.id
 
                             return (
                                 <div
@@ -431,7 +618,7 @@ export default function EditorAudioStep() {
 
                                         {/* Version Info */}
                                         <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2">
+                                            <div className="flex items-center gap-2 flex-wrap">
                                                 <span className="font-semibold text-slate-900">
                                                     Version {versionNumber}
                                                 </span>
@@ -439,6 +626,17 @@ export default function EditorAudioStep() {
                                                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-xs font-medium">
                                                         <CheckCircle2 className="h-3 w-3" />
                                                         Selected
+                                                    </span>
+                                                )}
+                                                {hasTranscription ? (
+                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-xs font-medium">
+                                                        <FileText className="h-3 w-3" />
+                                                        Transcribed
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-medium">
+                                                        <AlertCircle className="h-3 w-3" />
+                                                        No transcription
                                                     </span>
                                                 )}
                                             </div>
@@ -461,18 +659,43 @@ export default function EditorAudioStep() {
                                             </div>
                                         </div>
 
-                                        {/* Select Button (only show if not already selected) */}
-                                        {!isSelected && (
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => handleSelectVersion(version)}
-                                                className="flex-shrink-0 gap-1.5 rounded-xl border-green-200 text-green-700 hover:bg-green-50 hover:border-green-300"
-                                            >
-                                                <Check className="h-4 w-4" />
-                                                Use This
-                                            </Button>
-                                        )}
+                                        {/* Action Buttons */}
+                                        <div className="flex items-center gap-2 flex-shrink-0">
+                                            {/* Select Button (only show if not already selected) */}
+                                            {!isSelected && (
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => handleSelectVersion(version)}
+                                                    className="gap-1.5 rounded-xl border-green-200 text-green-700 hover:bg-green-50 hover:border-green-300"
+                                                >
+                                                    <Check className="h-4 w-4" />
+                                                    Use This
+                                                </Button>
+                                            )}
+                                            {/* Get Transcription Button (show for selected version without transcription) */}
+                                            {isSelected && !hasTranscription && (
+                                                <Button
+                                                    variant="default"
+                                                    size="sm"
+                                                    onClick={() => handleGenerateTranscription(version.id)}
+                                                    disabled={isTranscribingThis}
+                                                    className="gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-700"
+                                                >
+                                                    {isTranscribingThis ? (
+                                                        <>
+                                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                                            Transcribing...
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <FileText className="h-4 w-4" />
+                                                            Get Transcription
+                                                        </>
+                                                    )}
+                                                </Button>
+                                            )}
+                                        </div>
                                     </div>
 
                                     {/* Audio Waveform Visualization (when playing) */}
@@ -497,6 +720,50 @@ export default function EditorAudioStep() {
                         })}
                     </div>
 
+                    {/* Transcription Error Display */}
+                    {transcriptionError && (
+                        <div className="mt-4 p-4 rounded-xl bg-red-50 border border-red-200">
+                            <div className="flex items-start gap-3">
+                                <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+                                <div className="flex-1">
+                                    <h4 className="font-semibold text-red-800">Transcription Failed</h4>
+                                    <p className="text-sm text-red-600 mt-1">{transcriptionError}</p>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                            setTranscriptionError(null)
+                                            if (selectedVersion) {
+                                                handleGenerateTranscription(selectedVersion.id)
+                                            }
+                                        }}
+                                        disabled={isTranscribing || !selectedVersion}
+                                        className="mt-3 gap-1.5 rounded-lg border-red-200 text-red-700 hover:bg-red-100"
+                                    >
+                                        <RefreshCw className="h-3.5 w-3.5" />
+                                        Retry Transcription
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Transcription Required Notice */}
+                    {needsTranscription && !transcriptionError && !isTranscribing && (
+                        <div className="mt-4 p-4 rounded-xl bg-amber-50 border border-amber-200">
+                            <div className="flex items-start gap-3">
+                                <FileText className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                                <div className="flex-1">
+                                    <h4 className="font-semibold text-amber-800">Transcription Required</h4>
+                                    <p className="text-sm text-amber-600 mt-1">
+                                        Click "Get Transcription" on the selected audio version to generate word-level subtitles. 
+                                        This is required before proceeding to the next step.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Generate New Version Button */}
                     <div className="mt-6">
                         <Button
@@ -512,6 +779,106 @@ export default function EditorAudioStep() {
                             )}
                             Generate New Version
                         </Button>
+                    </div>
+                </div>
+            )}
+
+            {/* Transcription Viewer/Editor Section */}
+            {selectedHasTranscription && (
+                <div className="bg-white rounded-3xl border border-slate-200 p-6 md:p-8 shadow-sm">
+                    <div className="flex items-start justify-between gap-4 mb-6">
+                        <div className="flex items-start gap-4">
+                            <div className="p-3 rounded-2xl bg-blue-50 text-blue-600">
+                                <FileText className="h-6 w-6" />
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-bold text-slate-900">Transcription</h3>
+                                <p className="text-slate-500 text-sm font-medium mt-1">
+                                    {(editedSubtitles || selectedVersion?.subtitles || []).length} words detected. 
+                                    {isEditingTranscription 
+                                        ? " Click on any word to edit it." 
+                                        : " Click Edit to modify any words."}
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            {isEditingTranscription ? (
+                                <>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={handleCancelEditing}
+                                        disabled={isSavingTranscription}
+                                        className="gap-1.5 rounded-lg"
+                                    >
+                                        Cancel
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        onClick={handleSaveTranscription}
+                                        disabled={isSavingTranscription || !hasUnsavedChanges}
+                                        className="gap-1.5 rounded-lg bg-blue-600 hover:bg-blue-700"
+                                    >
+                                        {isSavingTranscription ? (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                            <Save className="h-4 w-4" />
+                                        )}
+                                        Save Changes
+                                    </Button>
+                                </>
+                            ) : (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleStartEditing}
+                                    className="gap-1.5 rounded-lg"
+                                >
+                                    <Edit3 className="h-4 w-4" />
+                                    Edit
+                                </Button>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Unsaved changes warning */}
+                    {hasUnsavedChanges && (
+                        <div className="mb-4 p-3 rounded-xl bg-amber-50 border border-amber-200 flex items-center gap-2">
+                            <AlertCircle className="h-4 w-4 text-amber-600" />
+                            <span className="text-sm text-amber-700">You have unsaved changes</span>
+                        </div>
+                    )}
+
+                    {/* Word list */}
+                    <div className="flex flex-wrap gap-2 max-h-[300px] overflow-y-auto p-2 bg-slate-50 rounded-xl">
+                        {(isEditingTranscription ? editedSubtitles : selectedVersion?.subtitles)?.map((word, index) => (
+                            <div key={index} className="relative group">
+                                {isEditingTranscription ? (
+                                    <input
+                                        type="text"
+                                        value={word.text}
+                                        onChange={(e) => handleEditWord(index, e.target.value)}
+                                        className={cn(
+                                            "px-2 py-1 rounded-lg text-sm font-medium border-2 outline-none transition-all",
+                                            "bg-white border-blue-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100",
+                                            "min-w-[40px] max-w-[150px]"
+                                        )}
+                                        style={{ width: `${Math.max(40, word.text.length * 10)}px` }}
+                                    />
+                                ) : (
+                                    <span className="inline-block px-2 py-1 rounded-lg text-sm font-medium bg-white border border-slate-200 text-slate-700">
+                                        {word.text}
+                                    </span>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Timestamp info */}
+                    <div className="mt-4 pt-4 border-t border-slate-100">
+                        <p className="text-xs text-slate-400">
+                            Word-level timestamps are preserved. Editing words will not affect timing.
+                        </p>
                     </div>
                 </div>
             )}

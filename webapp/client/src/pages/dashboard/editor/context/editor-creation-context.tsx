@@ -29,7 +29,7 @@ export interface AudioVersion {
     voiceId: string
     voiceName: string
     tonePrompt?: string
-    subtitles: SubtitleWord[]
+    subtitles?: SubtitleWord[] // Optional - generated separately via transcription step
     generatedAt: string
 }
 

@@ -62,7 +62,6 @@ interface GenerateAudioResult {
     voiceId: string
     voiceName: string
     tonePrompt?: string
-    subtitles: SubtitleWord[]
     generatedAt: string
     audioVersions: AudioVersion[]
 }
@@ -80,6 +79,42 @@ export function useGenerateAudio() {
             if (!response.ok) {
                 const error = await response.json()
                 throw new Error(error.message || error.error || "Failed to generate audio")
+            }
+
+            return response.json()
+        },
+    })
+}
+
+// =============================================================================
+// TRANSCRIPTION HOOKS
+// =============================================================================
+
+interface GenerateTranscriptionParams {
+    videoId: string
+    audioId: string
+}
+
+interface GenerateTranscriptionResult {
+    success: boolean
+    audioId: string
+    subtitles: SubtitleWord[]
+    wordCount: number
+}
+
+export function useGenerateTranscription() {
+    return useMutation({
+        mutationFn: async (params: GenerateTranscriptionParams): Promise<GenerateTranscriptionResult> => {
+            const response = await fetch(`${API_BASE_URL}/api/editor/audio/transcribe`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify(params),
+            })
+
+            if (!response.ok) {
+                const error = await response.json()
+                throw new Error(error.message || error.error || "Failed to generate transcription")
             }
 
             return response.json()

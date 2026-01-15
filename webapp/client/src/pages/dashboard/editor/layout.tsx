@@ -293,6 +293,9 @@ export default function EditorModeLayout() {
         if (path === 'script' && !request.approvedScript) {
             return "Please generate and approve a script"
         }
+        if (path === 'audio' && !canContinue) {
+            return "Please select an audio version and generate transcription"
+        }
         return null
     }
 
@@ -484,6 +487,7 @@ export default function EditorModeLayout() {
                                                 disabled={
                                                     (path === 'niche' && !canContinue) ||
                                                     (path === 'script' && !request.approvedScript) ||
+                                                    (path === 'audio' && !canContinue) ||
                                                     isPending ||
                                                     !!isStepLoading
                                                 }

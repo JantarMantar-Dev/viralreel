@@ -45,25 +45,65 @@ This plan merges the requirements from "Phase 04: Editor Mode Implementation" (F
 
 ## Phase 6.3: Audio Phase (Vertical Slice)
 
-**Objective**: Implement Text-to-Speech generation with tone control and high-speed transcription.
+**Objective**: Implement Text-to-Speech generation with tone control, decoupled transcription, and transcription editing.
 
 ### 6.3.1 Backend Implementation
 - [x] **New Endpoint**: `POST /api/editor/audio/generate`.
     - Input: `videoId`, `script`, `voiceId`, `tonePrompt`.
-    - Logic: Call Gemini TTS -> Upload S3 -> Call Groq Transcription -> Update Metadata.
+    - Logic: Call Gemini TTS → Upload S3 → Update Metadata (NO transcription here).
+    - Returns: `audioId`, `audioKey`, `audioUrl`, `durationSeconds`, `audioVersions`.
+- [x] **New Endpoint**: `POST /api/editor/audio/transcribe`.
+    - Input: `videoId`, `audioId`.
+    - Logic: Download audio from S3 → Call Groq Whisper → Update audio version with subtitles.
+    - Returns: `audioId`, `subtitles[]`, `wordCount`.
+- [x] **New Endpoint**: `POST /api/editor/audio/save-transcription`.
+    - Input: `videoId`, `audioId`, `subtitles[]`.
+    - Logic: Save user-edited transcription to metadata.
+    - Returns: `audioId`, `wordCount`.
 - [x] **Service**: `services/editor-audio-service.ts`.
-    - Integration with `CustomGeminiTTS`.
+    - Integration with `CustomGeminiTTS` (gemini-2.5-flash-preview-tts).
     - Integration with `Groq` for `whisper-large-v3-turbo`.
-- [x] **Storage**: Define S3 path structure for audio assets (`videos/{id}/audio.wav`).
+    - `generateAudio()` - TTS only, no transcription.
+    - `generateTranscription()` - Separate transcription step.
+    - `saveTranscription()` - Save edited transcription.
+- [x] **Storage**: Define S3 path structure for audio assets (`videos/{userId}/{videoId}/audio_{audioId}.wav`).
+- [x] **Storage**: Add `downloadFile()` method to storage provider for transcription.
 
 ### 6.3.2 Frontend Implementation
 - [x] Create `editor/steps/audio-step.tsx`.
 - [x] **UI Components**:
-    - `AudioPlayer` (Waveform/Progress).
-    - `ToneInput` (Text field for style).
-    - `RegenerateButton`.
-- [x] **Integration**: Connect to `POST /api/editor/audio/generate`.
-- [x] **State**: Store `audioUrl` and `audioKey` in context/metadata.
+    - `VoiceSelection`: Grid of selectable voices with preview.
+    - `ToneInput`: Text field for style/tone prompt.
+    - `AudioVersionsList`: Display all generated versions with play/select controls.
+    - `TranscriptionStatus`: Badge showing "Transcribed" or "No transcription".
+    - `GetTranscriptionButton`: Trigger transcription for selected audio.
+    - `TranscriptionEditor`: Editable word list with save functionality.
+    - `RegenerateButton`: Generate new audio version.
+- [x] **Integration**: 
+    - Connect to `POST /api/editor/audio/generate` for audio generation.
+    - Connect to `POST /api/editor/audio/transcribe` for transcription.
+    - Connect to `POST /api/editor/audio/save-transcription` for saving edits.
+- [x] **State**: 
+    - Store `audioUrl`, `audioKey`, `audioVersions[]`, `selectedAudioId` in context.
+    - Track transcription editing state and unsaved changes.
+- [x] **Navigation Control**:
+    - Block "Continue" button until selected audio has transcription.
+    - Auto-save edited transcription on "Continue" if unsaved changes exist.
+- [x] **Error Handling**:
+    - Display user-friendly transcription errors with retry option.
+    - Show "Transcription Required" notice when needed.
+
+### 6.3.3 Audio/Transcription Flow
+```
+1. User selects voice and optional tone
+2. User clicks "Generate Audio" → Creates audio version (no transcription)
+3. User can preview and generate multiple versions
+4. User selects preferred audio version
+5. User clicks "Get Transcription" → Generates word-level subtitles
+6. User reviews transcription, can edit words if needed
+7. User saves changes (or auto-saved on Continue)
+8. User proceeds to Visuals step
+```
 
 ---
 

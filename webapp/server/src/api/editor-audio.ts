@@ -1,6 +1,6 @@
 import { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { generateAudio, getAudioUrl } from "../services/editor-audio-service.js";
+import { generateAudio, getAudioUrl, generateTranscription, saveTranscription } from "../services/editor-audio-service.js";
 import { storageProvider } from "../lib/storage.js";
 import { AppError } from "../lib/errors.js";
 
@@ -10,6 +10,21 @@ const generateAudioSchema = z.object({
     script: z.string().min(1, "script is required"),
     voiceId: z.string().min(1, "voiceId is required"),
     tonePrompt: z.string().optional(),
+});
+
+const generateTranscriptionSchema = z.object({
+    videoId: z.string().min(1, "videoId is required"),
+    audioId: z.string().min(1, "audioId is required"),
+});
+
+const saveTranscriptionSchema = z.object({
+    videoId: z.string().min(1, "videoId is required"),
+    audioId: z.string().min(1, "audioId is required"),
+    subtitles: z.array(z.object({
+        text: z.string(),
+        start: z.number(),
+        end: z.number(),
+    })),
 });
 
 export default async function editorAudioRoutes(fastify: FastifyInstance) {
@@ -61,7 +76,6 @@ export default async function editorAudioRoutes(fastify: FastifyInstance) {
                 voiceId: result.voiceId,
                 voiceName: result.voiceName,
                 tonePrompt: result.tonePrompt,
-                subtitles: result.subtitles,
                 generatedAt: result.generatedAt,
                 audioVersions: audioVersionsWithUrls,
             };
@@ -104,6 +118,101 @@ export default async function editorAudioRoutes(fastify: FastifyInstance) {
                 return reply.status(error.statusCode).send({ key: error.key, message: error.message });
             }
             return reply.status(500).send({ error: error.message || "Failed to get audio URL" });
+        }
+    });
+
+    /**
+     * POST /api/editor/audio/transcribe
+     * Generate transcription for a specific audio version
+     * This is a separate step from audio generation for better control
+     */
+    fastify.post("/transcribe", async (request, reply) => {
+        const userId = request.session.userId;
+        if (!userId) {
+            return reply.status(401).send({ error: "Unauthorized" });
+        }
+
+        const validation = generateTranscriptionSchema.safeParse(request.body);
+        if (!validation.success) {
+            return reply.status(400).send({
+                error: "Validation failed",
+                details: validation.error.format()
+            });
+        }
+
+        const { videoId, audioId } = validation.data;
+
+        try {
+            const result = await generateTranscription({
+                videoId,
+                userId,
+                audioId,
+            });
+
+            return {
+                success: true,
+                audioId: result.audioId,
+                subtitles: result.subtitles,
+                wordCount: result.wordCount,
+            };
+        } catch (error: any) {
+            fastify.log.error(error);
+            if (error?.name === 'AppError') {
+                return reply.status(error.statusCode).send({ 
+                    key: error.key, 
+                    message: error.message 
+                });
+            }
+            return reply.status(500).send({ 
+                error: error.message || "Failed to generate transcription" 
+            });
+        }
+    });
+
+    /**
+     * POST /api/editor/audio/save-transcription
+     * Save edited transcription for a specific audio version
+     */
+    fastify.post("/save-transcription", async (request, reply) => {
+        const userId = request.session.userId;
+        if (!userId) {
+            return reply.status(401).send({ error: "Unauthorized" });
+        }
+
+        const validation = saveTranscriptionSchema.safeParse(request.body);
+        if (!validation.success) {
+            return reply.status(400).send({
+                error: "Validation failed",
+                details: validation.error.format()
+            });
+        }
+
+        const { videoId, audioId, subtitles } = validation.data;
+
+        try {
+            const result = await saveTranscription({
+                videoId,
+                userId,
+                audioId,
+                subtitles,
+            });
+
+            return {
+                success: true,
+                audioId: result.audioId,
+                wordCount: result.wordCount,
+            };
+        } catch (error: any) {
+            fastify.log.error(error);
+            if (error?.name === 'AppError') {
+                return reply.status(error.statusCode).send({ 
+                    key: error.key, 
+                    message: error.message 
+                });
+            }
+            return reply.status(500).send({ 
+                error: error.message || "Failed to save transcription" 
+            });
         }
     });
 }

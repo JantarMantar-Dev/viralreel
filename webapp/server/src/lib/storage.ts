@@ -69,6 +69,34 @@ export class StorageProvider {
     }
 
     /**
+     * Downloads a file from S3 and returns it as a Buffer.
+     * @param key The S3 object key
+     */
+    async downloadFile(key: string): Promise<Buffer> {
+        if (!this.bucket) {
+            throw new Error("S3_BUCKET_NAME is not configured");
+        }
+
+        const command = new GetObjectCommand({
+            Bucket: this.bucket,
+            Key: key,
+        });
+
+        const response = await this.client.send(command);
+
+        if (!response.Body) {
+            throw new Error(`File not found: ${key}`);
+        }
+
+        // Convert the readable stream to a buffer
+        const chunks: Uint8Array[] = [];
+        for await (const chunk of response.Body as AsyncIterable<Uint8Array>) {
+            chunks.push(chunk);
+        }
+        return Buffer.concat(chunks);
+    }
+
+    /**
      * Generates a signed URL for reading a file.
      * @param key The S3 object key
      * @param expiresInSeconds Expiration time in seconds (default 3 hours)
