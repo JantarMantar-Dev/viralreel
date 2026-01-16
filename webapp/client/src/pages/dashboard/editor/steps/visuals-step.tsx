@@ -16,6 +16,7 @@ import { useEditorCreation, VisualSegment } from "../context/editor-creation-con
 import { Button } from "@/components/ui/button"
 import StepHeader from "../../create/components/step-header"
 import { useAnalyzeVisuals, useGenerateSegmentImage, useGenerateAllImages } from "@/hooks/useEditorApi"
+import { useQueryClient } from "@tanstack/react-query"
 
 function PromptEditor({ initialPrompt, onSave }: { initialPrompt: string, onSave: (val: string) => void }) {
     const [prompt, setPrompt] = useState(initialPrompt)
@@ -42,6 +43,7 @@ function PromptEditor({ initialPrompt, onSave }: { initialPrompt: string, onSave
 export default function EditorVisualsStep() {
     const { request, updateRequest } = useEditorCreation()
     const [expandedSegment, setExpandedSegment] = useState<string | null>(null)
+    const queryClient = useQueryClient()
 
     // API hooks
     const analyzeVisualsMutation = useAnalyzeVisuals()
@@ -84,6 +86,10 @@ export default function EditorVisualsStep() {
             })
 
             updateRequest({ segments: result.segments })
+            
+            // Invalidate cache so returning to this page shows fresh data
+            queryClient.invalidateQueries({ queryKey: ["editor-video", request.videoId] })
+            
             toast.success("All images generated successfully!")
         } catch (error: any) {
             toast.error(error.message || "Failed to generate visuals")
@@ -105,6 +111,10 @@ export default function EditorVisualsStep() {
             })
 
             updateRequest({ segments: result.segments })
+            
+            // Invalidate cache so returning to this page shows fresh data
+            queryClient.invalidateQueries({ queryKey: ["editor-video", request.videoId] })
+            
             toast.success("Script analyzed! You can now generate images for each segment.")
         } catch (error: any) {
             toast.error(error.message || "Failed to analyze script")
@@ -144,6 +154,10 @@ export default function EditorVisualsStep() {
                     : seg
             )
             updateRequest({ segments: finalSegments })
+            
+            // Invalidate cache so returning to this page shows fresh data
+            queryClient.invalidateQueries({ queryKey: ["editor-video", request.videoId] })
+            
             toast.success("Image regenerated!")
         } catch (error: any) {
             // Reset generating state

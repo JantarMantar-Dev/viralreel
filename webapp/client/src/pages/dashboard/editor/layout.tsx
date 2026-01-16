@@ -67,46 +67,50 @@ export default function EditorModeLayout() {
     const location = useLocation()
 
     // Load existing video if videoId is provided
-    const { data: videoData, isLoading: isLoadingVideo, error: videoError } = useEditorVideo(videoIdParam || undefined)
+    const { data: videoData, isLoading: isLoadingVideo, error: videoError, dataUpdatedAt } = useEditorVideo(videoIdParam || undefined)
+
+    // Track last synced data timestamp to detect when fresh data arrives
+    const lastSyncedAtRef = useRef<number>(0)
 
     // Populate request from loaded video - sync when API data changes
     useEffect(() => {
         if (videoData?.video) {
             const video = videoData.video
-            // Skip if we already loaded this exact video data
-            if (loadedVideoId === video.id && loadedVideoId === videoIdParam) {
-                return
+            
+            // Always sync when we have new data (dataUpdatedAt changed)
+            // This ensures fresh data from refetch is applied even for the same video ID
+            if (dataUpdatedAt && dataUpdatedAt > lastSyncedAtRef.current) {
+                const metadata = video.metadata || {}
+                
+                setRequest(prev => ({
+                    ...prev,
+                    videoId: video.id,
+                    nicheId: video.niche?.id || null,
+                    nicheName: video.niche?.name,
+                    episodeTitle: video.title || metadata.episodeTitle || "",
+                    scriptIdea: metadata.scriptIdea || video.scriptIdea || "",
+                    duration: metadata.duration || video.duration || 60,
+                    visualStyle: metadata.visualStyle || video.visualStyle,
+                    voiceId: metadata.voiceId || video.voiceId,
+                    voiceName: metadata.voiceName || video.voiceName,
+                    tonePrompt: metadata.tonePrompt || video.tonePrompt,
+                    subtitleStyleId: metadata.subtitleStyleId || video.subtitleStyleId,
+                    subtitleStyleName: metadata.subtitleStyleName || video.subtitleStyleName,
+                    approvedScript: video.approvedScript || metadata.approvedScript,
+                    audioUrl: video.audioUrl || undefined,
+                    audioDurationSeconds: video.audioDurationSeconds || undefined,
+                    audioGenerationCount: video.audioGenerationCount || 0,
+                    subtitles: video.subtitles || metadata.subtitles || [],
+                    audioVersions: video.audioVersions || metadata.audioVersions || [],
+                    selectedAudioId: video.selectedAudioId || metadata.selectedAudioId,
+                    scriptSegments: video.scriptSegments || metadata.scriptSegments,
+                    segments: video.segments || metadata.segments || [],
+                }))
+                setLoadedVideoId(video.id)
+                lastSyncedAtRef.current = dataUpdatedAt
             }
-            
-            const metadata = video.metadata || {}
-            
-            setRequest(prev => ({
-                ...prev,
-                videoId: video.id,
-                nicheId: video.niche?.id || null,
-                nicheName: video.niche?.name,
-                episodeTitle: video.title || metadata.episodeTitle || "",
-                scriptIdea: metadata.scriptIdea || video.scriptIdea || "",
-                duration: metadata.duration || video.duration || 60,
-                visualStyle: metadata.visualStyle || video.visualStyle,
-                voiceId: metadata.voiceId || video.voiceId,
-                voiceName: metadata.voiceName || video.voiceName,
-                tonePrompt: metadata.tonePrompt || video.tonePrompt,
-                subtitleStyleId: metadata.subtitleStyleId || video.subtitleStyleId,
-                subtitleStyleName: metadata.subtitleStyleName || video.subtitleStyleName,
-                approvedScript: video.approvedScript || metadata.approvedScript,
-                audioUrl: video.audioUrl || undefined,
-                audioDurationSeconds: video.audioDurationSeconds || undefined,
-                audioGenerationCount: video.audioGenerationCount || 0,
-                subtitles: video.subtitles || metadata.subtitles || [],
-                audioVersions: video.audioVersions || metadata.audioVersions || [],
-                selectedAudioId: video.selectedAudioId || metadata.selectedAudioId,
-                scriptSegments: video.scriptSegments || metadata.scriptSegments,
-                segments: video.segments || metadata.segments || [],
-            }))
-            setLoadedVideoId(video.id)
         }
-    }, [videoData, videoIdParam, loadedVideoId])
+    }, [videoData, videoIdParam, dataUpdatedAt])
 
     // Handle video load error
     useEffect(() => {

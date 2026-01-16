@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { useMutation } from "@tanstack/react-query"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import {
     Sparkles,
@@ -64,6 +64,7 @@ export default function EditorScriptStep() {
         request,
         updateRequest,
     } = useEditorCreation()
+    const queryClient = useQueryClient()
 
     const [showFullScript, setShowFullScript] = useState(true)
     const [localFeedback, setLocalFeedback] = useState("")
@@ -130,6 +131,9 @@ export default function EditorScriptStep() {
                     toast.success("Script generated successfully!")
                 }
             } else {
+                // Invalidate cache so returning to this page shows fresh data
+                queryClient.invalidateQueries({ queryKey: ["editor-video", request.videoId] })
+                
                 toast.success(
                     request.scriptGenerationCount === 0 
                         ? "Script generated successfully!" 

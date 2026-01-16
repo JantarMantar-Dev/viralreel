@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { useEditorCreation, AudioVersion, SubtitleWord, ScriptSegment } from "../context/editor-creation-context"
 import StepHeader from "../../create/components/step-header"
@@ -17,6 +17,7 @@ import { InitialAudioGenerator } from "./audio/initial-audio-generator"
 
 export default function EditorAudioStep() {
     const { request, updateRequest, setCanContinue } = useEditorCreation()
+    const queryClient = useQueryClient()
     const [tonePrompt, setTonePrompt] = useState(request.tonePrompt || "")
     const [selectedVoiceId, setSelectedVoiceId] = useState<string | undefined>(request.voiceId)
     
@@ -313,6 +314,9 @@ export default function EditorAudioStep() {
                 audioVersions: updatedVersions,
             })
 
+            // Invalidate the editor-video cache so fresh data is fetched on next navigation
+            queryClient.invalidateQueries({ queryKey: ["editor-video", request.videoId] })
+
             toast.success("Transcription saved!")
         } catch (error: any) {
             toast.error(error.message || "Failed to save transcription")
@@ -419,6 +423,9 @@ export default function EditorAudioStep() {
                 audioVersions: updatedVersions,
             })
 
+            // Invalidate the editor-video cache so fresh data is fetched on next navigation
+            queryClient.invalidateQueries({ queryKey: ["editor-video", request.videoId] })
+
             toast.success("Segments saved!")
         } catch (error: any) {
             toast.error(error.message || "Failed to save segments")
@@ -453,16 +460,20 @@ export default function EditorAudioStep() {
 
     // Control whether the user can continue to the next step
     // Block if: no audio selected, no transcription, no segments, OR unsaved changes
+    // Note: Cleanup is in a separate effect to avoid running on every dependency change
     useEffect(() => {
         const hasRequiredData = !!(selectedVersion && selectedHasTranscription && selectedHasSegments)
         const hasNoUnsavedWork = !hasUnsavedChanges && !hasUnsavedSegmentChanges
         const canProceed = hasRequiredData && hasNoUnsavedWork
         setCanContinue(canProceed)
-        
+    }, [selectedVersion, selectedHasTranscription, selectedHasSegments, hasUnsavedChanges, hasUnsavedSegmentChanges, setCanContinue])
+
+    // Reset canContinue only on unmount to avoid circular dependency
+    useEffect(() => {
         return () => {
             setCanContinue(true)
         }
-    }, [selectedVersion, selectedHasTranscription, selectedHasSegments, hasUnsavedChanges, hasUnsavedSegmentChanges, setCanContinue])
+    }, [setCanContinue])
 
     return (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-4xl mx-auto space-y-8">
