@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
-import { useEditorCreation, AudioVersion, SubtitleWord, ScriptSegment } from "../context/editor-creation-context"
+import { useEditorCreation, AudioVersion, SubtitleWord, ScriptSegment, VisualSegment } from "../context/editor-creation-context"
 import StepHeader from "../../create/components/step-header"
 import { API_BASE_URL } from "@/lib/config"
 import { useGenerateAudio, useCreateDraftVideo, useGenerateTranscription, useGenerateSegments, useSaveSegments } from "@/hooks/useEditorApi"
@@ -14,6 +14,18 @@ import { TranscriptionEditor } from "./audio/transcription-editor"
 import { SegmentEditor } from "./audio/segment-editor"
 import { SegmentationPrompt } from "./audio/segmentation-prompt"
 import { InitialAudioGenerator } from "./audio/initial-audio-generator"
+
+// Helper to convert ScriptSegment to VisualSegment
+const convertToVisualSegments = (scriptSegments: ScriptSegment[]): VisualSegment[] => {
+    return scriptSegments.map((seg, index) => ({
+        id: crypto.randomUUID(),
+        index,
+        timeRange: [seg.start / 30, seg.end / 30], // Convert frames to seconds
+        subtitleText: seg.dialogue,
+        imagePrompt: "", // Empty prompt, needs generation
+        isGenerating: false
+    }))
+}
 
 export default function EditorAudioStep() {
     const { request, updateRequest, setCanContinue } = useEditorCreation()
@@ -196,6 +208,8 @@ export default function EditorAudioStep() {
             audioKey: version.audioKey,
             audioDurationSeconds: version.durationSeconds,
             subtitles: version.subtitles,
+            // Convert script segments to visual segments if they exist
+            segments: version.segments ? convertToVisualSegments(version.segments) : [],
             selectedAudioId: version.id,
             voiceId: version.voiceId,
             voiceName: version.voiceName,
@@ -353,7 +367,8 @@ export default function EditorAudioStep() {
 
             // Update context with segments
             updateRequest({
-                scriptSegments: result.segments,
+                // Convert to visual segments
+                segments: convertToVisualSegments(result.segments),
                 audioVersions: updatedVersions,
             })
 
@@ -419,7 +434,8 @@ export default function EditorAudioStep() {
 
             // Update context with new data
             updateRequest({
-                scriptSegments: savedSegments,
+                // Convert to visual segments
+                segments: convertToVisualSegments(savedSegments),
                 audioVersions: updatedVersions,
             })
 

@@ -449,7 +449,6 @@ export interface EditorVideoData {
         subtitles?: SubtitleWord[]
         audioVersions?: AudioVersion[]
         selectedAudioId?: string
-        scriptSegments?: ScriptSegment[]
     } | null
     niche: {
         id: string

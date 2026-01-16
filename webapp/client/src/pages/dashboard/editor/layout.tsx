@@ -114,7 +114,6 @@ export default function EditorModeLayout() {
                     subtitles: video.subtitles || metadata.subtitles || [],
                     audioVersions: video.audioVersions || metadata.audioVersions || [],
                     selectedAudioId: video.selectedAudioId || metadata.selectedAudioId,
-                    scriptSegments: video.scriptSegments || metadata.scriptSegments,
                     segments: video.segments || metadata.segments || [],
                 }))
                 setLoadedVideoId(video.id)

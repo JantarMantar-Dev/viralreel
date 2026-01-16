@@ -89,7 +89,7 @@ export function AudioVersionList({
                 </div>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
                 {versions.slice().reverse().map((version, index) => {
                     const isSelected = version.id === selectedId
                     const isPlaying = playingVersionId === version.id

@@ -97,7 +97,6 @@ export interface EditorModeRequest {
     subtitles?: SubtitleWord[]
     audioVersions: AudioVersion[]  // List of all generated audio versions
     selectedAudioId?: string       // ID of the currently selected audio version
-    scriptSegments?: ScriptSegment[] // Segments for the selected audio (after segmentation)
     
     // Phase 3: Visuals
     segments: VisualSegment[]
@@ -194,7 +193,6 @@ export const INITIAL_EDITOR_REQUEST: EditorModeRequest = {
     subtitles: undefined,
     audioVersions: [],
     selectedAudioId: undefined,
-    scriptSegments: undefined,
     segments: [],
     subtitleStyleId: undefined,
     subtitleStyleName: undefined,

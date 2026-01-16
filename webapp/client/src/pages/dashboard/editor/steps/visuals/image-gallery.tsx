@@ -85,85 +85,48 @@ export function ImageGallerySection({
                 )}
             </div>
 
-            {!hasSegments ? (
-                <div className="space-y-3">
-                    <Button
-                        onClick={() => onGenerateAll(false)}
-                        disabled={isGeneratingAll || !canAnalyze}
-                        className="w-full h-14 bg-purple-600 hover:bg-purple-700 gap-3 text-lg font-bold rounded-xl"
-                    >
-                        {isGeneratingAll ? (
-                            <>
-                                <Loader2 className="h-5 w-5 animate-spin" />
-                                {isAnalyzePending ? "Analyzing Script..." : "Generating All Images..."}
-                            </>
-                        ) : (
-                            <>
-                                <Sparkles className="h-5 w-5" />
-                                Generate All Images
-                            </>
+            {/* Image Gallery Strip */}
+            <div className="flex gap-3 overflow-x-auto pb-4 -mx-2 px-2 scrollbar-hide">
+                {segments.map((segment, index) => (
+                    <div
+                        key={segment.id}
+                        onClick={() => onSegmentClick(segment.id)}
+                        className={cn(
+                            "relative flex-shrink-0 w-24 h-32 rounded-xl overflow-hidden cursor-pointer transition-all duration-300 border-2 group",
+                            expandedSegment === segment.id
+                                ? "border-purple-600 ring-2 ring-purple-200"
+                                : "border-slate-200 hover:border-purple-300"
                         )}
-                    </Button>
-                    
-                    {/* Option to analyze first without generating */}
-                    <Button
-                        variant="outline"
-                        onClick={onAnalyzeScript}
-                        disabled={isAnalyzePending || !canAnalyze}
-                        className="w-full h-10 gap-2 rounded-xl text-sm"
                     >
-                        {isAnalyzePending ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
+                        {getSegmentImageUrl(segment) ? (
+                            <img
+                                src={getSegmentImageUrl(segment)}
+                                alt={`Segment ${index + 1}`}
+                                className="w-full h-full object-cover"
+                            />
                         ) : (
-                            <Pencil className="h-4 w-4" />
-                        )}
-                        Analyze Script First (Edit Prompts Before Generating)
-                    </Button>
-                </div>
-            ) : (
-                /* Image Gallery Strip */
-                <div className="flex gap-3 overflow-x-auto pb-4 -mx-2 px-2 scrollbar-hide">
-                    {segments.map((segment, index) => (
-                        <div
-                            key={segment.id}
-                            onClick={() => onSegmentClick(segment.id)}
-                            className={cn(
-                                "relative flex-shrink-0 w-24 h-32 rounded-xl overflow-hidden cursor-pointer transition-all duration-300 border-2 group",
-                                expandedSegment === segment.id
-                                    ? "border-purple-600 ring-2 ring-purple-200"
-                                    : "border-slate-200 hover:border-purple-300"
-                            )}
-                        >
-                            {getSegmentImageUrl(segment) ? (
-                                <img
-                                    src={getSegmentImageUrl(segment)}
-                                    alt={`Segment ${index + 1}`}
-                                    className="w-full h-full object-cover"
-                                />
-                            ) : (
-                                <div className="w-full h-full bg-slate-100 flex items-center justify-center">
-                                    {segment.isGenerating ? (
-                                        <Loader2 className="h-6 w-6 animate-spin text-purple-600" />
-                                    ) : (
-                                        <Image className="h-6 w-6 text-slate-400" />
-                                    )}
-                                </div>
-                            )}
-                            <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1 flex justify-between items-center">
-                                <span className="text-white text-xs font-bold">#{index + 1}</span>
-                                {getSegmentImageUrl(segment) && (
-                                    <div 
-                                        onClick={(e) => openViewer(e, index)}
-                                        className="bg-white/20 p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/40"
-                                    >
-                                        <Maximize2 className="h-3 w-3 text-white" />
-                                    </div>
+                            <div className="w-full h-full bg-slate-100 flex items-center justify-center">
+                                {segment.isGenerating ? (
+                                    <Loader2 className="h-6 w-6 animate-spin text-purple-600" />
+                                ) : (
+                                    <Image className="h-6 w-6 text-slate-400" />
                                 )}
                             </div>
+                        )}
+                        <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1 flex justify-between items-center">
+                            <span className="text-white text-xs font-bold">#{index + 1}</span>
+                            {getSegmentImageUrl(segment) && (
+                                <div 
+                                    onClick={(e) => openViewer(e, index)}
+                                    className="bg-white/20 p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/40"
+                                >
+                                    <Maximize2 className="h-3 w-3 text-white" />
+                                </div>
+                            )}
                         </div>
-                    ))}
-                </div>
-            )}
+                    </div>
+                ))}
+            </div>
         </div>
     )
 }

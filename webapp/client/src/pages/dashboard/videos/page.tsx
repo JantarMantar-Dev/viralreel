@@ -327,6 +327,7 @@ interface VideoListViewProps {
 }
 
 function VideoListView({ filter, setFilter, navigate, projects, isLoading, onDelete, onRender, onRetry, onOpen }: VideoListViewProps) {
+    const queryClient = useQueryClient()
     return (
         <div className="flex flex-col w-full h-full">
             {/* Top Bar (Search & Actions) - Full Width Header */}
@@ -469,7 +470,10 @@ function VideoListView({ filter, setFilter, navigate, projects, isLoading, onDel
                                         onRender={() => onRender(project)}
                                         onRetry={() => onRetry(project)}
                                         onOpen={() => onOpen(project)}
-                                        onEdit={() => navigate(`/editor/script?videoId=${project.id}`)}
+                                        onEdit={() => {
+                                            queryClient.invalidateQueries({ queryKey: ["editor-video", project.id] })
+                                            navigate(`/editor/script?videoId=${project.id}`)
+                                        }}
                                     />
                                 ))}
                         </div>
