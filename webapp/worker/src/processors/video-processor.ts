@@ -15,6 +15,56 @@ import { compressVideo } from '../lib/video.js';
 import { deductCredits } from '../services/credit-service.js';
 import { logger } from '../lib/logger.js';
 
+const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+
+/**
+ * Check if we're running in production environment
+ */
+function isProduction(): boolean {
+    return process.env.NODE_ENV === 'production';
+}
+
+/**
+ * Recursively delete a directory and all its contents
+ */
+function deleteDirectory(dirPath: string): void {
+    if (fs.existsSync(dirPath)) {
+        fs.rmSync(dirPath, { recursive: true, force: true });
+    }
+}
+
+/**
+ * Delete all files and directories older than the specified age in the base work directory
+ */
+function cleanupOldFiles(baseWorkDir: string, maxAgeMs: number = TWO_HOURS_MS): void {
+    if (!fs.existsSync(baseWorkDir)) {
+        return;
+    }
+
+    const now = Date.now();
+    const entries = fs.readdirSync(baseWorkDir, { withFileTypes: true });
+
+    for (const entry of entries) {
+        const entryPath = path.join(baseWorkDir, entry.name);
+        try {
+            const stats = fs.statSync(entryPath);
+            const age = now - stats.mtimeMs;
+
+            if (age > maxAgeMs) {
+                if (entry.isDirectory()) {
+                    deleteDirectory(entryPath);
+                    logger.info(`[VideoProcessor] Cleaned up old directory: ${entry.name}`, { age: Math.round(age / 1000 / 60) + ' minutes' });
+                } else {
+                    fs.unlinkSync(entryPath);
+                    logger.info(`[VideoProcessor] Cleaned up old file: ${entry.name}`, { age: Math.round(age / 1000 / 60) + ' minutes' });
+                }
+            }
+        } catch (err) {
+            logger.warn(`[VideoProcessor] Failed to cleanup ${entryPath}:`, { error: err });
+        }
+    }
+}
+
 export class VideoProcessor implements Processor {
     name = 'VideoProcessor';
     private serverStarted = false;
@@ -273,6 +323,20 @@ export class VideoProcessor implements Processor {
                 logger.info(`[VideoProcessor] Deducted 1 credit for user ${videoData.userId}`, logContext);
             } catch (err) {
                 logger.error(`[VideoProcessor] Failed to deduct credits for user ${videoData.userId}:`, { ...logContext, error: err });
+            }
+
+            // Cleanup resources in production environment
+            if (isProduction()) {
+                try {
+                    // Delete job-specific work directory
+                    deleteDirectory(workDir);
+                    logger.info(`[VideoProcessor] Cleaned up work directory: ${workDir}`, logContext);
+
+                    // Also cleanup any old files (older than 2 hours) in the base work directory
+                    cleanupOldFiles(baseWorkDir);
+                } catch (cleanupErr) {
+                    logger.warn(`[VideoProcessor] Failed to cleanup resources:`, { ...logContext, error: cleanupErr });
+                }
             }
 
             logger.info(`[VideoProcessor] Completed Job`, logContext);
