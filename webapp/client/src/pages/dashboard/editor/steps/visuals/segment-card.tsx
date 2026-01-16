@@ -100,7 +100,7 @@ export function SegmentCard({
                 <div className="border-t border-slate-100 p-4 space-y-6 animate-in slide-in-from-top-2 duration-200">
                     <div className="grid md:grid-cols-2 gap-6">
                         {/* Left Column: Text & Prompt */}
-                        <div className="space-y-6">
+                        <div className="flex flex-col gap-6">
                                 {/* Subtitle Text */}
                             <div className="space-y-2">
                                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
@@ -114,15 +114,18 @@ export function SegmentCard({
                             </div>
 
                             {/* Image Prompt */}
-                            <div className="space-y-2">
+                            <div className="space-y-2 flex-1 flex flex-col">
                                 <label className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider">
                                     <Pencil className="h-3 w-3" />
                                     Image Prompt
                                 </label>
-                                <PromptEditor
-                                    initialPrompt={segment.imagePrompt}
-                                    onSave={onUpdatePrompt}
-                                />
+                                <div className="flex-1 flex flex-col">
+                                    <PromptEditor
+                                        initialPrompt={segment.imagePrompt}
+                                        onSave={onUpdatePrompt}
+                                        className="h-full"
+                                    />
+                                </div>
                                 <p className="text-xs text-slate-400">
                                     Edit the prompt to change how the image looks.
                                 </p>

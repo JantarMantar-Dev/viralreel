@@ -1,6 +1,15 @@
 import { useState, useEffect } from "react"
+import { cn } from "@/lib/utils"
 
-export function PromptEditor({ initialPrompt, onSave }: { initialPrompt: string, onSave: (val: string) => void }) {
+export function PromptEditor({ 
+    initialPrompt, 
+    onSave,
+    className 
+}: { 
+    initialPrompt: string, 
+    onSave: (val: string) => void,
+    className?: string 
+}) {
     const [prompt, setPrompt] = useState(initialPrompt)
 
     useEffect(() => {
@@ -16,7 +25,10 @@ export function PromptEditor({ initialPrompt, onSave }: { initialPrompt: string,
                     onSave(prompt)
                 }
             }}
-            className="w-full min-h-[80px] p-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:ring-4 focus:ring-purple-50 focus:border-purple-400 outline-none resize-none transition-all text-sm"
+            className={cn(
+                "w-full min-h-[120px] p-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:ring-4 focus:ring-purple-50 focus:border-purple-400 outline-none resize-none transition-all text-sm",
+                className
+            )}
             placeholder="Describe the image you want for this segment..."
         />
     )
