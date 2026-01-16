@@ -4,6 +4,9 @@ import StepHeader from "../../create/components/step-header"
 import { Check, Ban, Loader2 } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
 import { API_BASE_URL } from "@/lib/config"
+import { SubtitlePreviewGallery } from "./subtitles/subtitle-preview-gallery"
+import { SubtitlePreviewDialog } from "./subtitles/subtitle-preview-dialog"
+import { useState } from "react"
 
 export interface SubtitleStyle {
     id: string
@@ -39,6 +42,7 @@ const PREVIEW_MAPPING: Record<string, string> = {
 
 export default function EditorSubtitlesStep() {
     const { request, updateRequest } = useEditorCreation()
+    const [previewIndex, setPreviewIndex] = useState<number | null>(null)
 
     const { data: subtitleStyles, isLoading } = useQuery({
         queryKey: ["subtitles"],
@@ -56,6 +60,13 @@ export default function EditorSubtitlesStep() {
             <StepHeader
                 title="Choose Subtitle Style"
                 description="Select the style that best fits your content's aesthetic. These will be animated on your video."
+            />
+
+            {/* Live Preview Gallery */}
+            <SubtitlePreviewGallery
+                segments={request.segments}
+                subtitleStyleName={request.subtitleStyleName}
+                onPreview={(index) => setPreviewIndex(index)}
             />
 
             {isLoading ? (
@@ -161,6 +172,14 @@ export default function EditorSubtitlesStep() {
                     </p>
                 </div>
             )}
+
+            <SubtitlePreviewDialog
+                open={previewIndex !== null}
+                onOpenChange={(open) => !open && setPreviewIndex(null)}
+                segments={request.segments}
+                subtitleStyleName={request.subtitleStyleName}
+                initialIndex={previewIndex || 0}
+            />
         </div>
     )
 }
