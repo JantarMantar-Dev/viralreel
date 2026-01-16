@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { useNavigate, useLocation, Outlet, useSearchParams } from "react-router-dom"
 import { useMutation } from "@tanstack/react-query"
 import { toast } from "sonner"
@@ -60,7 +60,8 @@ export default function EditorModeLayout() {
     const [canContinue, setCanContinue] = useState(true)
     const [isStepLoading, setIsStepLoading] = useState(false)
     const [showInsufficientCreditsDialog, setShowInsufficientCreditsDialog] = useState(false)
-    const [isVideoLoaded, setIsVideoLoaded] = useState(!videoIdParam) // Start loaded if no videoId
+    // Track which video ID we've loaded to prevent re-loading same data
+    const [loadedVideoId, setLoadedVideoId] = useState<string | null>(null)
 
     const navigate = useNavigate()
     const location = useLocation()
@@ -68,10 +69,15 @@ export default function EditorModeLayout() {
     // Load existing video if videoId is provided
     const { data: videoData, isLoading: isLoadingVideo, error: videoError } = useEditorVideo(videoIdParam || undefined)
 
-    // Populate request from loaded video
+    // Populate request from loaded video - sync when API data changes
     useEffect(() => {
-        if (videoData?.video && !isVideoLoaded) {
+        if (videoData?.video) {
             const video = videoData.video
+            // Skip if we already loaded this exact video data
+            if (loadedVideoId === video.id && loadedVideoId === videoIdParam) {
+                return
+            }
+            
             const metadata = video.metadata || {}
             
             setRequest(prev => ({
@@ -98,21 +104,20 @@ export default function EditorModeLayout() {
                 scriptSegments: video.scriptSegments || metadata.scriptSegments,
                 segments: video.segments || metadata.segments || [],
             }))
-            setIsVideoLoaded(true)
+            setLoadedVideoId(video.id)
         }
-    }, [videoData, isVideoLoaded])
+    }, [videoData, videoIdParam, loadedVideoId])
 
     // Handle video load error
     useEffect(() => {
         if (videoError) {
             toast.error("Failed to load video. Starting fresh.")
-            setIsVideoLoaded(true)
         }
     }, [videoError])
 
-    const updateRequest = (data: Partial<EditorModeRequest>) => {
+    const updateRequest = useCallback((data: Partial<EditorModeRequest>) => {
         setRequest(prev => ({ ...prev, ...data }))
-    }
+    }, [])
 
     // Determine current step based on route path
     const path = location.pathname.split("/").filter(Boolean).pop()
@@ -131,7 +136,7 @@ export default function EditorModeLayout() {
 
     // Auto-save effect - only runs when request changes and we have a videoId
     useEffect(() => {
-        if (!request.videoId || !isVideoLoaded) return
+        if (!request.videoId || !loadedVideoId) return
 
         const dataToSave = {
             currentPhase,
@@ -211,7 +216,7 @@ export default function EditorModeLayout() {
         request.subtitleStyleId,
         request.subtitleStyleName,
         currentPhase,
-        isVideoLoaded,
+        loadedVideoId,
         updateMetadata,
     ])
 
@@ -260,7 +265,7 @@ export default function EditorModeLayout() {
         }
     })
 
-    const nextStep = (bypassOverride = false) => {
+    const nextStep = useCallback((bypassOverride = false) => {
         if (customNext && !bypassOverride) {
             customNext()
             return
@@ -278,9 +283,9 @@ export default function EditorModeLayout() {
         } else if (currentStep === STEPS.length) {
             createJob(request)
         }
-    }
+    }, [customNext, currentStep, request.videoId, request, createJob, navigate, searchParams])
 
-    const prevStep = () => {
+    const prevStep = useCallback(() => {
         if (customPrev) {
             customPrev()
             return
@@ -296,7 +301,7 @@ export default function EditorModeLayout() {
                 navigate(prevPath)
             }
         }
-    }
+    }, [customPrev, currentStep, request.videoId, navigate, searchParams])
 
     const handleSaveDraft = () => {
         createJob({ ...request, isDraft: true })

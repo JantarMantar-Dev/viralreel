@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { toast } from "sonner"
 import {
     Image,
@@ -16,6 +16,28 @@ import { useEditorCreation, VisualSegment } from "../context/editor-creation-con
 import { Button } from "@/components/ui/button"
 import StepHeader from "../../create/components/step-header"
 import { useAnalyzeVisuals, useGenerateSegmentImage, useGenerateAllImages } from "@/hooks/useEditorApi"
+
+function PromptEditor({ initialPrompt, onSave }: { initialPrompt: string, onSave: (val: string) => void }) {
+    const [prompt, setPrompt] = useState(initialPrompt)
+
+    useEffect(() => {
+        setPrompt(initialPrompt)
+    }, [initialPrompt])
+
+    return (
+        <textarea
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            onBlur={() => {
+                if (prompt !== initialPrompt) {
+                    onSave(prompt)
+                }
+            }}
+            className="w-full min-h-[80px] p-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:ring-4 focus:ring-purple-50 focus:border-purple-400 outline-none resize-none transition-all text-sm"
+            placeholder="Describe the image you want for this segment..."
+        />
+    )
+}
 
 export default function EditorVisualsStep() {
     const { request, updateRequest } = useEditorCreation()
@@ -372,11 +394,9 @@ export default function EditorVisualsStep() {
                                                 <Pencil className="h-3 w-3" />
                                                 Image Prompt
                                             </label>
-                                            <textarea
-                                                value={segment.imagePrompt}
-                                                onChange={(e) => updateSegmentPrompt(segment.id, e.target.value)}
-                                                className="w-full min-h-[80px] p-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:ring-4 focus:ring-purple-50 focus:border-purple-400 outline-none resize-none transition-all text-sm"
-                                                placeholder="Describe the image you want for this segment..."
+                                            <PromptEditor
+                                                initialPrompt={segment.imagePrompt}
+                                                onSave={(newPrompt) => updateSegmentPrompt(segment.id, newPrompt)}
                                             />
                                         </div>
 
