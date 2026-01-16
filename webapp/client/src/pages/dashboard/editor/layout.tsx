@@ -47,6 +47,17 @@ const STEPS = [
     { id: 6, title: "Review & Render", path: "review" }
 ]
 
+// Helper to normalize duration from seconds to minutes if needed
+const normalizeDuration = (d: number | undefined | null): number => {
+    if (!d) return 1
+    // If duration is > 5, it's likely in seconds (since max allowed minutes is 5)
+    // Example: 60 -> 1, 30 -> 0.5
+    if (d > 5) {
+        return parseFloat((d / 60).toFixed(1))
+    }
+    return d
+}
+
 export default function EditorModeLayout() {
     const [searchParams] = useSearchParams()
     const videoIdParam = searchParams.get("videoId")
@@ -89,7 +100,7 @@ export default function EditorModeLayout() {
                     nicheName: video.niche?.name,
                     episodeTitle: video.title || metadata.episodeTitle || "",
                     scriptIdea: metadata.scriptIdea || video.scriptIdea || "",
-                    duration: metadata.duration || video.duration || 60,
+                    duration: normalizeDuration(metadata.duration || video.duration),
                     visualStyle: metadata.visualStyle || video.visualStyle,
                     voiceId: metadata.voiceId || video.voiceId,
                     voiceName: metadata.voiceName || video.voiceName,
