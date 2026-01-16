@@ -6,7 +6,8 @@ import { AppError } from "../lib/errors.js";
 import { v4 as uuidv4 } from "uuid";
 
 const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
-const IMAGE_MODEL = process.env.GOOGLE_IMAGE_MODEL || 'gemini-2.0-flash-exp';
+// Use the same model as the worker for consistent results
+const IMAGE_MODEL = process.env.GOOGLE_IMAGE_MODEL || 'gemini-3-pro-image-preview';
 const SCRIPT_MODEL = process.env.GOOGLE_SCRIPT_MODEL || 'gemini-2.0-flash';
 
 // =============================================================================
@@ -167,6 +168,14 @@ async function generateImage(prompt: string, style?: string, aspectRatio: string
         throw new AppError("ConfigError", "GOOGLE_API_KEY not configured", 500);
     }
 
+    // Map common aspect ratio aliases to numerical values
+    const arMap: Record<string, string> = {
+        "portrait": "9:16",
+        "landscape": "16:9",
+        "square": "1:1"
+    };
+    const mappedAR = arMap[aspectRatio.toLowerCase()] || aspectRatio;
+
     // Append style if provided
     let styledPrompt = prompt;
     if (style) {
@@ -177,11 +186,11 @@ async function generateImage(prompt: string, style?: string, aspectRatio: string
     }
 
     // Append aspect ratio
-    const augmentedPrompt = `${styledPrompt} --aspect_ratio ${aspectRatio}`;
+    const augmentedPrompt = `${styledPrompt} --aspect_ratio ${mappedAR}`;
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${IMAGE_MODEL}:generateContent?key=${GOOGLE_API_KEY}`;
 
-    console.log(`[EditorVisualService] Generating image: "${prompt.substring(0, 50)}..."`);
+    console.log(`[EditorVisualService] Generating image: "${augmentedPrompt.substring(0, 50)}..." with AR: ${mappedAR}`);
 
     const response = await fetch(url, {
         method: 'POST',
@@ -296,7 +305,11 @@ export async function generateSegmentImage(params: GenerateSegmentImageParams): 
     }
 
     // 3. Generate image
-    const imageBuffer = await generateImage(prompt, style || metadata.visualStyle);
+    const imageBuffer = await generateImage(
+        prompt, 
+        style || metadata.visualStyle,
+        metadata.aspectRatio || "portrait" // Default to portrait if not set
+    );
 
     // 4. Upload to S3
     const imageKey = `videos/${userId}/${videoId}/images/${segmentId}.png`;
@@ -355,7 +368,11 @@ export async function generateAllImages(params: GenerateAllImagesParams): Promis
         try {
             console.log(`[EditorVisualService] Generating image for segment ${segment.index + 1}/${metadata.segments.length}`);
             
-            const imageBuffer = await generateImage(segment.imagePrompt, visualStyle);
+            const imageBuffer = await generateImage(
+                segment.imagePrompt, 
+                visualStyle,
+                metadata.aspectRatio || "portrait" // Default to portrait if not set
+            );
 
             // Upload to S3
             const imageKey = `videos/${userId}/${videoId}/images/${segment.id}.png`;

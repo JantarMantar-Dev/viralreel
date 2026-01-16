@@ -314,6 +314,38 @@ export function useGenerateAllImages() {
     })
 }
 
+
+interface UpdateSegmentPromptParams {
+    videoId: string
+    segmentId: string
+    prompt: string
+}
+
+interface UpdateSegmentPromptResult {
+    success: boolean
+    segment: VisualSegment
+}
+
+export function useUpdateSegmentPrompt() {
+    return useMutation({
+        mutationFn: async (params: UpdateSegmentPromptParams): Promise<UpdateSegmentPromptResult> => {
+            const response = await fetch(`${API_BASE_URL}/api/editor/visuals/segment/${params.segmentId}?videoId=${params.videoId}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify({ prompt: params.prompt }),
+            })
+
+            if (!response.ok) {
+                const error = await response.json()
+                throw new Error(error.message || error.error || "Failed to update segment prompt")
+            }
+
+            return response.json()
+        },
+    })
+}
+
 // =============================================================================
 // RENDER HOOKS
 // =============================================================================

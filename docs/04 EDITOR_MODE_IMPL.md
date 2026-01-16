@@ -79,20 +79,30 @@ Loads the voice selection, tone settings, and all generated audio artifacts.
 
 ## Phase 4.3: Visuals Editor
 
-**Objective**: Create and customize the visual imagery for each segment of the script.
+**Objective**: Create and customize the visual imagery for each segment of the script, starting with prompt generation followed by image creation.
 
 **Key Requirements**:
-*   **Segmented View**: Display the script broken down into logical time-based segments.
-*   **AI Image Generation**: Automatically generate an initial image for every segment based on the script context.
-*   **Fine-Grained Control**: Allow users to edit the specific image prompt for any individual segment and regenerate just that image.
-*   **Gallery view**: Show a "filmstrip" or grid view of all generated images to ensure visual consistency across the entire video.
+*   **Step 1: Visual Prompts Generation**:
+    *   **Initial Action**: Click to generate visual prompts for all segments.
+    *   **Segment Display**: Display segments with a distinct section for the "Visual Prompt".
+    *   **Locked Structure**: Time segments and script text are locked (read-only) in this phase to prevent structural desync.
+    *   **Regenerate All Prompts**: Option to regenerate prompts for all sections.
+        *   **Confirmation Dialog**: Must trigger a modal asking "Are you sure you want to regenerate? You will lose all current visual prompts."
+    *   **Manual Editing**: Users can edit individual visual prompt and save them by manually clicking save button.
+*   **Step 2: Image Generation**:
+    *   **Generate All**: Once prompts are generated, provide an option to "Generate All Images".
+    *   **Image Display**: Update each segment to show the generated image on the right side.
+    *   **Image Controls**:
+        *   **Regenerate**: Button to regenerate just that specific image.
+        *   **Expand**: Button to open the image in a large dialog for detailed viewing.
+*   **Gallery View**: Show a "filmstrip" or grid view of all generated images to ensure visual consistency across the video.
 
 **Test Coverage**:
 *   **Unit Tests**:
-    *   `VisualsStep.test.tsx`: Mock segment data. Verify correct number of segment cards render. Test individual "Regenerate" button calls correct API with segment ID.
-    *   `ImageGallery.test.tsx`: properties of image rendering (aspect ratio, placeholders).
+    *   **Prompt Logic**: Verify that clicking "Regenerate All Prompts" opens the confirmation dialog. Test manual edits to prompt text are saved to state.
+    *   **Image Logic**: Verify "Generate All Images" triggers the correct batch API call. Test "Expand" button opens the modal with correct image source.
 *   **E2E Tests**:
-    *   `visuals-editing.spec.ts`: Verify all segments load images -> edit prompt for Segment 2 -> click regenerate -> verify only Segment 2 updates -> verify navigation between segments.
+    *   **Full Visuals Workflow**: Generate Prompts -> Edit a prompt -> Confirm "Regenerate All" warning -> Generate All Images -> Verify images appear in segments -> Expand an image for view.
 
 ## Phase 4.4: Subtitles Editor
 

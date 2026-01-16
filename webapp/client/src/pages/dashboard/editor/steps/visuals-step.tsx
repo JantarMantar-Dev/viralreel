@@ -10,12 +10,21 @@ import {
     ChevronUp,
     Pencil,
     AlertCircle,
+    Maximize2,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useEditorCreation, VisualSegment } from "../context/editor-creation-context"
 import { Button } from "@/components/ui/button"
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog"
 import StepHeader from "../../create/components/step-header"
-import { useAnalyzeVisuals, useGenerateSegmentImage, useGenerateAllImages } from "@/hooks/useEditorApi"
+import { useAnalyzeVisuals, useGenerateSegmentImage, useGenerateAllImages, useUpdateSegmentPrompt } from "@/hooks/useEditorApi"
 import { useQueryClient } from "@tanstack/react-query"
 
 function PromptEditor({ initialPrompt, onSave }: { initialPrompt: string, onSave: (val: string) => void }) {
@@ -40,15 +49,98 @@ function PromptEditor({ initialPrompt, onSave }: { initialPrompt: string, onSave
     )
 }
 
+function RegeneratePromptsDialog({ 
+    open, 
+    onOpenChange, 
+    onConfirm, 
+    isAnalyzing 
+}: { 
+    open: boolean
+    onOpenChange: (open: boolean) => void
+    onConfirm: () => void
+    isAnalyzing: boolean
+}) {
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Regenerate Visual Prompts?</DialogTitle>
+                    <DialogDescription>
+                        Are you sure you want to regenerate all visual prompts? This will overwrite any manual edits you've made to the prompts.
+                        <br /><br />
+                        <strong>Note:</strong> Existing generated images will be preserved until you choose to regenerate them.
+                    </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isAnalyzing}>
+                        Cancel
+                    </Button>
+                    <Button onClick={onConfirm} disabled={isAnalyzing} className="bg-purple-600 hover:bg-purple-700">
+                        {isAnalyzing ? (
+                            <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Analyzing...
+                            </>
+                        ) : (
+                            "Regenerate Prompts"
+                        )}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
+function ImagePreviewDialog({ 
+    open, 
+    onOpenChange, 
+    imageUrl,
+    prompt 
+}: { 
+    open: boolean
+    onOpenChange: (open: boolean) => void
+    imageUrl?: string
+    prompt: string
+}) {
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="max-w-4xl w-full p-0 overflow-hidden bg-black/95 border-none">
+                <div className="relative w-full h-[80vh] flex items-center justify-center">
+                    {imageUrl ? (
+                        <img 
+                            src={imageUrl} 
+                            alt="Full preview" 
+                            className="max-w-full max-h-full object-contain"
+                        />
+                    ) : (
+                        <div className="text-white/50 flex flex-col items-center">
+                            <Image className="h-12 w-12 mb-2 opacity-50" />
+                            <p>No image generated yet</p>
+                        </div>
+                    )}
+                </div>
+                <div className="p-4 bg-black/50 backdrop-blur-sm absolute bottom-0 left-0 right-0">
+                    <p className="text-white/90 text-sm font-medium line-clamp-2">
+                        {prompt}
+                    </p>
+                </div>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
 export default function EditorVisualsStep() {
     const { request, updateRequest } = useEditorCreation()
     const [expandedSegment, setExpandedSegment] = useState<string | null>(null)
+    const [showRegenerateDialog, setShowRegenerateDialog] = useState(false)
+    const [previewImage, setPreviewImage] = useState<{ url?: string, prompt: string } | null>(null)
     const queryClient = useQueryClient()
 
     // API hooks
     const analyzeVisualsMutation = useAnalyzeVisuals()
     const generateSegmentMutation = useGenerateSegmentImage()
     const generateAllMutation = useGenerateAllImages()
+    const updatePromptMutation = useUpdateSegmentPrompt()
 
     // Check if we have required data
     const hasVideoId = !!request.videoId
@@ -111,11 +203,12 @@ export default function EditorVisualsStep() {
             })
 
             updateRequest({ segments: result.segments })
+            setShowRegenerateDialog(false)
             
             // Invalidate cache so returning to this page shows fresh data
             queryClient.invalidateQueries({ queryKey: ["editor-video", request.videoId] })
             
-            toast.success("Script analyzed! You can now generate images for each segment.")
+            toast.success("Visual prompts generated successfully!")
         } catch (error: any) {
             toast.error(error.message || "Failed to analyze script")
         }
@@ -169,11 +262,26 @@ export default function EditorVisualsStep() {
         }
     }
 
-    const updateSegmentPrompt = (segmentId: string, newPrompt: string) => {
+    const updateSegmentPrompt = async (segmentId: string, newPrompt: string) => {
+        // Optimistic update
         const updatedSegments = request.segments.map(seg =>
             seg.id === segmentId ? { ...seg, imagePrompt: newPrompt } : seg
         )
         updateRequest({ segments: updatedSegments })
+
+        if (!request.videoId) return
+
+        try {
+            await updatePromptMutation.mutateAsync({
+                videoId: request.videoId,
+                segmentId,
+                prompt: newPrompt
+            })
+            // No toast needed for auto-save unless error
+        } catch (error) {
+            console.error("Failed to save prompt:", error)
+            toast.error("Failed to save prompt change")
+        }
     }
 
     const formatTime = (seconds: number) => {
@@ -239,66 +347,64 @@ export default function EditorVisualsStep() {
                         </div>
                     </div>
                     {hasSegments && (
-                        <Button
-                            variant="outline"
-                            onClick={handleGenerateAll}
-                            disabled={isGeneratingAll || !canAnalyze}
-                            className="gap-2"
-                        >
-                            {isGeneratingAll ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                                <RefreshCw className="h-4 w-4" />
-                            )}
-                            Regenerate All
-                        </Button>
+                        <div className="flex gap-2">
+                             <Button
+                                variant="outline"
+                                onClick={() => setShowRegenerateDialog(true)}
+                                disabled={isGeneratingAll || !canAnalyze}
+                                className="gap-2"
+                            >
+                                <Pencil className="h-4 w-4" />
+                                Regenerate Prompts
+                            </Button>
+                            <Button
+                                onClick={handleGenerateAll}
+                                disabled={isGeneratingAll || !canAnalyze}
+                                className="gap-2 bg-purple-600 hover:bg-purple-700"
+                            >
+                                {isGeneratingAll ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                    <Sparkles className="h-4 w-4" />
+                                )}
+                                Generate All Images
+                            </Button>
+                        </div>
                     )}
                 </div>
 
                 {!hasSegments ? (
                     <div className="space-y-3">
                         <Button
-                            onClick={handleGenerateAll}
+                            onClick={handleAnalyzeScript}
                             disabled={isGeneratingAll || !canAnalyze}
                             className="w-full h-14 bg-purple-600 hover:bg-purple-700 gap-3 text-lg font-bold rounded-xl"
                         >
-                            {isGeneratingAll ? (
+                            {analyzeVisualsMutation.isPending ? (
                                 <>
                                     <Loader2 className="h-5 w-5 animate-spin" />
-                                    {analyzeVisualsMutation.isPending ? "Analyzing Script..." : "Generating All Images..."}
+                                    Analyzing Script...
                                 </>
                             ) : (
                                 <>
                                     <Sparkles className="h-5 w-5" />
-                                    Generate All Images
+                                    Generate Visual Prompts
                                 </>
                             )}
                         </Button>
-                        
-                        {/* Option to analyze first without generating */}
-                        <Button
-                            variant="outline"
-                            onClick={handleAnalyzeScript}
-                            disabled={analyzeVisualsMutation.isPending || !canAnalyze}
-                            className="w-full h-10 gap-2 rounded-xl text-sm"
-                        >
-                            {analyzeVisualsMutation.isPending ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                                <Pencil className="h-4 w-4" />
-                            )}
-                            Analyze Script First (Edit Prompts Before Generating)
-                        </Button>
+                        <p className="text-center text-sm text-slate-500">
+                            First we'll analyze your script to create visual prompts. Then you can review them before generating images.
+                        </p>
                     </div>
                 ) : (
                     /* Image Gallery Strip */
-                    <div className="flex gap-3 overflow-x-auto pb-4 -mx-2 px-2">
+                    <div className="flex gap-3 overflow-x-auto pb-4 -mx-2 px-2 scrollbar-hide">
                         {request.segments.map((segment, index) => (
                             <div
                                 key={segment.id}
                                 onClick={() => setExpandedSegment(expandedSegment === segment.id ? null : segment.id)}
                                 className={cn(
-                                    "relative flex-shrink-0 w-24 h-32 rounded-xl overflow-hidden cursor-pointer transition-all duration-300 border-2",
+                                    "relative flex-shrink-0 w-24 h-32 rounded-xl overflow-hidden cursor-pointer transition-all duration-300 border-2 group",
                                     expandedSegment === segment.id
                                         ? "border-purple-600 ring-2 ring-purple-200"
                                         : "border-slate-200 hover:border-purple-300"
@@ -319,8 +425,13 @@ export default function EditorVisualsStep() {
                                         )}
                                     </div>
                                 )}
-                                <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1">
+                                <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1 flex justify-between items-center">
                                     <span className="text-white text-xs font-bold">#{index + 1}</span>
+                                    {getSegmentImageUrl(segment) && (
+                                        <div className="bg-white/20 p-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <Maximize2 className="h-3 w-3 text-white" />
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         ))}
@@ -349,13 +460,18 @@ export default function EditorVisualsStep() {
                                     className="w-full flex items-center gap-4 p-4 hover:bg-slate-50 transition-colors"
                                 >
                                     {/* Thumbnail */}
-                                    <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 bg-slate-100">
+                                    <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 bg-slate-100 relative group">
                                         {imageUrl ? (
-                                            <img
-                                                src={imageUrl}
-                                                alt={`Segment ${index + 1}`}
-                                                className="w-full h-full object-cover"
-                                            />
+                                            <>
+                                                <img
+                                                    src={imageUrl}
+                                                    alt={`Segment ${index + 1}`}
+                                                    className="w-full h-full object-cover"
+                                                />
+                                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                                                    {/* Optional overlay content */}
+                                                </div>
+                                            </>
                                         ) : (
                                             <div className="w-full h-full flex items-center justify-center">
                                                 {segment.isGenerating ? (
@@ -391,54 +507,96 @@ export default function EditorVisualsStep() {
 
                                 {/* Expanded Content */}
                                 {isExpanded && (
-                                    <div className="border-t border-slate-100 p-4 space-y-4 animate-in slide-in-from-top-2 duration-200">
-                                        {/* Subtitle Text */}
-                                        <div className="bg-slate-50 rounded-xl p-4">
-                                            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">
-                                                Subtitle Text
-                                            </span>
-                                            <p className="text-slate-700 font-medium">
-                                                {segment.subtitleText}
-                                            </p>
-                                        </div>
+                                    <div className="border-t border-slate-100 p-4 space-y-6 animate-in slide-in-from-top-2 duration-200">
+                                        <div className="grid md:grid-cols-2 gap-6">
+                                            {/* Left Column: Text & Prompt */}
+                                            <div className="space-y-6">
+                                                 {/* Subtitle Text */}
+                                                <div className="space-y-2">
+                                                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
+                                                        Subtitle Text
+                                                    </span>
+                                                    <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                                                        <p className="text-slate-700 font-medium leading-relaxed">
+                                                            {segment.subtitleText}
+                                                        </p>
+                                                    </div>
+                                                </div>
 
-                                        {/* Image Prompt */}
-                                        <div className="space-y-2">
-                                            <label className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider">
-                                                <Pencil className="h-3 w-3" />
-                                                Image Prompt
-                                            </label>
-                                            <PromptEditor
-                                                initialPrompt={segment.imagePrompt}
-                                                onSave={(newPrompt) => updateSegmentPrompt(segment.id, newPrompt)}
-                                            />
-                                        </div>
-
-                                        {/* Generated Image Preview */}
-                                        {imageUrl && (
-                                            <div className="rounded-xl overflow-hidden">
-                                                <img
-                                                    src={imageUrl}
-                                                    alt={`Segment ${index + 1}`}
-                                                    className="w-full h-64 object-cover"
-                                                />
+                                                {/* Image Prompt */}
+                                                <div className="space-y-2">
+                                                    <label className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider">
+                                                        <Pencil className="h-3 w-3" />
+                                                        Image Prompt
+                                                    </label>
+                                                    <PromptEditor
+                                                        initialPrompt={segment.imagePrompt}
+                                                        onSave={(newPrompt) => updateSegmentPrompt(segment.id, newPrompt)}
+                                                    />
+                                                    <p className="text-xs text-slate-400">
+                                                        Edit the prompt to change how the image looks.
+                                                    </p>
+                                                </div>
                                             </div>
-                                        )}
 
-                                        {/* Regenerate Button */}
-                                        <Button
-                                            variant="outline"
-                                            onClick={() => handleRegenerateSegment(segment)}
-                                            disabled={segment.isGenerating || !request.videoId}
-                                            className="w-full h-10 gap-2 rounded-xl"
-                                        >
-                                            {segment.isGenerating ? (
-                                                <Loader2 className="h-4 w-4 animate-spin" />
-                                            ) : (
-                                                <RefreshCw className="h-4 w-4" />
-                                            )}
-                                            {imageUrl ? "Regenerate This Image" : "Generate Image"}
-                                        </Button>
+                                            {/* Right Column: Image Preview & Actions */}
+                                            <div className="space-y-4">
+                                                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
+                                                    Generated Visual
+                                                </span>
+                                                
+                                                <div className="relative group rounded-xl overflow-hidden bg-slate-100 border border-slate-200 aspect-[9/16] max-h-[400px] mx-auto shadow-sm">
+                                                    {imageUrl ? (
+                                                        <>
+                                                            <img
+                                                                src={imageUrl}
+                                                                alt={`Segment ${index + 1}`}
+                                                                className="w-full h-full object-cover"
+                                                            />
+                                                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                                                <Button 
+                                                                    variant="secondary" 
+                                                                    size="sm"
+                                                                    className="gap-2"
+                                                                    onClick={() => setPreviewImage({ url: imageUrl, prompt: segment.imagePrompt })}
+                                                                >
+                                                                    <Maximize2 className="h-4 w-4" />
+                                                                    Expand View
+                                                                </Button>
+                                                            </div>
+                                                        </>
+                                                    ) : (
+                                                        <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 p-6 text-center">
+                                                            {segment.isGenerating ? (
+                                                                <>
+                                                                    <Loader2 className="h-8 w-8 animate-spin text-purple-600 mb-2" />
+                                                                    <p className="text-sm font-medium text-purple-600">Generating Image...</p>
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <Image className="h-8 w-8 mb-2 opacity-50" />
+                                                                    <p className="text-sm">No image generated yet</p>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                <Button
+                                                    variant="outline"
+                                                    onClick={() => handleRegenerateSegment(segment)}
+                                                    disabled={segment.isGenerating || !request.videoId}
+                                                    className="w-full h-11 gap-2 rounded-xl border-slate-200 hover:border-purple-200 hover:bg-purple-50 hover:text-purple-700 transition-all"
+                                                >
+                                                    {segment.isGenerating ? (
+                                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                                    ) : (
+                                                        <RefreshCw className="h-4 w-4" />
+                                                    )}
+                                                    {imageUrl ? "Regenerate This Image" : "Generate Image"}
+                                                </Button>
+                                            </div>
+                                        </div>
                                     </div>
                                 )}
                             </div>
@@ -446,6 +604,21 @@ export default function EditorVisualsStep() {
                     })}
                 </div>
             )}
+
+            {/* Dialogs */}
+            <RegeneratePromptsDialog 
+                open={showRegenerateDialog} 
+                onOpenChange={setShowRegenerateDialog}
+                onConfirm={handleAnalyzeScript}
+                isAnalyzing={analyzeVisualsMutation.isPending}
+            />
+
+            <ImagePreviewDialog
+                open={!!previewImage}
+                onOpenChange={(open) => !open && setPreviewImage(null)}
+                imageUrl={previewImage?.url}
+                prompt={previewImage?.prompt || ""}
+            />
         </div>
     )
 }
