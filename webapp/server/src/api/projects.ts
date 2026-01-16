@@ -94,6 +94,7 @@ async function fetchVideoProjects(userId: string) {
         thumbnailUrl: video.thumbnailUrl,
         createdAt: video.createdAt,
         status: video.status,
+        mode: video.mode,
         metadata: video.metadata,
         outputUrl: video.outputUrl,
         compressedUrl: video.compressedUrl
@@ -123,6 +124,7 @@ async function fetchVideoProjects(userId: string) {
             thumbnailUrl: v.thumbnailUrl,
             type: "Single Video" as const,
             status,
+            mode: v.mode,
             videoCount: undefined,
             date: v.createdAt,
             duration: (v.metadata as any)?.duration,

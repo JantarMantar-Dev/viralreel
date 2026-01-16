@@ -137,4 +137,15 @@ export interface VideoMetadata {
     }>;
     selectedAudioId?: string;
     audioGenerationCount?: number;
+    subtitles?: Array<{
+        text: string;
+        start: number;
+        end: number;
+    }>;
+    scriptSegments?: Array<{
+        dialogue: string;
+        start: number;
+        end: number;
+        duration: number;
+    }>;
 }

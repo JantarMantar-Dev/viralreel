@@ -37,6 +37,7 @@ const autoSaveSchema = z.object({
     subtitleStyleName: z.string().optional(),
     musicId: z.string().optional(),
     musicName: z.string().optional(),
+    selectedAudioId: z.string().optional(),
     // These are stored but not directly editable via auto-save
     // approvedScript, audioKey, segments are managed by dedicated endpoints
 });
@@ -106,7 +107,10 @@ export default async function editorJobRoutes(fastify: FastifyInstance) {
                     audioUrl,
                     audioDurationSeconds: metadata.audioDurationSeconds,
                     audioGenerationCount: metadata.audioGenerationCount || 0,
+                    audioVersions: metadata.audioVersions || [],
+                    selectedAudioId: metadata.selectedAudioId,
                     subtitles: metadata.subtitles,
+                    scriptSegments: metadata.scriptSegments,
                     visualStyle: metadata.visualStyle,
                     segments: segmentsWithUrls,
                     subtitleStyleId: metadata.subtitleStyleId,

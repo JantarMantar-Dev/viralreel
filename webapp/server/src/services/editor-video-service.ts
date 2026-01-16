@@ -92,7 +92,8 @@ export async function createEditorDraftVideo(params: CreateEditorDraftParams): P
         title,
         episodeNumber: 1,
         status: "DRAFT",
-        metadata
+        metadata,
+        mode: "editor"
     });
 
     // Create render job in DRAFT status
@@ -178,7 +179,8 @@ export async function createEditorVideoJob({
         title,
         episodeNumber,
         status: initialStatus,
-        metadata
+        metadata,
+        mode: "editor"
     });
 
     // 7. Create render job

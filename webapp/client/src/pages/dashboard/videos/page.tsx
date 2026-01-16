@@ -65,6 +65,7 @@ interface Project {
     thumbnailUrl: string
     type: "Single Video" | "Series"
     status: "Draft" | "Rendering" | "Completed" | "Failed"
+    mode?: "auto" | "editor"
     videoCount?: number
     date: string
     duration?: string
@@ -136,7 +137,19 @@ function VideoTypeBadge({ type }: { type: Project["type"] }) {
     return null
 }
 
-function VideoCard({ project, onClick, onDelete, onRender, onRetry, onOpen }: { project: Project, onClick: () => void, onDelete: () => void, onRender?: () => void, onRetry?: () => void, onOpen?: () => void }) {
+function VideoModeBadge({ mode }: { mode: "auto" | "editor" | undefined }) {
+    if (mode === "editor") {
+        return (
+            <div className="flex items-center gap-1 bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full text-[10px] font-medium border border-blue-100">
+                <SlidersHorizontal className="h-3 w-3" />
+                Editor
+            </div>
+        )
+    }
+    return null
+}
+
+function VideoCard({ project, onClick, onDelete, onRender, onRetry, onOpen, onEdit }: { project: Project, onClick: () => void, onDelete: () => void, onRender?: () => void, onRetry?: () => void, onOpen?: () => void, onEdit?: () => void }) {
     return (
         <Card
             onClick={onClick}
@@ -144,7 +157,10 @@ function VideoCard({ project, onClick, onDelete, onRender, onRetry, onOpen }: { 
         >
             {/* Header: Status | Type or Duration */}
             <div className="flex items-center justify-between mb-3">
-                <ProjectStatusBadge status={project.status} />
+                <div className="flex items-center gap-2">
+                    <ProjectStatusBadge status={project.status} />
+                    <VideoModeBadge mode={project.mode} />
+                </div>
 
                 {project.type === "Series" ? (
                     <VideoTypeBadge type={project.type} />
@@ -181,39 +197,50 @@ function VideoCard({ project, onClick, onDelete, onRender, onRetry, onOpen }: { 
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                if (project.type === "Series" || project.status === "Completed") {
+                        {project.type === "Series" && (
+                            <DropdownMenuItem
+                                onClick={(e) => {
+                                    e.stopPropagation();
                                     onClick();
-                                }
-                            }}
-                            disabled={project.type !== "Series" && project.status !== "Completed"}
-                        >
-                            {project.type === "Series" ? (
-                                <>
-                                    <Layers className="h-4 w-4 mr-2" />
-                                    Open
-                                </>
-                            ) : (
-                                <>
-                                    <Edit className="h-4 w-4 mr-2" />
-                                    Edit Detail
-                                </>
-                            )}
-                        </DropdownMenuItem>
+                                }}
+                            >
+                                <Layers className="h-4 w-4 mr-2" />
+                                Open
+                            </DropdownMenuItem>
+                        )}
+
+                        {/* Editor Mode Draft - Edit Detail */}
+                        {project.type === "Single Video" && project.mode === "editor" && project.status === "Draft" && onEdit && (
+                            <DropdownMenuItem
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onEdit();
+                                }}
+                            >
+                                <Edit className="h-4 w-4 mr-2" />
+                                Edit Detail
+                            </DropdownMenuItem>
+                        )}
+
+                        {/* Auto Mode Completed - Open */}
+                        {project.type === "Single Video" && project.status === "Completed" && (
+                            <DropdownMenuItem
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onOpen?.();
+                                }}
+                            >
+                                <Play className="h-4 w-4 mr-2" />
+                                Open
+                            </DropdownMenuItem>
+                        )}
+
+                        {/* Legacy/Fallback: If none of above matches but we have something to show? 
+                            The original code had a catch-all disabled button. We can skip it to be cleaner. 
+                        */}
+
                         {project.type === "Single Video" && (
                             <>
-                                <DropdownMenuItem
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        if (project.status === "Completed") onOpen?.();
-                                    }}
-                                    disabled={project.status !== "Completed"}
-                                >
-                                    <Play className="h-4 w-4 mr-2" />
-                                    Open
-                                </DropdownMenuItem>
                                 {project.outputUrl && (
                                     <DropdownMenuItem asChild>
                                         <a href={project.outputUrl} download target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
@@ -442,6 +469,7 @@ function VideoListView({ filter, setFilter, navigate, projects, isLoading, onDel
                                         onRender={() => onRender(project)}
                                         onRetry={() => onRetry(project)}
                                         onOpen={() => onOpen(project)}
+                                        onEdit={() => navigate(`/editor/script?videoId=${project.id}`)}
                                     />
                                 ))}
                         </div>
@@ -486,6 +514,7 @@ export default function MyVideosPage() {
         thumbnailUrl: j.thumbnailUrl || "",
         type: j.type, // 'Series' or 'Single Video'
         status: j.status, // 'Rendering', 'Completed', 'Draft' from backend
+        mode: j.mode || "auto",
         date: formatRelativeDate(j.date),
         duration: j.duration ? (j.duration === 0.5 ? "00:30" : `${j.duration}:00`) : undefined,
         isHd: true,

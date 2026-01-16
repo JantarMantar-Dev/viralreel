@@ -415,6 +415,9 @@ export interface EditorVideoData {
         approvedScript?: GeneratedScript
         segments?: VisualSegment[]
         subtitles?: SubtitleWord[]
+        audioVersions?: AudioVersion[]
+        selectedAudioId?: string
+        scriptSegments?: ScriptSegment[]
     } | null
     niche: {
         id: string
@@ -422,6 +425,9 @@ export interface EditorVideoData {
     } | null
     audioUrl: string | null
     audioDurationSeconds: number | null
+    audioGenerationCount: number
+    audioVersions: AudioVersion[]
+    selectedAudioId?: string
     segments: VisualSegment[]
 }
 

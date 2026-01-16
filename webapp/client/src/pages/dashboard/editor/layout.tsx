@@ -79,19 +79,23 @@ export default function EditorModeLayout() {
                 videoId: video.id,
                 nicheId: video.niche?.id || null,
                 nicheName: video.niche?.name,
-                episodeTitle: metadata.episodeTitle || video.title || "",
-                scriptIdea: metadata.scriptIdea || "",
-                duration: metadata.duration || 60,
-                visualStyle: metadata.visualStyle,
-                voiceId: metadata.voiceId,
-                voiceName: metadata.voiceName,
-                tonePrompt: metadata.tonePrompt,
-                subtitleStyleId: metadata.subtitleStyleId,
-                subtitleStyleName: metadata.subtitleStyleName,
-                approvedScript: metadata.approvedScript,
+                episodeTitle: video.title || metadata.episodeTitle || "",
+                scriptIdea: metadata.scriptIdea || video.scriptIdea || "",
+                duration: metadata.duration || video.duration || 60,
+                visualStyle: metadata.visualStyle || video.visualStyle,
+                voiceId: metadata.voiceId || video.voiceId,
+                voiceName: metadata.voiceName || video.voiceName,
+                tonePrompt: metadata.tonePrompt || video.tonePrompt,
+                subtitleStyleId: metadata.subtitleStyleId || video.subtitleStyleId,
+                subtitleStyleName: metadata.subtitleStyleName || video.subtitleStyleName,
+                approvedScript: video.approvedScript || metadata.approvedScript,
                 audioUrl: video.audioUrl || undefined,
                 audioDurationSeconds: video.audioDurationSeconds || undefined,
-                subtitles: metadata.subtitles || [],
+                audioGenerationCount: video.audioGenerationCount || 0,
+                subtitles: video.subtitles || metadata.subtitles || [],
+                audioVersions: video.audioVersions || metadata.audioVersions || [],
+                selectedAudioId: video.selectedAudioId || metadata.selectedAudioId,
+                scriptSegments: video.scriptSegments || metadata.scriptSegments,
                 segments: video.segments || metadata.segments || [],
             }))
             setIsVideoLoaded(true)
@@ -169,6 +173,7 @@ export default function EditorModeLayout() {
             if (dataToSave.voiceId) metadata.voiceId = dataToSave.voiceId
             if (dataToSave.voiceName) metadata.voiceName = dataToSave.voiceName
             if (dataToSave.tonePrompt) metadata.tonePrompt = dataToSave.tonePrompt
+            if (request.selectedAudioId) metadata.selectedAudioId = request.selectedAudioId
             if (dataToSave.subtitleStyleId) metadata.subtitleStyleId = dataToSave.subtitleStyleId
             if (dataToSave.subtitleStyleName) metadata.subtitleStyleName = dataToSave.subtitleStyleName
 
@@ -263,7 +268,13 @@ export default function EditorModeLayout() {
 
         if (currentStep < STEPS.length) {
             const nextPath = `/editor/${STEPS[currentStep].path}`
-            navigate(nextPath)
+            if (request.videoId) {
+                navigate(`${nextPath}?videoId=${request.videoId}`)
+            } else if (searchParams.toString()) {
+                navigate(`${nextPath}?${searchParams.toString()}`)
+            } else {
+                navigate(nextPath)
+            }
         } else if (currentStep === STEPS.length) {
             createJob(request)
         }
@@ -277,7 +288,13 @@ export default function EditorModeLayout() {
 
         if (currentStep > 1) {
             const prevPath = `/editor/${STEPS[currentStep - 2].path}`
-            navigate(prevPath)
+            if (request.videoId) {
+                navigate(`${prevPath}?videoId=${request.videoId}`)
+            } else if (searchParams.toString()) {
+                navigate(`${prevPath}?${searchParams.toString()}`)
+            } else {
+                navigate(prevPath)
+            }
         }
     }
 
@@ -306,7 +323,7 @@ export default function EditorModeLayout() {
     const isReviewStep = path === 'review'
     const hasCompletedNicheStep = !!request.nicheId
     const hasCustomNavigation = !!customNext
-    const shouldShowFooter = (hasCompletedNicheStep || hasCustomNavigation) && !isReviewStep
+    const shouldShowFooter = (hasCompletedNicheStep || hasCustomNavigation || currentStep > 1) && !isReviewStep
 
     // Create context values
     const editorContextValue = {

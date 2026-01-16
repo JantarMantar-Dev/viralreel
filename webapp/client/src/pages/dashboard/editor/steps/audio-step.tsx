@@ -109,6 +109,11 @@ export default function EditorAudioStep() {
                 
                 videoId = draftResult.videoId
                 updateRequest({ videoId })
+                
+                // Update URL with videoId to persist state if page is reloaded
+                const newSearchParams = new URLSearchParams(window.location.search)
+                newSearchParams.set("videoId", videoId)
+                window.history.replaceState(null, "", `${window.location.pathname}?${newSearchParams.toString()}`)
             }
 
             // Now generate audio with the videoId (subtitles are generated separately)
@@ -199,7 +204,7 @@ export default function EditorAudioStep() {
 
     // Select a version to use
     const handleSelectVersion = (version: AudioVersion) => {
-        updateRequest({
+        const updateData: Partial<EditorModeRequest> = {
             audioUrl: version.audioUrl,
             audioKey: version.audioKey,
             audioDurationSeconds: version.durationSeconds,
@@ -208,7 +213,14 @@ export default function EditorAudioStep() {
             voiceId: version.voiceId,
             voiceName: version.voiceName,
             tonePrompt: version.tonePrompt,
-        })
+        }
+        
+        // Optimistically update local state
+        updateRequest(updateData)
+        
+        // Persist selection via auto-save logic in layout (which reacts to request changes)
+        // or we could force a save here if needed, but the layout effect should handle it
+        
         setTranscriptionError(null)
         toast.success(`Selected audio version from ${formatDate(version.generatedAt)}`)
     }

@@ -18,7 +18,10 @@ This plan merges the requirements from "Phase 04: Editor Mode Implementation" (F
 - [x] Create `webapp/client/src/pages/dashboard/editor/context/editor-creation-context.tsx` (mirroring `EditorModeRequest` type).
 - [x] Create `webapp/client/src/pages/dashboard/editor/layout.tsx` with the 5-step navigation (Script -> Audio -> Visuals -> Subtitles -> Review).
 - [x] Update `webapp/client/src/App.tsx` (or routing config) to include `/editor/*` routes.
-- [ ] Update Entry Points (`onboarding-empty-state.tsx`, `videos/page.tsx`) to link to Editor Mode.
+- [x] Update `videos/page.tsx` to show Editor Mode projects and link to workflow.
+    - Added `VideoModeBadge` to cards.
+    - Added "Edit Detail" action for Editor Mode drafts.
+- [ ] Update `onboarding-empty-state.tsx` to link to Editor Mode.
 
 ### 6.1.3 Backend Service Updates
 - [x] Update `video-service.ts` to handle `mode: 'editor'` during creation.

@@ -96,6 +96,7 @@ export async function createVideoRecord(params: {
     episodeNumber: number;
     status: string;
     metadata: VideoMetadata;
+    mode?: "auto" | "editor";
 }): Promise<string> {
     const videoId = nanoid();
 
@@ -107,7 +108,8 @@ export async function createVideoRecord(params: {
         title: params.title,
         episodeNumber: params.episodeNumber,
         status: params.status,
-        metadata: params.metadata
+        metadata: params.metadata,
+        mode: params.mode || "auto"
     });
 
     return videoId;

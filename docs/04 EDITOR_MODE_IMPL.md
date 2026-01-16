@@ -12,6 +12,37 @@ This document covers the implementation requirements for the 5-phase Editor Mode
 
 ---
 
+## Edit Details Implementation (Data Loading)
+
+When opening an existing video in Editor Mode, we populate the wizard steps with the following data from the video's metadata. This ensures users can resume editing exactly where they left off.
+
+### 1. Scripting Page (`/editor/script`)
+Loads the core video concept and generated script.
+
+*   **Video Name** (`episodeTitle`): Loaded from `video.title` or `metadata.episodeTitle`.
+*   **Video Idea & Context** (`scriptIdea`): Loaded from `metadata.scriptIdea`.
+*   **Duration** (`duration`): Loaded from `metadata.duration`.
+*   **Aspect Ratio** (`aspectRatio`): Loaded from `metadata.aspectRatio` (defaults to "portrait").
+*   **Visual Format** (`visualFormat`): Loaded from `metadata.visualFormat` (defaults to "image").
+*   **Image Style** (`visualStyle`): Loaded from `metadata.visualStyle`.
+*   **Script Generation** (`approvedScript`): Loaded from `metadata.approvedScript` or `metadata.generatedScript`. If present, shows the approved script; otherwise shows the generation prompt.
+
+### 2. Audio Synthesis Page (`/editor/audio`)
+Loads the voice selection, tone settings, and all generated audio artifacts.
+
+*   **Selected Voice** (`voiceId`, `voiceName`): Loaded from `metadata.voiceId` and `metadata.voiceName`.
+*   **Tone Adjustment** (`tonePrompt`): Loaded from `metadata.tonePrompt`.
+*   **Audio Versions** (`audioVersions`): A list of all previously generated audio takes, loaded from `video.audioVersions` (which delegates to `metadata.audioVersions`). This includes:
+    *   Audio URL (signed)
+    *   Duration
+    *   Creation timestamp
+    *   Specific voice/tone used for that version
+*   **Selected Version** (`selectedAudioId`): The ID of the active audio take, loaded from `metadata.selectedAudioId`.
+*   **Transcriptions** (`subtitles`): If the selected audio has been transcribed, loads `metadata.subtitles`.
+*   **Segments** (`scriptSegments`): If the selected audio has been segmented for visuals, loads `metadata.scriptSegments`.
+
+---
+
 ## Phase 4.1: Script Editor (Migration)
 
 > [!NOTE]
