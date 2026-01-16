@@ -3,7 +3,7 @@ import { z } from "zod";
 import { db } from "../db/index.js";
 import { video, renderJob } from "../db/schema.js";
 import { eq, and } from "drizzle-orm";
-import { deductCredits, hasEnoughCredits } from "../services/credit-service.js";
+import { hasEnoughCredits } from "../services/credit-service.js";
 import { AppError } from "../lib/errors.js";
 import { v4 as uuidv4 } from "uuid";
 
@@ -68,10 +68,7 @@ export default async function editorRenderRoutes(fastify: FastifyInstance) {
                 throw new AppError("InsuffCredits", "Insufficient credits to render this video", 402);
             }
 
-            // 4. Deduct credits
-            await deductCredits(userId, 1, videoId, undefined, "Video render - Editor Mode");
-
-            // 5. Update video status
+            // 4. Update video status
             await db.update(video)
                 .set({
                     status: "GENERATING",
