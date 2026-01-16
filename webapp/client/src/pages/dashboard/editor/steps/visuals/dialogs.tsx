@@ -5,9 +5,20 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
+    DialogClose
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { Loader2, Image } from "lucide-react"
+import { 
+    Loader2, 
+    Image, 
+    ChevronLeft, 
+    ChevronRight,
+    X 
+} from "lucide-react"
+import { VisualSegment } from "../../context/editor-creation-context"
+import { getSegmentImageUrl } from "./utils"
+import { useState, useEffect } from "react"
+
 
 export function RegeneratePromptsDialog({ 
     open, 
@@ -98,37 +109,104 @@ export function RegenerateImagesDialog({
 export function ImagePreviewDialog({ 
     open, 
     onOpenChange, 
-    imageUrl,
-    prompt 
+    segments,
+    initialIndex = 0
 }: { 
     open: boolean
     onOpenChange: (open: boolean) => void
-    imageUrl?: string
-    prompt: string
+    segments: VisualSegment[]
+    initialIndex?: number
 }) {
+    const [currentIndex, setCurrentIndex] = useState(initialIndex)
+
+    // Reset index when dialog opens with a new initialIndex
+    useEffect(() => {
+        if (open) {
+            setCurrentIndex(initialIndex)
+        }
+    }, [open, initialIndex])
+
+    const nextImage = () => {
+        setCurrentIndex((prev) => (prev + 1) % segments.length)
+    }
+
+    const prevImage = () => {
+        setCurrentIndex((prev) => (prev - 1 + segments.length) % segments.length)
+    }
+
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (!open) return
+            if (e.key === 'ArrowRight') nextImage()
+            if (e.key === 'ArrowLeft') prevImage()
+        }
+        window.addEventListener('keydown', handleKeyDown)
+        return () => window.removeEventListener('keydown', handleKeyDown)
+    }, [open, segments.length])
+
+    if (!segments || segments.length === 0) return null
+    
+    const currentSegment = segments[currentIndex]
+    const imageUrl = currentSegment ? getSegmentImageUrl(currentSegment) : null
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-4xl w-full p-0 overflow-hidden bg-black/95 border-none">
-                <div className="relative w-full h-[80vh] flex items-center justify-center">
+            <DialogContent className="max-w-5xl w-[95vw] p-0 bg-black border-slate-800 overflow-hidden">
+                <div className="relative h-[80vh] flex items-center justify-center group">
                     {imageUrl ? (
-                        <img 
-                            src={imageUrl} 
-                            alt="Full preview" 
-                            className="max-w-full max-h-full object-contain"
+                        <img
+                            src={imageUrl}
+                            alt={`Segment ${currentIndex + 1}`}
+                            className="max-h-full max-w-full object-contain"
                         />
                     ) : (
                         <div className="text-white/50 flex flex-col items-center">
-                            <Image className="h-12 w-12 mb-2 opacity-50" />
-                            <p>No image generated yet</p>
+                            {currentSegment?.isGenerating ? (
+                                <Loader2 className="h-12 w-12 mb-2 animate-spin text-purple-500" />
+                            ) : (
+                                <Image className="h-12 w-12 mb-2 opacity-50" />
+                            )}
+                            <p>{currentSegment?.isGenerating ? "Generating..." : "No image generated yet"}</p>
                         </div>
                     )}
-                </div>
-                <div className="p-4 bg-black/50 backdrop-blur-sm absolute bottom-0 left-0 right-0">
-                    <p className="text-white/90 text-sm font-medium line-clamp-2">
-                        {prompt}
-                    </p>
+                    
+                    {/* Navigation Overlay */}
+                    {segments.length > 1 && (
+                        <div className="absolute inset-0 flex items-center justify-between p-4 pointer-events-none">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={prevImage}
+                                className="pointer-events-auto h-12 w-12 rounded-full bg-black/50 hover:bg-black/70 text-white border border-white/10"
+                            >
+                                <ChevronLeft className="h-8 w-8" />
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={nextImage}
+                                className="pointer-events-auto h-12 w-12 rounded-full bg-black/50 hover:bg-black/70 text-white border border-white/10"
+                            >
+                                <ChevronRight className="h-8 w-8" />
+                            </Button>
+                        </div>
+                    )}
+
+                    {/* Footer Info */}
+                    <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent flex justify-between items-end">
+                        <div className="text-white">
+                            <p className="font-medium text-lg">Segment #{currentIndex + 1}</p>
+                            <p className="text-white/60 text-sm line-clamp-2 max-w-2xl">
+                                {currentSegment?.imagePrompt || "No prompt available"}
+                            </p>
+                        </div>
+                        <div className="text-white/60 text-sm">
+                            {currentIndex + 1} / {segments.length}
+                        </div>
+                    </div>
                 </div>
             </DialogContent>
         </Dialog>
     )
 }
+

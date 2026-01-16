@@ -14,7 +14,7 @@ export default function EditorVisualsStep() {
     const [expandedSegment, setExpandedSegment] = useState<string | null>(null)
     const [showRegenerateDialog, setShowRegenerateDialog] = useState(false)
     const [showRegenerateImagesDialog, setShowRegenerateImagesDialog] = useState(false)
-    const [previewImage, setPreviewImage] = useState<{ url?: string, prompt: string } | null>(null)
+    const [previewIndex, setPreviewIndex] = useState<number | null>(null)
     const queryClient = useQueryClient()
 
     // API hooks
@@ -213,6 +213,7 @@ export default function EditorVisualsStep() {
                 onAnalyzeScript={handleAnalyzeScript}
                 onOpenRegeneratePrompts={() => setShowRegenerateDialog(true)}
                 isAnalyzePending={analyzeVisualsMutation.isPending}
+                onPreview={(index) => setPreviewIndex(index)}
             />
 
             {/* Segment Cards */}
@@ -226,7 +227,7 @@ export default function EditorVisualsStep() {
                             isExpanded={expandedSegment === segment.id}
                             onToggleExpand={() => setExpandedSegment(expandedSegment === segment.id ? null : segment.id)}
                             onUpdatePrompt={(newPrompt) => updateSegmentPrompt(segment.id, newPrompt)}
-                            onPreview={(url, prompt) => setPreviewImage({ url, prompt })}
+                            onPreview={() => setPreviewIndex(index)}
                             onRegenerate={() => handleRegenerateSegment(segment)}
                             hasVideoId={!!request.videoId}
                         />
@@ -251,10 +252,10 @@ export default function EditorVisualsStep() {
             />
 
             <ImagePreviewDialog
-                open={!!previewImage}
-                onOpenChange={(open) => !open && setPreviewImage(null)}
-                imageUrl={previewImage?.url}
-                prompt={previewImage?.prompt || ""}
+                open={previewIndex !== null}
+                onOpenChange={(open) => !open && setPreviewIndex(null)}
+                segments={request.segments}
+                initialIndex={previewIndex || 0}
             />
         </div>
     )

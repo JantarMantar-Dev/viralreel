@@ -20,6 +20,7 @@ interface ImageGallerySectionProps {
     onAnalyzeScript: () => void
     onOpenRegeneratePrompts: () => void
     isAnalyzePending: boolean
+    onPreview: (index: number) => void
 }
 
 export function ImageGallerySection({
@@ -31,9 +32,15 @@ export function ImageGallerySection({
     onGenerateAll,
     onAnalyzeScript,
     onOpenRegeneratePrompts,
-    isAnalyzePending
+    isAnalyzePending,
+    onPreview
 }: ImageGallerySectionProps) {
     const hasSegments = segments.length > 0
+
+    const openViewer = (e: React.MouseEvent, index: number) => {
+        e.stopPropagation()
+        onPreview(index)
+    }
 
     return (
         <div className="bg-white rounded-3xl border border-slate-200 p-6 md:p-8 shadow-sm">
@@ -145,7 +152,10 @@ export function ImageGallerySection({
                             <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1 flex justify-between items-center">
                                 <span className="text-white text-xs font-bold">#{index + 1}</span>
                                 {getSegmentImageUrl(segment) && (
-                                    <div className="bg-white/20 p-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <div 
+                                        onClick={(e) => openViewer(e, index)}
+                                        className="bg-white/20 p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/40"
+                                    >
                                         <Maximize2 className="h-3 w-3 text-white" />
                                     </div>
                                 )}
@@ -157,3 +167,4 @@ export function ImageGallerySection({
         </div>
     )
 }
+
