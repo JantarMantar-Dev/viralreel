@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { API_BASE_URL } from "@/lib/config"
-import { VisualSegment, SubtitleWord, GeneratedScript, AudioVersion } from "@/pages/dashboard/editor/context/editor-creation-context"
+import { VisualSegment, SubtitleWord, GeneratedScript, AudioVersion, ScriptSegment } from "@/pages/dashboard/editor/context/editor-creation-context"
 
 // =============================================================================
 // DRAFT VIDEO HOOK
@@ -115,6 +115,74 @@ export function useGenerateTranscription() {
             if (!response.ok) {
                 const error = await response.json()
                 throw new Error(error.message || error.error || "Failed to generate transcription")
+            }
+
+            return response.json()
+        },
+    })
+}
+
+// =============================================================================
+// SEGMENTATION HOOKS
+// =============================================================================
+
+interface GenerateSegmentsParams {
+    videoId: string
+    audioId: string
+}
+
+interface GenerateSegmentsResult {
+    success: boolean
+    audioId: string
+    segments: ScriptSegment[]
+    segmentCount: number
+}
+
+export function useGenerateSegments() {
+    return useMutation({
+        mutationFn: async (params: GenerateSegmentsParams): Promise<GenerateSegmentsResult> => {
+            const response = await fetch(`${API_BASE_URL}/api/editor/audio/segment`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify(params),
+            })
+
+            if (!response.ok) {
+                const error = await response.json()
+                throw new Error(error.message || error.error || "Failed to generate segments")
+            }
+
+            return response.json()
+        },
+    })
+}
+
+interface SaveSegmentsParams {
+    videoId: string
+    audioId: string
+    segments: ScriptSegment[]
+}
+
+interface SaveSegmentsResult {
+    success: boolean
+    audioId: string
+    segmentCount: number
+}
+
+export function useSaveSegments() {
+    return useMutation({
+        mutationFn: async (params: SaveSegmentsParams): Promise<SaveSegmentsResult> => {
+            const response = await fetch(`${API_BASE_URL}/api/editor/audio/save-segments`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify(params),
+            })
+
+            if (!response.ok) {
+                const error = await response.json()
+                throw new Error(error.message || error.error || "Failed to save segments")
             }
 
             return response.json()

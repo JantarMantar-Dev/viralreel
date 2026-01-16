@@ -60,12 +60,23 @@ This plan merges the requirements from "Phase 04: Editor Mode Implementation" (F
     - Input: `videoId`, `audioId`, `subtitles[]`.
     - Logic: Save user-edited transcription to metadata.
     - Returns: `audioId`, `wordCount`.
+- [x] **New Endpoint**: `POST /api/editor/audio/segment`.
+    - Input: `videoId`, `audioId`.
+    - Logic: Call Gemini Segmenter (LLM) using subtitles → Align timestamps → Update metadata.
+    - Returns: `audioId`, `segments[]`, `segmentCount`.
+- [x] **New Endpoint**: `POST /api/editor/audio/save-segments`.
+    - Input: `videoId`, `audioId`, `segments[]`.
+    - Logic: Save user-edited segments to metadata.
+    - Returns: `audioId`, `segmentCount`.
 - [x] **Service**: `services/editor-audio-service.ts`.
     - Integration with `CustomGeminiTTS` (gemini-2.5-flash-preview-tts).
     - Integration with `Groq` for `whisper-large-v3-turbo`.
+    - Integration with `Gemini` for segmentation (`gemini-3-flash-preview`).
     - `generateAudio()` - TTS only, no transcription.
     - `generateTranscription()` - Separate transcription step.
     - `saveTranscription()` - Save edited transcription.
+    - `generateSegments()` - Separate segmentation step after transcription.
+    - `saveSegments()` - Save edited segments.
 - [x] **Storage**: Define S3 path structure for audio assets (`videos/{userId}/{videoId}/audio_{audioId}.wav`).
 - [x] **Storage**: Add `downloadFile()` method to storage provider for transcription.
 
@@ -76,24 +87,31 @@ This plan merges the requirements from "Phase 04: Editor Mode Implementation" (F
     - `ToneInput`: Text field for style/tone prompt.
     - `AudioVersionsList`: Display all generated versions with play/select controls.
     - `TranscriptionStatus`: Badge showing "Transcribed" or "No transcription".
+    - `SegmentationStatus`: Badge showing "Segmented".
     - `GetTranscriptionButton`: Trigger transcription for selected audio.
+    - `SegmentButton`: Trigger segmentation for selected audio (after transcription).
     - `TranscriptionEditor`: Editable word list with save functionality.
+    - `SegmentationViewer`: Editable list of segments with dialogue.
     - `RegenerateButton`: Generate new audio version.
 - [x] **Integration**: 
     - Connect to `POST /api/editor/audio/generate` for audio generation.
     - Connect to `POST /api/editor/audio/transcribe` for transcription.
-    - Connect to `POST /api/editor/audio/save-transcription` for saving edits.
+    - Connect to `POST /api/editor/audio/save-transcription` for saving transcription edits.
+    - Connect to `POST /api/editor/audio/segment` for segmentation.
+    - Connect to `POST /api/editor/audio/save-segments` for saving segment edits.
 - [x] **State**: 
     - Store `audioUrl`, `audioKey`, `audioVersions[]`, `selectedAudioId` in context.
     - Track transcription editing state and unsaved changes.
+    - Track segmentation editing state and unsaved changes.
 - [x] **Navigation Control**:
-    - Block "Continue" button until selected audio has transcription.
-    - Auto-save edited transcription on "Continue" if unsaved changes exist.
+    - Block "Continue" button until selected audio has transcription AND segments.
+    - Auto-save edited transcription and segments on "Continue" if unsaved changes exist.
 - [x] **Error Handling**:
     - Display user-friendly transcription errors with retry option.
-    - Show "Transcription Required" notice when needed.
+    - Display user-friendly segmentation errors with retry option.
+    - Show "Transcription Required" and "Segmentation Required" notices when needed.
 
-### 6.3.3 Audio/Transcription Flow
+### 6.3.3 Audio/Transcription/Segmentation Flow
 ```
 1. User selects voice and optional tone
 2. User clicks "Generate Audio" → Creates audio version (no transcription)
@@ -101,8 +119,10 @@ This plan merges the requirements from "Phase 04: Editor Mode Implementation" (F
 4. User selects preferred audio version
 5. User clicks "Get Transcription" → Generates word-level subtitles
 6. User reviews transcription, can edit words if needed
-7. User saves changes (or auto-saved on Continue)
-8. User proceeds to Visuals step
+7. User clicks "Segment" → Splits script into visual scenes
+8. User reviews segments, can edit dialogue if needed
+9. User saves changes (or auto-saved on Continue)
+10. User proceeds to Visuals step
 ```
 
 ---
@@ -171,10 +191,10 @@ This plan merges the requirements from "Phase 04: Editor Mode Implementation" (F
 ## Phase 6.7: Testing & E2E
 
 ### 6.7.1 Unit Tests
-- [ ] `editor-audio-service.test.ts`
+- [ ] `editor-audio-service.test.ts` (TTS, Transcription, Segmentation)
 - [ ] `editor-visual-service.test.ts`
 - [ ] `editor/context.test.tsx`
 
 ### 6.7.2 E2E Tests (Playwright)
-- [ ] `editor-mode-flow.spec.ts`: Full walkthrough from Script to Render.
+- [ ] `editor-mode-flow.spec.ts`: Full walkthrough from Script to Render, including Segmentation.
 - [x] Verification of state persistence (reload page test).

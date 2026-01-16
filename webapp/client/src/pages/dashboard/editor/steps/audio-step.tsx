@@ -17,13 +17,15 @@ import {
     AlertCircle,
     Save,
     Edit3,
+    Scissors,
+    Layers,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { useEditorCreation, AudioVersion, SubtitleWord } from "../context/editor-creation-context"
+import { useEditorCreation, AudioVersion, SubtitleWord, ScriptSegment } from "../context/editor-creation-context"
 import { Button } from "@/components/ui/button"
 import StepHeader from "../../create/components/step-header"
 import { API_BASE_URL } from "@/lib/config"
-import { useGenerateAudio, useCreateDraftVideo, useGenerateTranscription } from "@/hooks/useEditorApi"
+import { useGenerateAudio, useCreateDraftVideo, useGenerateTranscription, useGenerateSegments, useSaveSegments } from "@/hooks/useEditorApi"
 
 interface Voice {
     id: string
@@ -47,6 +49,8 @@ export default function EditorAudioStep() {
     const generateAudioMutation = useGenerateAudio()
     const createDraftMutation = useCreateDraftVideo()
     const generateTranscriptionMutation = useGenerateTranscription()
+    const generateSegmentsMutation = useGenerateSegments()
+    const saveSegmentsMutation = useSaveSegments()
 
     // Transcription error state
     const [transcriptionError, setTranscriptionError] = useState<string | null>(null)
@@ -56,6 +60,13 @@ export default function EditorAudioStep() {
     const [isEditingTranscription, setIsEditingTranscription] = useState(false)
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
     const [isSavingTranscription, setIsSavingTranscription] = useState(false)
+
+    // Segmentation state
+    const [segmentationError, setSegmentationError] = useState<string | null>(null)
+    const [editedSegments, setEditedSegments] = useState<ScriptSegment[] | null>(null)
+    const [isEditingSegments, setIsEditingSegments] = useState(false)
+    const [hasUnsavedSegmentChanges, setHasUnsavedSegmentChanges] = useState(false)
+    const [isSavingSegments, setIsSavingSegments] = useState(false)
 
     // Fetch available voices
     const { data: voices, isLoading: voicesLoading } = useQuery({
@@ -308,6 +319,114 @@ export default function EditorAudioStep() {
         }
     }
 
+    // =============================================================================
+    // SEGMENTATION HANDLERS
+    // =============================================================================
+
+    // Generate segments for the selected audio version
+    const handleGenerateSegments = async (audioId: string) => {
+        if (!request.videoId) {
+            toast.error("No video ID available")
+            return
+        }
+
+        setSegmentationError(null)
+
+        try {
+            const result = await generateSegmentsMutation.mutateAsync({
+                videoId: request.videoId,
+                audioId,
+            })
+
+            // Update the audio version with segments
+            const updatedVersions = request.audioVersions.map(v => 
+                v.id === audioId 
+                    ? { ...v, segments: result.segments }
+                    : v
+            )
+
+            // Update context with segments
+            updateRequest({
+                scriptSegments: result.segments,
+                audioVersions: updatedVersions,
+            })
+
+            toast.success(`Segmentation complete! ${result.segmentCount} segments created.`)
+        } catch (error: any) {
+            const errorMessage = error.message || "Failed to generate segments"
+            setSegmentationError(errorMessage)
+            toast.error(errorMessage)
+        }
+    }
+
+    // Handle editing a segment's dialogue
+    const handleEditSegmentDialogue = (index: number, newDialogue: string) => {
+        const currentSegments = editedSegments || selectedVersion?.segments || []
+        const updated = [...currentSegments]
+        updated[index] = { ...updated[index], dialogue: newDialogue }
+        setEditedSegments(updated)
+        setHasUnsavedSegmentChanges(true)
+    }
+
+    // Start editing segments
+    const handleStartEditingSegments = () => {
+        setEditedSegments(selectedVersion?.segments || [])
+        setIsEditingSegments(true)
+    }
+
+    // Cancel editing segments
+    const handleCancelEditingSegments = () => {
+        setEditedSegments(null)
+        setIsEditingSegments(false)
+        setHasUnsavedSegmentChanges(false)
+    }
+
+    // Save edited segments
+    const handleSaveSegments = async () => {
+        if (!request.videoId || !selectedVersion || !editedSegments) {
+            return
+        }
+
+        setIsSavingSegments(true)
+
+        try {
+            await saveSegmentsMutation.mutateAsync({
+                videoId: request.videoId,
+                audioId: selectedVersion.id,
+                segments: editedSegments,
+            })
+
+            // Update the audio version with edited segments
+            const updatedVersions = request.audioVersions.map(v => 
+                v.id === selectedVersion.id 
+                    ? { ...v, segments: editedSegments }
+                    : v
+            )
+
+            updateRequest({
+                scriptSegments: editedSegments,
+                audioVersions: updatedVersions,
+            })
+
+            setHasUnsavedSegmentChanges(false)
+            setIsEditingSegments(false)
+            setEditedSegments(null)
+            toast.success("Segments saved!")
+        } catch (error: any) {
+            toast.error(error.message || "Failed to save segments")
+        } finally {
+            setIsSavingSegments(false)
+        }
+    }
+
+    // Format time from frames to MM:SS
+    const formatFrameTime = (frames: number) => {
+        const seconds = frames / 30
+        const mins = Math.floor(seconds / 60)
+        const secs = Math.floor(seconds % 60)
+        return `${mins}:${secs.toString().padStart(2, '0')}`
+    }
+
     // Get signed URL for an audio key (if audioUrl is not cached)
     const getSignedUrl = async (audioKey: string): Promise<string | null> => {
         try {
@@ -355,6 +474,7 @@ export default function EditorAudioStep() {
 
     const isSynthesizing = generateAudioMutation.isPending || createDraftMutation.isPending
     const isTranscribing = generateTranscriptionMutation.isPending
+    const isSegmenting = generateSegmentsMutation.isPending
 
     // Format duration for display
     const formatDuration = (seconds: number | undefined) => {
@@ -374,55 +494,96 @@ export default function EditorAudioStep() {
     const selectedVersion = request.audioVersions.find(v => v.id === request.selectedAudioId)
     const hasVersions = request.audioVersions.length > 0
     const selectedHasTranscription = selectedVersion?.subtitles && selectedVersion.subtitles.length > 0
+    const selectedHasSegments = selectedVersion?.segments && selectedVersion.segments.length > 0
     const needsTranscription = selectedVersion && !selectedHasTranscription
+    const needsSegmentation = selectedVersion && selectedHasTranscription && !selectedHasSegments
 
     // Control whether the user can continue to the next step
-    // They can only continue if they have a selected audio version WITH transcription
+    // They can only continue if they have a selected audio version WITH transcription AND segments
     useEffect(() => {
-        const canProceed = !!(selectedVersion && selectedHasTranscription)
+        const canProceed = !!(selectedVersion && selectedHasTranscription && selectedHasSegments)
         setCanContinue(canProceed)
         
         // Cleanup: reset canContinue when leaving this step
         return () => {
             setCanContinue(true)
         }
-    }, [selectedVersion, selectedHasTranscription, setCanContinue])
+    }, [selectedVersion, selectedHasTranscription, selectedHasSegments, setCanContinue])
 
-    // Set up custom next handler to auto-save unsaved transcription changes
+    // Set up custom next handler to auto-save unsaved changes (transcription or segments)
     useEffect(() => {
-        if (hasUnsavedChanges && editedSubtitles && selectedVersion && request.videoId) {
+        const shouldSaveTranscription = hasUnsavedChanges && editedSubtitles && selectedVersion && request.videoId
+        const shouldSaveSegments = hasUnsavedSegmentChanges && editedSegments && selectedVersion && request.videoId
+
+        if (shouldSaveTranscription || shouldSaveSegments) {
             // If there are unsaved changes, set a custom next that saves first
             setCustomNext(async () => {
                 try {
-                    const response = await fetch(`${API_BASE_URL}/api/editor/audio/save-transcription`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        credentials: "include",
-                        body: JSON.stringify({
-                            videoId: request.videoId,
-                            audioId: selectedVersion.id,
-                            subtitles: editedSubtitles,
-                        }),
+                    // Save transcription if needed
+                    if (shouldSaveTranscription) {
+                        const response = await fetch(`${API_BASE_URL}/api/editor/audio/save-transcription`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            credentials: "include",
+                            body: JSON.stringify({
+                                videoId: request.videoId,
+                                audioId: selectedVersion!.id,
+                                subtitles: editedSubtitles,
+                            }),
+                        })
+
+                        if (response.ok) {
+                            // Update context with saved subtitles locally to ensure state consistency
+                             // (Actual update happens via re-fetch or manual state update below)
+                        } else {
+                            throw new Error("Failed to auto-save transcription")
+                        }
+                    }
+
+                    // Save segments if needed
+                    if (shouldSaveSegments) {
+                         const response = await fetch(`${API_BASE_URL}/api/editor/audio/save-segments`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            credentials: "include",
+                            body: JSON.stringify({
+                                videoId: request.videoId,
+                                audioId: selectedVersion!.id,
+                                segments: editedSegments,
+                            }),
+                        })
+
+                        if (!response.ok) {
+                            throw new Error("Failed to auto-save segments")
+                        }
+                    }
+                    
+                    // Update context with all saved changes
+                    const updatedVersions = request.audioVersions.map(v => 
+                        v.id === selectedVersion!.id 
+                            ? { 
+                                ...v, 
+                                ...(shouldSaveTranscription ? { subtitles: editedSubtitles! } : {}),
+                                ...(shouldSaveSegments ? { segments: editedSegments! } : {})
+                              }
+                            : v
+                    )
+                    
+                    updateRequest({
+                        ...(shouldSaveTranscription ? { subtitles: editedSubtitles! } : {}),
+                        ...(shouldSaveSegments ? { scriptSegments: editedSegments! } : {}),
+                        audioVersions: updatedVersions,
                     })
 
-                    if (response.ok) {
-                        // Update context with saved subtitles
-                        const updatedVersions = request.audioVersions.map(v => 
-                            v.id === selectedVersion.id 
-                                ? { ...v, subtitles: editedSubtitles }
-                                : v
-                        )
-                        updateRequest({
-                            subtitles: editedSubtitles,
-                            audioVersions: updatedVersions,
-                        })
-                        toast.success("Transcription auto-saved")
-                    }
+                    toast.success("Changes auto-saved")
+                    
+                    // Proceed to next step regardless
+                    nextStep(true)
+
                 } catch (error) {
-                    console.error("Failed to auto-save transcription:", error)
+                    console.error("Failed to auto-save:", error)
+                    toast.error("Failed to save changes. Please save manually.")
                 }
-                // Proceed to next step regardless
-                nextStep(true)
             })
         } else {
             // No unsaved changes, clear custom next
@@ -432,7 +593,7 @@ export default function EditorAudioStep() {
         return () => {
             setCustomNext(undefined)
         }
-    }, [hasUnsavedChanges, editedSubtitles, selectedVersion, request.videoId, request.audioVersions, setCustomNext, nextStep, updateRequest])
+    }, [hasUnsavedChanges, editedSubtitles, hasUnsavedSegmentChanges, editedSegments, selectedVersion, request.videoId, request.audioVersions, setCustomNext, nextStep, updateRequest])
 
     return (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-4xl mx-auto space-y-8">
@@ -586,7 +747,9 @@ export default function EditorAudioStep() {
                             const isPlaying = playingVersionId === version.id
                             const versionNumber = request.audioVersions.length - index
                             const hasTranscription = version.subtitles && version.subtitles.length > 0
+                            const hasSegments = version.segments && version.segments.length > 0
                             const isTranscribingThis = isTranscribing && generateTranscriptionMutation.variables?.audioId === version.id
+                            const isSegmentingThis = isSegmenting && generateSegmentsMutation.variables?.audioId === version.id
 
                             return (
                                 <div
@@ -637,6 +800,12 @@ export default function EditorAudioStep() {
                                                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-medium">
                                                         <AlertCircle className="h-3 w-3" />
                                                         No transcription
+                                                    </span>
+                                                )}
+                                                {hasSegments && (
+                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-xs font-medium">
+                                                        <Scissors className="h-3 w-3" />
+                                                        Segmented
                                                     </span>
                                                 )}
                                             </div>
@@ -691,6 +860,28 @@ export default function EditorAudioStep() {
                                                         <>
                                                             <FileText className="h-4 w-4" />
                                                             Get Transcription
+                                                        </>
+                                                    )}
+                                                </Button>
+                                            )}
+                                            {/* Generate Segments Button (show for selected version with transcription but no segments) */}
+                                            {isSelected && hasTranscription && !hasSegments && (
+                                                <Button
+                                                    variant="default"
+                                                    size="sm"
+                                                    onClick={() => handleGenerateSegments(version.id)}
+                                                    disabled={isSegmentingThis}
+                                                    className="gap-1.5 rounded-xl bg-purple-600 hover:bg-purple-700"
+                                                >
+                                                    {isSegmentingThis ? (
+                                                        <>
+                                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                                            Segmenting...
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <Scissors className="h-4 w-4" />
+                                                            Segment
                                                         </>
                                                     )}
                                                 </Button>
@@ -759,6 +950,34 @@ export default function EditorAudioStep() {
                                         Click "Get Transcription" on the selected audio version to generate word-level subtitles. 
                                         This is required before proceeding to the next step.
                                     </p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Segmentation Error Display */}
+                    {segmentationError && (
+                        <div className="mt-4 p-4 rounded-xl bg-red-50 border border-red-200">
+                            <div className="flex items-start gap-3">
+                                <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+                                <div className="flex-1">
+                                    <h4 className="font-semibold text-red-800">Segmentation Failed</h4>
+                                    <p className="text-sm text-red-600 mt-1">{segmentationError}</p>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                            setSegmentationError(null)
+                                            if (selectedVersion) {
+                                                handleGenerateSegments(selectedVersion.id)
+                                            }
+                                        }}
+                                        disabled={isSegmenting || !selectedVersion}
+                                        className="mt-3 gap-1.5 rounded-lg border-red-200 text-red-700 hover:bg-red-100"
+                                    >
+                                        <RefreshCw className="h-3.5 w-3.5" />
+                                        Retry Segmentation
+                                    </Button>
                                 </div>
                             </div>
                         </div>
@@ -879,6 +1098,161 @@ export default function EditorAudioStep() {
                         <p className="text-xs text-slate-400">
                             Word-level timestamps are preserved. Editing words will not affect timing.
                         </p>
+                    </div>
+                </div>
+            )}
+
+            {/* Segmentation Required CTA */}
+            {needsSegmentation && !segmentationError && (
+                <div className="bg-white rounded-3xl border border-slate-200 p-6 md:p-8 shadow-sm animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="flex items-start gap-4 mb-6">
+                        <div className="p-3 rounded-2xl bg-purple-50 text-purple-600">
+                            <Scissors className="h-6 w-6" />
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-bold text-slate-900">Next Step: Segmentation</h3>
+                            <p className="text-slate-500 text-sm font-medium mt-1">
+                                Break down the script into visual scenes based on the audio timing.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="p-8 rounded-2xl bg-gradient-to-b from-purple-50 to-white border border-purple-100 flex flex-col items-center text-center">
+                        <div className="w-16 h-16 rounded-full bg-white border-2 border-purple-100 text-purple-600 flex items-center justify-center mb-4 shadow-sm">
+                            <Layers className="h-8 w-8" />
+                        </div>
+                        <h4 className="text-xl font-bold text-slate-900 mb-2">
+                            Ready to Create Scenes
+                        </h4>
+                        <p className="text-slate-600 max-w-md mb-8 leading-relaxed">
+                            The transcription is complete. Now we need to split the story into visual segments (scenes) to prepare for image generation.
+                        </p>
+                        <Button
+                            onClick={() => selectedVersion && handleGenerateSegments(selectedVersion.id)}
+                            disabled={isSegmenting}
+                            size="lg"
+                            className="h-14 px-8 text-base font-bold bg-purple-600 hover:bg-purple-700 gap-3 rounded-2xl shadow-lg shadow-purple-200 hover:shadow-purple-300 transition-all hover:-translate-y-0.5 active:translate-y-0"
+                        >
+                            {isSegmenting ? (
+                                <>
+                                    <Loader2 className="h-5 w-5 animate-spin" />
+                                    Analyzing Story...
+                                </>
+                            ) : (
+                                <>
+                                    <Scissors className="h-5 w-5" />
+                                    Generate Segments
+                                </>
+                            )}
+                        </Button>
+                    </div>
+                </div>
+            )}
+
+            {/* Segmentation Viewer/Editor Section */}
+            {selectedHasSegments && (
+                <div className="bg-white rounded-3xl border border-slate-200 p-6 md:p-8 shadow-sm">
+                    <div className="flex items-start justify-between gap-4 mb-6">
+                        <div className="flex items-start gap-4">
+                            <div className="p-3 rounded-2xl bg-purple-50 text-purple-600">
+                                <Layers className="h-6 w-6" />
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-bold text-slate-900">Segments</h3>
+                                <p className="text-slate-500 text-sm font-medium mt-1">
+                                    {(editedSegments || selectedVersion?.segments || []).length} scenes identified. 
+                                    {isEditingSegments 
+                                        ? " Edit the dialogue for each segment." 
+                                        : " Click Edit to modify segment dialogue."}
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            {isEditingSegments ? (
+                                <>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={handleCancelEditingSegments}
+                                        disabled={isSavingSegments}
+                                        className="gap-1.5 rounded-lg"
+                                    >
+                                        Cancel
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        onClick={handleSaveSegments}
+                                        disabled={isSavingSegments || !hasUnsavedSegmentChanges}
+                                        className="gap-1.5 rounded-lg bg-purple-600 hover:bg-purple-700"
+                                    >
+                                        {isSavingSegments ? (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                            <Save className="h-4 w-4" />
+                                        )}
+                                        Save Segments
+                                    </Button>
+                                </>
+                            ) : (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleStartEditingSegments}
+                                    className="gap-1.5 rounded-lg"
+                                >
+                                    <Edit3 className="h-4 w-4" />
+                                    Edit
+                                </Button>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Unsaved changes warning */}
+                    {hasUnsavedSegmentChanges && (
+                        <div className="mb-4 p-3 rounded-xl bg-amber-50 border border-amber-200 flex items-center gap-2">
+                            <AlertCircle className="h-4 w-4 text-amber-600" />
+                            <span className="text-sm text-amber-700">You have unsaved changes</span>
+                        </div>
+                    )}
+
+                    {/* Segments List */}
+                    <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+                        {(isEditingSegments ? editedSegments : selectedVersion?.segments)?.map((segment, index) => (
+                            <div 
+                                key={index} 
+                                className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-white transition-all group"
+                            >
+                                <div className="flex items-start gap-4">
+                                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center font-bold text-sm">
+                                        {index + 1}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-100 text-slate-500 text-xs font-medium border border-slate-200">
+                                                <Clock className="h-3 w-3" />
+                                                {formatFrameTime(segment.start)} - {formatFrameTime(segment.end)}
+                                            </span>
+                                            <span className="text-xs text-slate-400">
+                                                ({segment.duration}s)
+                                            </span>
+                                        </div>
+                                        
+                                        {isEditingSegments ? (
+                                            <textarea
+                                                value={segment.dialogue}
+                                                onChange={(e) => handleEditSegmentDialogue(index, e.target.value)}
+                                                className="w-full p-3 rounded-lg border-2 border-purple-100 focus:border-purple-500 focus:ring-4 focus:ring-purple-50 outline-none text-sm leading-relaxed resize-none bg-white transition-all"
+                                                rows={Math.max(2, Math.ceil(segment.dialogue.length / 60))}
+                                            />
+                                        ) : (
+                                            <p className="text-slate-700 text-sm leading-relaxed">
+                                                {segment.dialogue}
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 </div>
             )}

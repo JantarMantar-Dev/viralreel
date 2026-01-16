@@ -29,7 +29,16 @@ export interface AudioVersion {
     voiceName: string;
     tonePrompt?: string;
     subtitles?: SubtitleWord[]; // Optional - generated separately via transcription step
+    segments?: ScriptSegment[];  // Optional - generated separately via segmentation step
     generatedAt: string;
+}
+
+// Forward declaration for ScriptSegment (full type defined below)
+interface ScriptSegmentBase {
+    dialogue: string;
+    start: number;
+    end: number;
+    duration: number;
 }
 
 export interface GenerateAudioResult {
@@ -537,5 +546,319 @@ export async function saveTranscription(params: SaveTranscriptionParams): Promis
         success: true,
         audioId,
         wordCount: subtitles.length,
+    };
+}
+
+// =============================================================================
+// SCRIPT SEGMENT TYPES
+// =============================================================================
+
+export interface ScriptSegment {
+    dialogue: string;
+    start: number;  // frames at 30fps
+    end: number;    // frames at 30fps
+    duration: number; // seconds
+}
+
+export interface GenerateSegmentsParams {
+    videoId: string;
+    userId: string;
+    audioId: string;
+}
+
+export interface GenerateSegmentsResult {
+    success: boolean;
+    audioId: string;
+    segments: ScriptSegment[];
+    segmentCount: number;
+}
+
+export interface SaveSegmentsParams {
+    videoId: string;
+    userId: string;
+    audioId: string;
+    segments: ScriptSegment[];
+}
+
+export interface SaveSegmentsResult {
+    success: boolean;
+    audioId: string;
+    segmentCount: number;
+}
+
+// =============================================================================
+// LLM SEGMENTER (Using Gemini)
+// =============================================================================
+
+const SEGMENTER_MODEL = process.env.GOOGLE_SCRIPT_MODEL || 'gemini-3-flash-preview';
+
+interface SegmenterResponse {
+    segments: Array<{
+        dialogue: string;
+        start: number;
+        end: number;
+        duration?: number;
+    }>;
+}
+
+async function runLLMSegmenter(subtitles: SubtitleWord[]): Promise<ScriptSegment[]> {
+    if (!GOOGLE_API_KEY) {
+        throw new AppError("ConfigError", "GOOGLE_API_KEY not configured", 500);
+    }
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${SEGMENTER_MODEL}:generateContent?key=${GOOGLE_API_KEY}`;
+
+    const systemPrompt = `You are a professional video editor and script segmentation expert.
+You will be provided with a JSON array of words, each with a 'text', 'start', and 'end' timestamp (in frames at 30fps).
+
+Your task is to:
+1. **Analyze the Narrative**: Read the words to identify logical transitions, scene breaks, and narrative beats for video storytelling.
+2. **Create Segments**: Group these words into coherent segments of dialogue. Ensure each segment is large enough to be a natural conversation flow.
+3. **Strict Fidelity**: Every word from the input must be included in exactly one segment, in the original order. No words should be skipped, added, or changed.
+4. **Extract Timestamps**: For each segment:
+   - 'dialogue': The combined text of all words in this segment.
+   - 'start': The 'start' timestamp of the first word in the segment.
+   - 'end': The 'end' timestamp of the last word in the segment.
+5. **Pacing Constraints**:
+   - For approximately 30 seconds of total audio, aim for a maximum of 5 segments.
+   - For approximately 60 seconds of total audio, aim for a maximum of 10 segments.
+   Ensure each segment feels substantial and avoids rapid-fire cuts unless the narrative demands it.
+
+Output a JSON object with a 'segments' array following this schema:
+{
+  "segments": [
+    { "dialogue": "string", "start": number, "end": number }
+  ]
+}`;
+
+    const payload = {
+        contents: [{
+            parts: [{ text: JSON.stringify(subtitles) }]
+        }],
+        systemInstruction: {
+            parts: [{ text: systemPrompt }]
+        },
+        generationConfig: {
+            responseMimeType: "application/json",
+            temperature: 0.3,
+        }
+    };
+
+    console.log(`[EditorAudioService] Running LLM segmenter with ${subtitles.length} words...`);
+
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+        const errText = await response.text();
+        console.error(`[EditorAudioService] Gemini Segmenter API Error:`, errText);
+        throw new AppError("SegmentationError", `Segmentation failed: ${response.status}`, 500);
+    }
+
+    const data = await response.json();
+
+    // Extract JSON from response
+    const candidate = data.candidates?.[0];
+    if (!candidate?.content?.parts) {
+        throw new AppError("SegmentationError", "No segmentation data in response", 500);
+    }
+
+    const textPart = candidate.content.parts.find((p: any) => p.text);
+    if (!textPart?.text) {
+        throw new AppError("SegmentationError", "No text content in segmentation response", 500);
+    }
+
+    let segmenterOutput: SegmenterResponse;
+    try {
+        segmenterOutput = JSON.parse(textPart.text);
+    } catch (e) {
+        console.error(`[EditorAudioService] Failed to parse segmenter output:`, textPart.text);
+        throw new AppError("SegmentationError", "Invalid segmentation response format", 500);
+    }
+
+    if (!segmenterOutput.segments || !Array.isArray(segmenterOutput.segments)) {
+        throw new AppError("SegmentationError", "Segmentation response missing segments array", 500);
+    }
+
+    // Post-process segments for duration alignment
+    let segments = segmenterOutput.segments;
+
+    if (segments.length > 0) {
+        // Force first segment to start at 0
+        segments[0].start = 0;
+
+        // Bridge gaps between segments to ensure continuous video flow
+        for (let i = 0; i < segments.length - 1; i++) {
+            const currentSeg = segments[i];
+            const nextSeg = segments[i + 1];
+            if (currentSeg.end < nextSeg.start) {
+                currentSeg.end = nextSeg.start;
+            }
+        }
+
+        // Add 15 frame buffer to last segment
+        const lastSegment = segments[segments.length - 1];
+        lastSegment.end += 15;
+    }
+
+    // Convert to ScriptSegment with calculated durations
+    const scriptSegments: ScriptSegment[] = segments.map(s => {
+        const duration = (s.end - s.start) / 30;
+        return {
+            dialogue: s.dialogue,
+            start: s.start,
+            end: s.end,
+            duration: parseFloat(duration.toFixed(2))
+        };
+    });
+
+    console.log(`[EditorAudioService] Generated ${scriptSegments.length} segments`);
+
+    return scriptSegments;
+}
+
+// =============================================================================
+// GENERATE SEGMENTS
+// =============================================================================
+
+/**
+ * Generate segments for a specific audio version using LLM
+ * This requires transcription to be completed first
+ */
+export async function generateSegments(params: GenerateSegmentsParams): Promise<GenerateSegmentsResult> {
+    const { videoId, userId, audioId } = params;
+
+    // 1. Verify video belongs to user
+    const existingVideo = await db.select()
+        .from(video)
+        .where(and(eq(video.id, videoId), eq(video.userId, userId)))
+        .limit(1);
+
+    if (existingVideo.length === 0) {
+        throw new AppError("NotFound", "Video not found or access denied", 404);
+    }
+
+    const currentMetadata = (existingVideo[0].metadata as any) || {};
+    const audioVersions: AudioVersion[] = currentMetadata.audioVersions || [];
+
+    // 2. Find the audio version
+    const audioVersionIndex = audioVersions.findIndex(v => v.id === audioId);
+    if (audioVersionIndex === -1) {
+        throw new AppError("NotFound", "Audio version not found", 404);
+    }
+
+    const audioVersion = audioVersions[audioVersionIndex];
+
+    // 3. Check that transcription exists
+    if (!audioVersion.subtitles || audioVersion.subtitles.length === 0) {
+        throw new AppError("ValidationError", "Transcription must be generated before segmentation", 400);
+    }
+
+    // 4. Run LLM segmenter
+    console.log(`[EditorAudioService] Starting segmentation for audio version: ${audioId}`);
+    const segments = await runLLMSegmenter(audioVersion.subtitles);
+
+    if (segments.length === 0) {
+        throw new AppError("SegmentationError", "Segmentation failed - no segments generated. Please try again.", 500);
+    }
+
+    // 5. Update audio version with segments
+    const updatedAudioVersion = {
+        ...audioVersion,
+        segments,
+    };
+
+    const updatedVersions = [...audioVersions];
+    updatedVersions[audioVersionIndex] = updatedAudioVersion;
+
+    // 6. Update video metadata with segments
+    const isSelectedAudio = currentMetadata.selectedAudioId === audioId;
+    const updatedMetadata = {
+        ...currentMetadata,
+        audioVersions: updatedVersions,
+        // If this is the currently selected audio, also update the main segments
+        ...(isSelectedAudio && { scriptSegments: segments }),
+    };
+
+    await db.update(video)
+        .set({
+            metadata: updatedMetadata,
+            updatedAt: new Date()
+        })
+        .where(eq(video.id, videoId));
+
+    console.log(`[EditorAudioService] Segmentation complete: ${segments.length} segments`);
+
+    return {
+        success: true,
+        audioId,
+        segments,
+        segmentCount: segments.length,
+    };
+}
+
+// =============================================================================
+// SAVE EDITED SEGMENTS
+// =============================================================================
+
+/**
+ * Save edited segments for a specific audio version
+ */
+export async function saveSegments(params: SaveSegmentsParams): Promise<SaveSegmentsResult> {
+    const { videoId, userId, audioId, segments } = params;
+
+    // 1. Verify video belongs to user
+    const existingVideo = await db.select()
+        .from(video)
+        .where(and(eq(video.id, videoId), eq(video.userId, userId)))
+        .limit(1);
+
+    if (existingVideo.length === 0) {
+        throw new AppError("NotFound", "Video not found or access denied", 404);
+    }
+
+    const currentMetadata = (existingVideo[0].metadata as any) || {};
+    const audioVersions: AudioVersion[] = currentMetadata.audioVersions || [];
+
+    // 2. Find the audio version to update
+    const audioVersionIndex = audioVersions.findIndex(v => v.id === audioId);
+    if (audioVersionIndex === -1) {
+        throw new AppError("NotFound", "Audio version not found", 404);
+    }
+
+    // 3. Update the audio version with edited segments
+    const updatedAudioVersion = {
+        ...audioVersions[audioVersionIndex],
+        segments,
+    };
+
+    const updatedVersions = [...audioVersions];
+    updatedVersions[audioVersionIndex] = updatedAudioVersion;
+
+    // 4. Update video metadata
+    const isSelectedAudio = currentMetadata.selectedAudioId === audioId;
+    const updatedMetadata = {
+        ...currentMetadata,
+        audioVersions: updatedVersions,
+        // If this is the currently selected audio, also update the main segments
+        ...(isSelectedAudio && { scriptSegments: segments }),
+    };
+
+    await db.update(video)
+        .set({
+            metadata: updatedMetadata,
+            updatedAt: new Date()
+        })
+        .where(eq(video.id, videoId));
+
+    console.log(`[EditorAudioService] Saved edited segments: ${segments.length} segments`);
+
+    return {
+        success: true,
+        audioId,
+        segmentCount: segments.length,
     };
 }

@@ -19,6 +19,16 @@ export interface SubtitleWord {
 }
 
 // =============================================================================
+// SCRIPT SEGMENT - For dialogue segments with timing
+// =============================================================================
+export interface ScriptSegment {
+    dialogue: string
+    start: number   // frames at 30fps
+    end: number     // frames at 30fps
+    duration: number // seconds
+}
+
+// =============================================================================
 // AUDIO VERSION - For tracking multiple audio generations
 // =============================================================================
 export interface AudioVersion {
@@ -30,6 +40,7 @@ export interface AudioVersion {
     voiceName: string
     tonePrompt?: string
     subtitles?: SubtitleWord[] // Optional - generated separately via transcription step
+    segments?: ScriptSegment[] // Optional - generated separately via segmentation step
     generatedAt: string
 }
 
@@ -86,6 +97,7 @@ export interface EditorModeRequest {
     subtitles?: SubtitleWord[]
     audioVersions: AudioVersion[]  // List of all generated audio versions
     selectedAudioId?: string       // ID of the currently selected audio version
+    scriptSegments?: ScriptSegment[] // Segments for the selected audio (after segmentation)
     
     // Phase 3: Visuals
     segments: VisualSegment[]
@@ -182,6 +194,7 @@ export const INITIAL_EDITOR_REQUEST: EditorModeRequest = {
     subtitles: undefined,
     audioVersions: [],
     selectedAudioId: undefined,
+    scriptSegments: undefined,
     segments: [],
     subtitleStyleId: undefined,
     subtitleStyleName: undefined,

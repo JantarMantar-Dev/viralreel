@@ -1,6 +1,6 @@
 import { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { generateAudio, getAudioUrl, generateTranscription, saveTranscription } from "../services/editor-audio-service.js";
+import { generateAudio, getAudioUrl, generateTranscription, saveTranscription, generateSegments, saveSegments } from "../services/editor-audio-service.js";
 import { storageProvider } from "../lib/storage.js";
 import { AppError } from "../lib/errors.js";
 
@@ -24,6 +24,22 @@ const saveTranscriptionSchema = z.object({
         text: z.string(),
         start: z.number(),
         end: z.number(),
+    })),
+});
+
+const generateSegmentsSchema = z.object({
+    videoId: z.string().min(1, "videoId is required"),
+    audioId: z.string().min(1, "audioId is required"),
+});
+
+const saveSegmentsSchema = z.object({
+    videoId: z.string().min(1, "videoId is required"),
+    audioId: z.string().min(1, "audioId is required"),
+    segments: z.array(z.object({
+        dialogue: z.string(),
+        start: z.number(),
+        end: z.number(),
+        duration: z.number(),
     })),
 });
 
@@ -212,6 +228,101 @@ export default async function editorAudioRoutes(fastify: FastifyInstance) {
             }
             return reply.status(500).send({ 
                 error: error.message || "Failed to save transcription" 
+            });
+        }
+    });
+
+    /**
+     * POST /api/editor/audio/segment
+     * Generate segments for a specific audio version using LLM
+     * Requires transcription to be completed first
+     */
+    fastify.post("/segment", async (request, reply) => {
+        const userId = request.session.userId;
+        if (!userId) {
+            return reply.status(401).send({ error: "Unauthorized" });
+        }
+
+        const validation = generateSegmentsSchema.safeParse(request.body);
+        if (!validation.success) {
+            return reply.status(400).send({
+                error: "Validation failed",
+                details: validation.error.format()
+            });
+        }
+
+        const { videoId, audioId } = validation.data;
+
+        try {
+            const result = await generateSegments({
+                videoId,
+                userId,
+                audioId,
+            });
+
+            return {
+                success: true,
+                audioId: result.audioId,
+                segments: result.segments,
+                segmentCount: result.segmentCount,
+            };
+        } catch (error: any) {
+            fastify.log.error(error);
+            if (error?.name === 'AppError') {
+                return reply.status(error.statusCode).send({ 
+                    key: error.key, 
+                    message: error.message 
+                });
+            }
+            return reply.status(500).send({ 
+                error: error.message || "Failed to generate segments" 
+            });
+        }
+    });
+
+    /**
+     * POST /api/editor/audio/save-segments
+     * Save edited segments for a specific audio version
+     */
+    fastify.post("/save-segments", async (request, reply) => {
+        const userId = request.session.userId;
+        if (!userId) {
+            return reply.status(401).send({ error: "Unauthorized" });
+        }
+
+        const validation = saveSegmentsSchema.safeParse(request.body);
+        if (!validation.success) {
+            return reply.status(400).send({
+                error: "Validation failed",
+                details: validation.error.format()
+            });
+        }
+
+        const { videoId, audioId, segments } = validation.data;
+
+        try {
+            const result = await saveSegments({
+                videoId,
+                userId,
+                audioId,
+                segments,
+            });
+
+            return {
+                success: true,
+                audioId: result.audioId,
+                segmentCount: result.segmentCount,
+            };
+        } catch (error: any) {
+            fastify.log.error(error);
+            if (error?.name === 'AppError') {
+                return reply.status(error.statusCode).send({ 
+                    key: error.key, 
+                    message: error.message 
+                });
+            }
+            return reply.status(500).send({ 
+                error: error.message || "Failed to save segments" 
             });
         }
     });

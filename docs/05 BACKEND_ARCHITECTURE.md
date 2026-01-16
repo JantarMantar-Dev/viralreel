@@ -71,6 +71,7 @@ AudioVersion: {
   voiceName: string,
   tonePrompt?: string,
   subtitles?: SubtitleWord[],          // Optional - generated separately
+  segments?: ScriptSegment[],          // Optional - generated separately
   generatedAt: string
 }
 
@@ -79,6 +80,14 @@ SubtitleWord: {
   text: string,
   start: number,                       // frames at 30fps
   end: number                          // frames at 30fps
+}
+
+// ScriptSegment structure
+ScriptSegment: {
+  dialogue: string,
+  start: number,                       // frames at 30fps
+  end: number,                         // frames at 30fps
+  duration: number                     // seconds
 }
 ```
 
@@ -159,6 +168,8 @@ The existing script generation infrastructure handles:
 | GET | `/api/editor/audio/:videoId` | Get signed URL for audio playback |
 | POST | `/api/editor/audio/transcribe` | Generate transcription for selected audio |
 | POST | `/api/editor/audio/save-transcription` | Save edited transcription |
+| POST | `/api/editor/audio/segment` | Generate segments from transcription |
+| POST | `/api/editor/audio/save-segments` | Save edited segments |
 
 **POST `/api/editor/audio/generate`**
 - Input: `videoId`, `script`, `voiceId`, optional `tonePrompt`
@@ -180,6 +191,18 @@ The existing script generation infrastructure handles:
 - Returns: `audioId`, `wordCount`
 - **Use Case**: User edits transcription words in the UI to fix errors
 
+**POST `/api/editor/audio/segment`**
+- Input: `videoId`, `audioId`
+- Process: Use Gemini LLM to analyze transcription → Group words into scenes → Align timestamps
+- Returns: `audioId`, `segments[]`, `segmentCount`
+- Updates: `video.metadata.audioVersions[].segments`, `video.metadata.scriptSegments` (if selected)
+- **Dependency**: Requires transcription to be completed first
+
+**POST `/api/editor/audio/save-segments`**
+- Input: `videoId`, `audioId`, `segments[]`
+- Process: Save user-edited segments to metadata
+- Returns: `audioId`, `segmentCount`
+
 **Integration Details (Server-Side):**
 - **TTS Provider**: Uses `CustomGeminiTTS` with `gemini-2.5-flash-preview-tts` (or user-configured model).
 - **Subtitles/Transcription** (Separate Step):
@@ -188,12 +211,17 @@ The existing script generation infrastructure handles:
     - **Logic**: Post-processing of generated audio to extract word-level timestamps using `groq.audio.transcriptions.create`.
     - **Why**: Decoupled from audio generation for better error handling and user control.
     - **Environment Variable**: `GROQ_TTS_KEY` or `GROQ_API_KEY`
+- **Segmentation** (Separate Step):
+    - **Provider**: **Google Generative AI** (Gemini)
+    - **Model**: `gemini-3-flash-preview`
+    - **Logic**: LLM-based grouping of words into coherent narrative segments.
 
 **Audio Versioning:**
 - Multiple audio versions are stored in `metadata.audioVersions[]`
-- Each version has: `id`, `audioKey`, `durationSeconds`, `voiceId`, `voiceName`, `tonePrompt`, `subtitles?`, `generatedAt`
+- Each version has: `id`, `audioKey`, `durationSeconds`, `voiceId`, `voiceName`, `tonePrompt`, `subtitles?`, `segments?`, `generatedAt`
 - `metadata.selectedAudioId` tracks the currently selected version
 - Subtitles are optional per version - only generated when user clicks "Get Transcription"
+- Segments are optional per version - only generated when user clicks "Segment" after transcription
 
 ### 2.4 Phase 3: Visuals API
 
@@ -314,16 +342,19 @@ Client-side state mirrors the video metadata structure:
 **Required Fields**:
 - Video: `videoId`, `currentPhase`
 - Phase 1 (Script): `nicheId`, `nicheName`, `scriptIdea`, `episodeTitle`, `duration`, `approvedScript`, `scriptGenerationCount`
-- Phase 2 (Audio): `voiceId`, `voiceName`, `audioUrl`, `audioKey`, `tonePrompt`, `audioGenerationCount`, `audioVersions[]`, `selectedAudioId`, `subtitles[]`
+- Phase 2 (Audio): `voiceId`, `voiceName`, `audioUrl`, `audioKey`, `tonePrompt`, `audioGenerationCount`, `audioVersions[]`, `selectedAudioId`, `subtitles[]`, `scriptSegments[]`
 - Phase 3 (Visuals): `visualStyle`, `segments[]`
 - Phase 4 (Subtitles): `subtitleStyleId`, `subtitleStyleName`
 - Phase 5 (Review): `aspectRatio`, `isDraft`
 
 **AudioVersion Type**:
-- `id`, `audioKey`, `audioUrl`, `durationSeconds`, `voiceId`, `voiceName`, `tonePrompt?`, `subtitles?`, `generatedAt`
+- `id`, `audioKey`, `audioUrl`, `durationSeconds`, `voiceId`, `voiceName`, `tonePrompt?`, `subtitles?`, `segments?`, `generatedAt`
 
 **SubtitleWord Type**:
 - `text`, `start` (frames at 30fps), `end` (frames at 30fps)
+
+**ScriptSegment Type**:
+- `dialogue`, `start` (frames at 30fps), `end` (frames at 30fps), `duration` (seconds)
 
 ### 4.2 Auto-Save Strategy
 
