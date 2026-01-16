@@ -182,9 +182,9 @@ export default function EditorReviewStep() {
                             <p className="text-sm font-semibold text-slate-400">Title, niche, and content</p>
                         </div>
                     </div>
-                    <Button 
-                        variant="ghost" 
-                        className="text-purple-600 font-bold hover:bg-purple-50 hover:text-purple-700" 
+                    <Button
+                        variant="ghost"
+                        className="text-purple-600 font-bold hover:bg-purple-50 hover:text-purple-700"
                         onClick={() => navigate("../script")}
                     >
                         Edit <Pencil className="ml-2 h-4 w-4" />
@@ -215,9 +215,9 @@ export default function EditorReviewStep() {
                             <p className="text-sm font-semibold text-slate-400">{wordCount} words</p>
                         </div>
                     </div>
-                    <Button 
-                        variant="ghost" 
-                        className="text-purple-600 font-bold hover:bg-purple-50 hover:text-purple-700" 
+                    <Button
+                        variant="ghost"
+                        className="text-purple-600 font-bold hover:bg-purple-50 hover:text-purple-700"
                         onClick={() => navigate("../script")}
                     >
                         Edit <Pencil className="ml-2 h-4 w-4" />
@@ -246,9 +246,9 @@ export default function EditorReviewStep() {
                             </p>
                         </div>
                     </div>
-                    <Button 
-                        variant="ghost" 
-                        className="text-purple-600 font-bold hover:bg-purple-50 hover:text-purple-700" 
+                    <Button
+                        variant="ghost"
+                        className="text-purple-600 font-bold hover:bg-purple-50 hover:text-purple-700"
                         onClick={() => navigate("../audio")}
                     >
                         Edit <Pencil className="ml-2 h-4 w-4" />
@@ -261,8 +261,8 @@ export default function EditorReviewStep() {
                             onClick={handlePlayPauseAudio}
                             className={cn(
                                 "w-12 h-12 rounded-full flex items-center justify-center transition-all shadow-md",
-                                isPlayingAudio 
-                                    ? "bg-purple-600 text-white" 
+                                isPlayingAudio
+                                    ? "bg-purple-600 text-white"
                                     : "bg-white text-purple-600 border-2 border-purple-200"
                             )}
                         >
@@ -272,23 +272,35 @@ export default function EditorReviewStep() {
                                 <Play className="h-5 w-5 ml-0.5" />
                             )}
                         </button>
-                        <div className="flex-1">
-                            <span className="text-sm font-bold text-slate-900">{request.voiceName}</span>
+                        <div className="min-w-0">
+                            <h4 className="text-sm font-bold text-slate-900 truncate">{request.voiceName}</h4>
                             {request.tonePrompt && (
-                                <p className="text-xs text-slate-500 mt-0.5">Tone: {request.tonePrompt}</p>
+                                <p className="text-xs text-slate-500 truncate">Tone: {request.tonePrompt}</p>
                             )}
                         </div>
-                        <div className="flex items-center gap-1 h-6">
-                            {[0.4, 0.8, 0.3, 0.9, 0.5, 0.7, 0.6].map((h, i) => (
-                                <div 
-                                    key={i} 
-                                    style={{ height: `${h * 100}%` }} 
-                                    className={cn(
-                                        "w-1 rounded-full",
-                                        isPlayingAudio ? "bg-purple-400 animate-pulse" : "bg-slate-300"
-                                    )} 
-                                />
-                            ))}
+                        <div className="flex-1 flex items-center justify-end gap-0.5 h-8 overflow-hidden">
+                            {Array.from({ length: 120 }).map((_, i) => {
+                                // Create a pseudo-random height based on index
+                                const baseHeight = Math.max(0.2, (Math.sin(i * 0.5) + 1) / 2);
+                                const randomOffset = Math.random() * 0.4;
+                                const height = Math.min(1, baseHeight * 0.7 + randomOffset);
+
+                                return (
+                                    <div
+                                        key={i}
+                                        className={cn(
+                                            "w-1 rounded-full flex-shrink-0 transition-all duration-300",
+                                            isPlayingAudio
+                                                ? "bg-purple-500 animate-[pulse_1s_ease-in-out_infinite]"
+                                                : "bg-purple-200/50"
+                                        )}
+                                        style={{
+                                            height: `${height * 100}%`,
+                                            animationDelay: `${i * 0.05}s`
+                                        }}
+                                    />
+                                )
+                            })}
                         </div>
                         <audio
                             ref={audioRef}
@@ -318,9 +330,9 @@ export default function EditorReviewStep() {
                             <p className="text-sm font-semibold text-slate-400">{segmentsWithImages} of {segmentCount} segments</p>
                         </div>
                     </div>
-                    <Button 
-                        variant="ghost" 
-                        className="text-purple-600 font-bold hover:bg-purple-50 hover:text-purple-700" 
+                    <Button
+                        variant="ghost"
+                        className="text-purple-600 font-bold hover:bg-purple-50 hover:text-purple-700"
                         onClick={() => navigate("../visuals")}
                     >
                         Edit <Pencil className="ml-2 h-4 w-4" />
@@ -378,9 +390,9 @@ export default function EditorReviewStep() {
                             </p>
                         </div>
                     </div>
-                    <Button 
-                        variant="ghost" 
-                        className="text-purple-600 font-bold hover:bg-purple-50 hover:text-purple-700" 
+                    <Button
+                        variant="ghost"
+                        className="text-purple-600 font-bold hover:bg-purple-50 hover:text-purple-700"
                         onClick={() => navigate("../subtitles")}
                     >
                         Edit <Pencil className="ml-2 h-4 w-4" />
@@ -416,7 +428,7 @@ export default function EditorReviewStep() {
                     <div>
                         <h3 className="text-xl font-bold text-slate-900">Ready to create your video?</h3>
                         <p className="text-slate-500 mt-1">
-                            {isReadyToRender 
+                            {isReadyToRender
                                 ? "All steps are complete. Click to start rendering."
                                 : "Please complete all steps before rendering."}
                         </p>
