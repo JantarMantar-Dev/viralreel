@@ -167,6 +167,10 @@ export default function EditorVisualsStep() {
                 segmentId,
                 prompt: newPrompt
             })
+            
+            // Invalidate cache so returning to this page shows fresh data
+            queryClient.invalidateQueries({ queryKey: ["editor-video", request.videoId] })
+            
             // No toast needed for auto-save unless error
         } catch (error) {
             console.error("Failed to save prompt:", error)
