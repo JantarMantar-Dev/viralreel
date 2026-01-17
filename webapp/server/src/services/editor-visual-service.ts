@@ -221,7 +221,6 @@ export async function analyzeVisuals(params: AnalyzeVisualsParams): Promise<{ se
     }
 
     // 4. Update video metadata
-    const currentMetadata = (existingVideo[0].metadata as any) || {};
     const updatedMetadata = {
         ...currentMetadata,
         editorMode: true,
