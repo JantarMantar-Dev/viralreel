@@ -321,6 +321,9 @@ export default function EditorModeLayout() {
         createJob({ ...request, isDraft: true })
     }
 
+    // Check if all visual segments have images
+    const areVisualsReady = Array.isArray(request.segments) && request.segments.length > 0 && request.segments.every(s => s && !!(s.imageUrl || s.generatedImageUrl))
+
     // Get missing fields message for tooltip
     const getMissingFieldsMessage = (): string | null => {
         if (path === 'niche' && !request.nicheId) {
@@ -331,6 +334,9 @@ export default function EditorModeLayout() {
         }
         if (path === 'audio' && !canContinue) {
             return "Please select an audio version and generate transcription"
+        }
+        if (path === 'visuals' && !areVisualsReady) {
+            return "Please generate images for all segments to continue"
         }
         return null
     }
@@ -524,6 +530,7 @@ export default function EditorModeLayout() {
                                                     (path === 'niche' && !canContinue) ||
                                                     (path === 'script' && !request.approvedScript) ||
                                                     (path === 'audio' && !canContinue) ||
+                                                    (path === 'visuals' && !areVisualsReady) ||
                                                     isPending ||
                                                     !!isStepLoading
                                                 }
