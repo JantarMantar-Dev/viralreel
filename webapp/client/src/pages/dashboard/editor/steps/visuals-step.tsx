@@ -112,8 +112,7 @@ export default function EditorVisualsStep() {
             if (request.segments.length === 0) {
                 const analyzeResult = await analyzeVisualsMutation.mutateAsync({
                     videoId: request.videoId,
-                    script: scriptForVisuals,
-                    audioDurationSeconds: request.audioDurationSeconds,
+                    segments: request.segments || [],
                 })
 
                 updateRequest({ segments: analyzeResult.segments })
@@ -138,7 +137,7 @@ export default function EditorVisualsStep() {
 
     // Analyze script to get segments (without generating images)
     const handleAnalyzeScript = async () => {
-        if (!request.videoId || !scriptForVisuals || !request.audioDurationSeconds) {
+        if (!request.videoId) {
             toast.error("Missing required data")
             return
         }
@@ -146,8 +145,7 @@ export default function EditorVisualsStep() {
         try {
             const result = await analyzeVisualsMutation.mutateAsync({
                 videoId: request.videoId,
-                script: scriptForVisuals,
-                audioDurationSeconds: request.audioDurationSeconds,
+                segments: request.segments || [],
             })
 
             updateRequest({ segments: result.segments })

@@ -223,8 +223,7 @@ export function useGetAudioUrl(videoId: string | undefined) {
 
 interface AnalyzeVisualsParams {
     videoId: string
-    script: string
-    audioDurationSeconds: number
+    segments: any[]
 }
 
 interface AnalyzeVisualsResult {

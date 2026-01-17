@@ -19,9 +19,7 @@ const segmentInputSchema = z.object({
 
 const analyzeVisualsSchema = z.object({
     videoId: z.string().min(1, "videoId is required"),
-    script: z.string().min(1, "script is required"),
-    audioDurationSeconds: z.number().positive("audioDurationSeconds must be positive"),
-    segments: z.array(segmentInputSchema).optional(),
+    segments: z.array(segmentInputSchema),
 });
 
 const generateSegmentSchema = z.object({
@@ -59,14 +57,12 @@ export default async function editorVisualsRoutes(fastify: FastifyInstance) {
             });
         }
 
-        const { videoId, script, audioDurationSeconds, segments } = validation.data;
+        const { videoId, segments } = validation.data;
 
         try {
             const result = await analyzeVisuals({
                 videoId,
                 userId,
-                script,
-                audioDurationSeconds,
                 segments,
             });
 
