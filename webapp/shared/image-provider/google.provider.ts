@@ -25,16 +25,8 @@ export class GoogleImageProvider implements IImageModelProvider {
         // Append style if provided
         let styledPrompt = prompt;
         if (style) {
-            const normalizedStyle = style.toLowerCase().replace(/-/g, ' ');
-            
-            // Try new preset system first
-            const presetPrompt = applyStyle(prompt, normalizedStyle);
-            
-            if (presetPrompt !== prompt) {
-                styledPrompt = presetPrompt;
-            } else if (IMAGE_STYLES[normalizedStyle]) {
-                styledPrompt = `${prompt} Style: ${IMAGE_STYLES[normalizedStyle]}.`;
-            }
+            const normalizedStyle = style.toLowerCase(); // IDs are lowercase in presets
+            styledPrompt = applyStyle(prompt, normalizedStyle);
         }
 
         // Append aspect ratio to prompt as per Google's recommendation/implementation

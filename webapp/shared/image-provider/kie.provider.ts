@@ -133,14 +133,8 @@ export class KieImageProvider implements IImageModelProvider {
         // Apply style if provided
         let styledPrompt = prompt;
         if (style) {
-            const normalizedStyle = style.toLowerCase().replace(/-/g, ' ');
-            const presetPrompt = applyStyle(prompt, normalizedStyle);
-            
-            if (presetPrompt !== prompt) {
-                styledPrompt = presetPrompt;
-            } else if (IMAGE_STYLES[normalizedStyle]) {
-                styledPrompt = `${prompt} Style: ${IMAGE_STYLES[normalizedStyle]}.`;
-            }
+            const normalizedStyle = style.toLowerCase();
+            styledPrompt = applyStyle(prompt, normalizedStyle);
         }
 
         if (this.isDev) {

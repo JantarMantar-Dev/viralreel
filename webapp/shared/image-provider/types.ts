@@ -1,3 +1,5 @@
+import { IMAGE_STYLE_PRESETS as PRESET_STYLES } from './style-presets.js';
+
 export interface ImageGenerationOptions {
     prompt: string;
     aspectRatio?: string;
@@ -17,22 +19,16 @@ export interface IImageModelProvider {
     providerName: string;
 }
 
-export const IMAGE_STYLES: Record<string, string> = {
-    "comic": "Bold comic-book style, thick outlines",
-    "creepy comic": "Horror-comic style, exaggerated shades",
-    "painting": "Detailed traditional painting style",
-    "ghibli": "Studio Ghibli-inspired, soft colors",
-    "anime": "Clean anime style, sharp linework",
-    "dark fantasy": "Moody atmosphere, dark colors",
-    "lego": "Plastic texture, LEGO figure style",
-    "polaroid": "Vintage Polaroid style, soft glow",
-    "disney": "Classic animation style, soft curves",
-    "realism": "Ultra-realistic photographic style",
-    "fantastic": "Vibrant magical fantasy style"
-};
+// Map the new structured styles to a simple Record<string, string> for backward compatibility
+// where value is the description.
+export const IMAGE_STYLES: Record<string, string> = Object.entries(PRESET_STYLES).reduce((acc, [key, value]) => {
+    acc[key] = value.description;
+    return acc;
+}, {} as Record<string, string>);
 
 export const ASPECT_RATIOS: Record<string, string> = {
     "portrait": "9:16",
     "landscape": "16:9",
     "square": "1:1"
 };
+
