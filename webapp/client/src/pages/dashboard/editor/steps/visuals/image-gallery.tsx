@@ -72,12 +72,20 @@ export function ImageGallerySection({
                     <div className="flex gap-2">
                             <Button
                             variant="outline"
-                            onClick={onOpenRegeneratePrompts}
+                            onClick={() => {
+                                // Only show confirmation dialog if there are existing prompts
+                                if (hasPrompts) {
+                                    onOpenRegeneratePrompts()
+                                } else {
+                                    // No existing prompts, generate directly without confirmation
+                                    onAnalyzeScript()
+                                }
+                            }}
                             disabled={isGeneratingAll || !canAnalyze}
                             className="gap-2"
                         >
                             <Pencil className="h-4 w-4" />
-                            Generate Visual Prompts
+                            {hasPrompts ? "Regenerate Visual Prompts" : "Generate Visual Prompts"}
                         </Button>
                         <TooltipProvider>
                             <Tooltip>

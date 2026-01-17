@@ -30,6 +30,7 @@ export interface AnalyzeVisualsParams {
     userId: string;
     script: string;
     audioDurationSeconds: number;
+    segments?: any[];
 }
 
 export interface GenerateSegmentImageParams {
@@ -159,6 +160,105 @@ Return ONLY the JSON object, no other text.`;
     }
 }
 
+async function generatePromptsForExistingSegments(script: string, segments: any[]): Promise<{ segments: Omit<VisualSegment, 'id'>[] }> {
+    if (!GOOGLE_API_KEY) {
+        throw new AppError("ConfigError", "GOOGLE_API_KEY not configured", 500);
+    }
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${SCRIPT_MODEL}:generateContent?key=${GOOGLE_API_KEY}`;
+
+    // Prepare segments context (simplified)
+    const segmentsContext = segments.map(s => ({
+        index: s.index,
+        timeRange: s.timeRange,
+        subtitleText: s.subtitleText
+    }));
+
+    const prompt = `You are a visual director for AI video generation.
+
+Here is a script broken down into segments. Your task is to generate a detailed 'imagePrompt' for EACH segment.
+Do NOT add, remove, or re-order segments. Strictly output the same segments with the added 'imagePrompt'.
+
+SCRIPT:
+"""
+${script}
+"""
+
+SEGMENTS:
+${JSON.stringify(segmentsContext, null, 2)}
+
+For each segment, provide a detailed visual prompt describing the scene to generate as an image.
+- Visual prompts are detailed, cinematic, and describe specific scenes matching the dialogue/narration.
+- Visual prompts should be suitable for AI image generation.
+
+Return a JSON object with this structure:
+{
+  "segments": [
+    {
+      "index": 0,
+      "timeRange": [0, 5.5],
+      "subtitleText": "...",
+      "imagePrompt": "A detailed description..."
+    }
+  ]
+}
+
+Return ONLY the JSON object.`;
+
+    console.log(`[EditorVisualService] Generating prompts for ${segments.length} existing segments`);
+
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+                temperature: 0.7,
+                maxOutputTokens: 4096,
+            }
+        })
+    });
+
+    if (!response.ok) {
+        const errText = await response.text();
+        console.error(`[EditorVisualService] LLM API Error:`, errText);
+        throw new AppError("LLMError", `Prompt generation failed: ${response.status}`, 500);
+    }
+
+    const data = await response.json();
+
+    const textPart = data.candidates?.[0]?.content?.parts?.find((p: any) => p.text);
+    if (!textPart?.text) {
+        throw new AppError("LLMError", "No response from LLM", 500);
+    }
+
+    let jsonText = textPart.text.trim();
+    if (jsonText.startsWith('```json')) {
+        jsonText = jsonText.slice(7);
+    }
+    if (jsonText.startsWith('```')) {
+        jsonText = jsonText.slice(3);
+    }
+    if (jsonText.endsWith('```')) {
+        jsonText = jsonText.slice(0, -3);
+    }
+
+    try {
+        const parsed = JSON.parse(jsonText.trim());
+        
+        // Validation: Ensure count matches
+        if (parsed.segments.length !== segments.length) {
+            console.warn(`[EditorVisualService] Mismatch in segment count. Input: ${segments.length}, Output: ${parsed.segments.length}. Attempting to align.`);
+            // Fallback: Use output prompts if indices match, otherwise careful
+        }
+        
+        return parsed;
+    } catch (e) {
+        console.error(`[EditorVisualService] Failed to parse LLM response:`, jsonText);
+        throw new AppError("LLMError", "Failed to parse prompt generation", 500);
+    }
+}
+
 // =============================================================================
 // IMAGE GENERATION (Gemini)
 // =============================================================================
@@ -236,7 +336,7 @@ async function generateImage(prompt: string, style?: string, aspectRatio: string
  * Analyze script and generate visual segments
  */
 export async function analyzeVisuals(params: AnalyzeVisualsParams): Promise<{ segments: VisualSegment[] }> {
-    const { videoId, userId, script, audioDurationSeconds } = params;
+    const { videoId, userId, script, audioDurationSeconds, segments: inputSegments } = params;
 
     // 1. Verify video belongs to user
     const existingVideo = await db.select()
@@ -249,14 +349,41 @@ export async function analyzeVisuals(params: AnalyzeVisualsParams): Promise<{ se
     }
 
     // 2. Analyze script with LLM
-    const analysis = await analyzeScriptWithLLM(script, audioDurationSeconds);
+    let analysis;
+    if (inputSegments && inputSegments.length > 0) {
+        analysis = await generatePromptsForExistingSegments(script, inputSegments);
+        
+        // Ensure we preserve the original IDs if passed, or assign new ones if missing
+        // But since we are generating fresh prompts, we can just map the results
+        // matching by index if possible
+    } else {
+        analysis = await analyzeScriptWithLLM(script, audioDurationSeconds);
+    }
 
-    // 3. Add IDs to segments
-    const segments: VisualSegment[] = analysis.segments.map((seg, idx) => ({
-        ...seg,
-        id: uuidv4(),
-        index: idx,
-    }));
+    // 3. Construct final segments
+    const segments: VisualSegment[] = [];
+
+    if (inputSegments && inputSegments.length > 0) {
+        // Strict alignment with input segments
+        for (const inputSeg of inputSegments) {
+            // Find corresponding generated segment
+            const genSeg = analysis.segments.find(s => s.index === inputSeg.index) || analysis.segments[inputSeg.index];
+            
+            segments.push({
+                ...inputSeg, // Preserve original data (id, timing, subtitle)
+                imagePrompt: genSeg?.imagePrompt || "Cinematic scene matching the dialogue",
+                // Ensure ID exists
+                id: inputSeg.id || uuidv4(),
+            });
+        }
+    } else {
+        // New segmentation
+        segments.push(...analysis.segments.map((seg, idx) => ({
+            ...seg,
+            id: uuidv4(),
+            index: idx,
+        })));
+    }
 
     // 4. Update video metadata
     const currentMetadata = (existingVideo[0].metadata as any) || {};

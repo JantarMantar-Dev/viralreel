@@ -9,10 +9,19 @@ import {
 import { AppError } from "../lib/errors.js";
 
 // Validation schemas
+const segmentInputSchema = z.object({
+    index: z.number(),
+    timeRange: z.tuple([z.number(), z.number()]),
+    subtitleText: z.string(),
+    id: z.string().optional(),
+    imagePrompt: z.string().optional(),
+});
+
 const analyzeVisualsSchema = z.object({
     videoId: z.string().min(1, "videoId is required"),
     script: z.string().min(1, "script is required"),
     audioDurationSeconds: z.number().positive("audioDurationSeconds must be positive"),
+    segments: z.array(segmentInputSchema).optional(),
 });
 
 const generateSegmentSchema = z.object({
@@ -50,7 +59,7 @@ export default async function editorVisualsRoutes(fastify: FastifyInstance) {
             });
         }
 
-        const { videoId, script, audioDurationSeconds } = validation.data;
+        const { videoId, script, audioDurationSeconds, segments } = validation.data;
 
         try {
             const result = await analyzeVisuals({
@@ -58,6 +67,7 @@ export default async function editorVisualsRoutes(fastify: FastifyInstance) {
                 userId,
                 script,
                 audioDurationSeconds,
+                segments,
             });
 
             return {
