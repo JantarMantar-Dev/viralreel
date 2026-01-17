@@ -54,7 +54,10 @@ export const IMAGE_STYLES: Record<string, string> = SHARED_STYLES;
 // SCRIPT ANALYSIS (LLM-based segmentation)
 // =============================================================================
 
-async function generatePromptsForExistingSegments(segments: any[]): Promise<{ segments: Omit<VisualSegment, 'id'>[] }> {
+async function generatePromptsForExistingSegments(
+    segments: any[],
+    styleDetails?: { name: string; description: string }
+): Promise<{ segments: Omit<VisualSegment, 'id'>[] }> {
     if (!GOOGLE_API_KEY) {
         throw new AppError("ConfigError", "GOOGLE_API_KEY not configured", 500);
     }
@@ -67,6 +70,10 @@ async function generatePromptsForExistingSegments(segments: any[]): Promise<{ se
         subtitleText: s.subtitleText
     }));
 
+    const styleInstruction = styleDetails
+        ? `\nIMPORTANT: The images must be generated in the following style:\n- Style Name: ${styleDetails.name}\n- Style Description: ${styleDetails.description}\nEnsure all visual prompts reflect this specific art style.`
+        : "";
+
     const prompt = `You are a visual director for AI video generation.
 
 Here is a list of segments with their subtitle text. Your task is to generate a detailed 'imagePrompt' for EACH segment based on its text.
@@ -77,7 +84,7 @@ ${JSON.stringify(segmentsContext, null, 2)}
 
 For each segment, provide a detailed visual prompt describing the scene to generate as an image.
 - Visual prompts are detailed, cinematic, and describe specific scenes matching the dialogue/narration.
-- Visual prompts should be suitable for AI image generation.
+- Visual prompts should be suitable for AI image generation.${styleInstruction}
 
 Return a JSON object with this structure:
 {
@@ -183,8 +190,19 @@ export async function analyzeVisuals(params: AnalyzeVisualsParams): Promise<{ se
         throw new AppError("NotFound", "Video not found or access denied", 404);
     }
 
+    const currentMetadata = (existingVideo[0].metadata as any) || {};
+    const visualStyleId = currentMetadata.visualStyle;
+    let styleDetails;
+
+    if (visualStyleId && IMAGE_STYLES[visualStyleId]) {
+        styleDetails = {
+            name: visualStyleId,
+            description: IMAGE_STYLES[visualStyleId]
+        };
+    }
+
     // 2. Analyze script with LLM (Generate prompts for existing segments)
-    const analysis = await generatePromptsForExistingSegments(inputSegments);
+    const analysis = await generatePromptsForExistingSegments(inputSegments, styleDetails);
 
     // 3. Construct final segments
     const segments: VisualSegment[] = [];
