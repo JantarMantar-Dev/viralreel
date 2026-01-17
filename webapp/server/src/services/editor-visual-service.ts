@@ -4,10 +4,11 @@ import { eq, and } from "drizzle-orm";
 import { storageProvider } from "../lib/storage.js";
 import { AppError } from "../lib/errors.js";
 import { v4 as uuidv4 } from "uuid";
+import { ImageProviderFactory, IMAGE_STYLES as SHARED_STYLES } from "../../../shared/image-provider/index.js";
 
 const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
 // Use the same model as the worker for consistent results
-const IMAGE_MODEL = process.env.GOOGLE_IMAGE_MODEL || 'gemini-3-pro-image-preview';
+// const IMAGE_MODEL = process.env.GOOGLE_IMAGE_MODEL || 'gemini-3-pro-image-preview'; // Moved to provider
 const SCRIPT_MODEL = process.env.GOOGLE_SCRIPT_MODEL || 'gemini-3-flash-preview';
 
 // =============================================================================
@@ -46,19 +47,7 @@ export interface GenerateAllImagesParams {
 }
 
 // Visual Style Definitions (matching worker)
-export const IMAGE_STYLES: Record<string, string> = {
-    "comic": "Bold comic-book style, thick outlines",
-    "creepy comic": "Horror-comic style, exaggerated shades",
-    "painting": "Detailed traditional painting style",
-    "ghibli": "Studio Ghibli-inspired, soft colors",
-    "anime": "Clean anime style, sharp linework",
-    "dark fantasy": "Moody atmosphere, dark colors",
-    "lego": "Plastic texture, LEGO figure style",
-    "polaroid": "Vintage Polaroid style, soft glow",
-    "disney": "Classic animation style, soft curves",
-    "realism": "Ultra-realistic photographic style",
-    "fantastic": "Vibrant magical fantasy style"
-};
+export const IMAGE_STYLES: Record<string, string> = SHARED_STYLES;
 
 // =============================================================================
 // SCRIPT ANALYSIS (LLM-based segmentation)
@@ -156,72 +145,21 @@ Return ONLY the JSON object.`;
 }
 
 // =============================================================================
-// IMAGE GENERATION (Gemini)
+// IMAGE GENERATION
 // =============================================================================
 
 async function generateImage(prompt: string, style?: string, aspectRatio: string = "9:16"): Promise<Buffer> {
-    if (!GOOGLE_API_KEY) {
-        throw new AppError("ConfigError", "GOOGLE_API_KEY not configured", 500);
+    try {
+        const provider = ImageProviderFactory.getProvider();
+        return await provider.generateImage({
+            prompt,
+            style,
+            aspectRatio
+        });
+    } catch (error: any) {
+        console.error(`[EditorVisualService] Image generation failed:`, error);
+        throw new AppError("ImageError", error.message || "Image generation failed", 500);
     }
-
-    // Map common aspect ratio aliases to numerical values
-    const arMap: Record<string, string> = {
-        "portrait": "9:16",
-        "landscape": "16:9",
-        "square": "1:1"
-    };
-    const mappedAR = arMap[aspectRatio.toLowerCase()] || aspectRatio;
-
-    // Append style if provided
-    let styledPrompt = prompt;
-    if (style) {
-        const normalizedStyle = style.toLowerCase().replace(/-/g, ' ');
-        if (IMAGE_STYLES[normalizedStyle]) {
-            styledPrompt = `${prompt} Style: ${IMAGE_STYLES[normalizedStyle]}.`;
-        }
-    }
-
-    // Append aspect ratio
-    const augmentedPrompt = `${styledPrompt} --aspect_ratio ${mappedAR}`;
-
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${IMAGE_MODEL}:generateContent?key=${GOOGLE_API_KEY}`;
-
-    console.log(`[EditorVisualService] Generating image: "${augmentedPrompt.substring(0, 50)}..." with AR: ${mappedAR}`);
-
-    const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            contents: [{ parts: [{ text: augmentedPrompt }] }],
-            generationConfig: {
-                candidateCount: 1,
-            }
-        })
-    });
-
-    if (!response.ok) {
-        const errText = await response.text();
-        console.error(`[EditorVisualService] Image API Error:`, errText);
-        throw new AppError("ImageError", `Image generation failed: ${response.status}`, 500);
-    }
-
-    const data = await response.json();
-
-    // Find image data in response
-    const parts = data.candidates?.[0]?.content?.parts;
-    const imagePart = parts?.find((p: any) => p.inlineData || p.inline_data);
-
-    if (!imagePart) {
-        // Check if model returned text instead
-        const textPart = parts?.find((p: any) => p.text);
-        if (textPart) {
-            console.error(`[EditorVisualService] Model returned text instead of image:`, textPart.text.substring(0, 100));
-        }
-        throw new AppError("ImageError", "No image data in response", 500);
-    }
-
-    const imageBase64 = (imagePart.inlineData || imagePart.inline_data).data;
-    return Buffer.from(imageBase64, 'base64');
 }
 
 // =============================================================================
