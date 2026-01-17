@@ -1,6 +1,7 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { ImageProviderFactory, IMAGE_STYLES as SHARED_STYLES } from '../../../shared/image-provider/index.js';
+import { ImageProviderFactory } from '../../../shared/image-provider/factory.js';
+import { IMAGE_STYLES as SHARED_STYLES } from '../../../shared/image-provider/types.js';
 
 // Visual Style Definitions
 export const IMAGE_STYLES = SHARED_STYLES;

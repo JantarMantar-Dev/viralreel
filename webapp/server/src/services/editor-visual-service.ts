@@ -4,7 +4,8 @@ import { eq, and } from "drizzle-orm";
 import { storageProvider } from "../lib/storage.js";
 import { AppError } from "../lib/errors.js";
 import { v4 as uuidv4 } from "uuid";
-import { ImageProviderFactory, IMAGE_STYLES as SHARED_STYLES } from "../../../shared/image-provider/index.js";
+import { ImageProviderFactory } from "../../../shared/image-provider/factory.js";
+import { IMAGE_STYLES as SHARED_STYLES } from "../../../shared/image-provider/types.js";
 
 const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
 // Use the same model as the worker for consistent results
