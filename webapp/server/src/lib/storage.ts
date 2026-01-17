@@ -134,28 +134,42 @@ export class StorageProvider {
     }
 
     /**
+     * Ensures we have a valid signed URL.
+     * If input is a key (not a URL), generates a signed URL.
+     * If input is a URL from our bucket (signed or not), regenerates a fresh signed URL.
+     * If input is an external URL, returns it as is.
+     */
+    async ensureValidSignedUrl(input: string, expiresInSeconds = 10800): Promise<string> {
+        if (!input) return input;
+
+        try {
+            const urlObj = new URL(input);
+            
+            // Check if it belongs to our bucket (Path style: /bucket/key)
+            const pathParts = urlObj.pathname.split('/');
+            // pathParts[0] is "", pathParts[1] is bucket
+            
+            if (pathParts[1] === this.bucket) {
+                const key = pathParts.slice(2).join('/');
+                if (key) {
+                    return await this.getSignedUrl(key, expiresInSeconds);
+                }
+            }
+            
+            // Return external URLs as is
+            return input;
+        } catch (e) {
+            // Not a URL, treat as key
+            return await this.getSignedUrl(input, expiresInSeconds);
+        }
+    }
+
+    /**
      * Extracts key from full URL and returns signed URL.
      * If URL is not from this bucket, returns original URL.
      */
     async getSignedUrlFromFullUrl(fullUrl: string): Promise<string> {
-        if (!fullUrl || !this.bucket) return fullUrl;
-
-        try {
-            const urlObj = new URL(fullUrl);
-            const pathParts = urlObj.pathname.split('/');
-            // Expected format: /bucket/key/path/file.ext
-            // pathParts[0] is "", pathParts[1] is bucket
-
-            if (pathParts[1] === this.bucket) {
-                const key = pathParts.slice(2).join('/');
-                if (key) {
-                    return await this.getSignedUrl(key);
-                }
-            }
-            return fullUrl;
-        } catch (e) {
-            return fullUrl;
-        }
+        return this.ensureValidSignedUrl(fullUrl);
     }
 }
 

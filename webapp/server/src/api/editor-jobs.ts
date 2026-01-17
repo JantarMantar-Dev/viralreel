@@ -69,10 +69,7 @@ export default async function editorJobRoutes(fastify: FastifyInstance) {
             const metadata = v.metadata as any || {};
 
             // Generate signed URLs for audio if available
-            let audioUrl: string | undefined;
-            if (metadata.audioKey) {
-                audioUrl = await storageProvider.getSignedUrl(metadata.audioKey, 3 * 60 * 60);
-            }
+            const audioUrl = await storageProvider.ensureValidSignedUrl(metadata.audioKey || metadata.audioUrl);
 
             // Generate signed URLs for segment images
             // If metadata.segments (VisualSegments) is empty, fall back to scriptSegments converted to basic VisualSegments
@@ -106,8 +103,8 @@ export default async function editorJobRoutes(fastify: FastifyInstance) {
             
             const segmentsWithUrls = await Promise.all(
                 segments.map(async (seg: any) => {
-                    if (seg.imageKey) {
-                        const imageUrl = await storageProvider.getSignedUrl(seg.imageKey, 3 * 60 * 60);
+                    const imageUrl = await storageProvider.ensureValidSignedUrl(seg.imageKey || seg.imageUrl);
+                    if (imageUrl) {
                         return { ...seg, imageUrl };
                     }
                     return seg;
