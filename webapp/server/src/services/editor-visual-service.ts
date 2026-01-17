@@ -320,6 +320,121 @@ export async function generateSegmentImage(params: GenerateSegmentImageParams): 
     return { segment: updatedSegments[segmentIndex] };
 }
 
+
+// =============================================================================
+// BACKGROUND PROCESSING
+// =============================================================================
+
+async function processBackgroundGeneration(
+    videoId: string,
+    userId: string,
+    styleDetails: { name: string; description: string } | undefined,
+    initialSegments: VisualSegment[]
+) {
+    console.log(`[EditorVisualService] Starting background generation for video ${videoId}`);
+
+    try {
+        for (const segment of initialSegments) {
+            try {
+                console.log(`[EditorVisualService] Generating image for segment ${segment.index + 1}/${initialSegments.length}`);
+
+                let promptToUse = segment.imagePrompt;
+                if (styleDetails) {
+                    promptToUse = `${segment.imagePrompt} Style: ${styleDetails.description}.`;
+                }
+
+                // fetch fresh metadata to get aspect ratio
+                const currentVideo = await db.select().from(video).where(eq(video.id, videoId)).limit(1);
+                if (!currentVideo.length) throw new Error("Video not found during processing");
+                const currentMetadata = currentVideo[0].metadata as any;
+
+                const imageBuffer = await generateImage(
+                    promptToUse,
+                    undefined,
+                    currentMetadata.aspectRatio || "portrait"
+                );
+
+                // Upload to S3
+                const imageKey = `videos/${userId}/${videoId}/images/${segment.id}.png`;
+                await storageProvider.uploadFile(imageBuffer, imageKey, 'image/png');
+
+                // Get signed URL
+                const imageUrl = await storageProvider.getSignedUrl(imageKey);
+
+                // Update DB with result for this segment
+                const freshVideo = await db.select().from(video).where(eq(video.id, videoId)).limit(1);
+                if (!freshVideo.length) break;
+                
+                const freshMetadata = freshVideo[0].metadata as any;
+                const freshSegments = freshMetadata.segments || [];
+                
+                const segIndex = freshSegments.findIndex((s: any) => s.id === segment.id);
+                if (segIndex !== -1) {
+                    freshSegments[segIndex] = {
+                        ...freshSegments[segIndex],
+                        imageKey,
+                        imageUrl,
+                        generatedAt: new Date().toISOString(),
+                        isGenerating: false
+                    };
+
+                    await db.update(video)
+                        .set({
+                            metadata: { ...freshMetadata, segments: freshSegments },
+                            updatedAt: new Date()
+                        })
+                        .where(eq(video.id, videoId));
+                }
+
+            } catch (error) {
+                console.error(`[EditorVisualService] Failed to generate image for segment ${segment.id}:`, error);
+                
+                // Update segment to not generating on error
+                const freshVideo = await db.select().from(video).where(eq(video.id, videoId)).limit(1);
+                if (freshVideo.length) {
+                    const freshMetadata = freshVideo[0].metadata as any;
+                    const freshSegments = freshMetadata.segments || [];
+                    const segIndex = freshSegments.findIndex((s: any) => s.id === segment.id);
+                    if (segIndex !== -1) {
+                        freshSegments[segIndex] = { ...freshSegments[segIndex], isGenerating: false };
+                        await db.update(video)
+                            .set({ metadata: { ...freshMetadata, segments: freshSegments } })
+                            .where(eq(video.id, videoId));
+                    }
+                }
+            }
+        }
+
+        // Final update: set status to COMPLETED
+        const finalVideo = await db.select().from(video).where(eq(video.id, videoId)).limit(1);
+        if (finalVideo.length) {
+            const finalMetadata = finalVideo[0].metadata as any;
+            await db.update(video)
+                .set({
+                    metadata: { 
+                        ...finalMetadata, 
+                        imageGenerationStatus: 'COMPLETED' 
+                    },
+                    updatedAt: new Date()
+                })
+                .where(eq(video.id, videoId));
+        }
+
+    } catch (error) {
+        console.error(`[EditorVisualService] Fatal error in background generation:`, error);
+        // Attempt to set status to FAILED
+        const errVideo = await db.select().from(video).where(eq(video.id, videoId)).limit(1);
+        if (errVideo.length) {
+            const errMetadata = errVideo[0].metadata as any;
+            await db.update(video)
+                .set({
+                    metadata: { ...errMetadata, imageGenerationStatus: 'FAILED' }
+                })
+                .where(eq(video.id, videoId));
+        }
+    }
+}
+
 /**
  * Generate images for all segments
  */
@@ -340,6 +455,13 @@ export async function generateAllImages(params: GenerateAllImagesParams): Promis
     if (!metadata?.segments || metadata.segments.length === 0) {
         throw new AppError("BadRequest", "No segments found - run analyze first", 400);
     }
+    
+    // Check if already generating
+    if (metadata.imageGenerationStatus === 'GENERATING') {
+        // Return current segments, maybe throw error if we want to prevent double click (frontend should handle)
+        // But for idempotency, if it's already running, just return what we have.
+        return { segments: metadata.segments };
+    }
 
     const visualStyle = style || metadata.visualStyle;
     let styleDetails;
@@ -351,53 +473,28 @@ export async function generateAllImages(params: GenerateAllImagesParams): Promis
         };
     }
 
-    const updatedSegments: VisualSegment[] = [];
+    // 2. Set status to GENERATING and mark segments
+    const initialSegments = metadata.segments.map((s: any) => ({
+        ...s,
+        isGenerating: true
+    }));
 
-    // 2. Generate images for each segment (sequentially to avoid rate limits)
-    for (const segment of metadata.segments) {
-        try {
-            console.log(`[EditorVisualService] Generating image for segment ${segment.index + 1}/${metadata.segments.length}`);
-
-            let promptToUse = segment.imagePrompt;
-            if (styleDetails) {
-                promptToUse = `${segment.imagePrompt} Style: ${styleDetails.description}.`;
-            }
-
-            const imageBuffer = await generateImage(
-                promptToUse,
-                undefined,
-                metadata.aspectRatio || "portrait" // Default to portrait if not set
-            );
-
-            // Upload to S3
-            const imageKey = `videos/${userId}/${videoId}/images/${segment.id}.png`;
-            await storageProvider.uploadFile(imageBuffer, imageKey, 'image/png');
-
-            // Get signed URL
-            const imageUrl = await storageProvider.getSignedUrl(imageKey);
-
-            updatedSegments.push({
-                ...segment,
-                imageKey,
-                imageUrl,
-                generatedAt: new Date().toISOString(),
-            });
-        } catch (error) {
-            console.error(`[EditorVisualService] Failed to generate image for segment ${segment.id}:`, error);
-            // Continue with other segments, keep the original without image
-            updatedSegments.push(segment);
-        }
-    }
-
-    // 3. Update video metadata
     await db.update(video)
         .set({
-            metadata: { ...metadata, segments: updatedSegments, visualStyle },
+            metadata: { 
+                ...metadata, 
+                segments: initialSegments, 
+                visualStyle,
+                imageGenerationStatus: 'GENERATING'
+            },
             updatedAt: new Date()
         })
         .where(eq(video.id, videoId));
 
-    return { segments: updatedSegments };
+    // 3. Start background processing (fire and forget)
+    processBackgroundGeneration(videoId, userId, styleDetails, initialSegments);
+
+    return { segments: initialSegments };
 }
 
 /**

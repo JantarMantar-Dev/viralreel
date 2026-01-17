@@ -42,7 +42,6 @@ export function useCreateDraftVideo() {
     })
 }
 
-// =============================================================================
 // AUDIO HOOKS
 // =============================================================================
 
@@ -229,6 +228,7 @@ interface AnalyzeVisualsParams {
 interface AnalyzeVisualsResult {
     success: boolean
     segments: VisualSegment[]
+    imageGenerationStatus?: 'IDLE' | 'GENERATING' | 'COMPLETED' | 'FAILED'
 }
 
 export function useAnalyzeVisuals() {

@@ -101,6 +101,7 @@ export interface EditorModeRequest {
     
     // Phase 3: Visuals
     segments: VisualSegment[]
+    imageGenerationStatus?: 'IDLE' | 'GENERATING' | 'COMPLETED' | 'FAILED'
     
     // Phase 4: Subtitles
     subtitleStyleId?: string

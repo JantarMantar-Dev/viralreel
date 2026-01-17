@@ -64,11 +64,27 @@ export default function EditorVisualsStep() {
                 hasUpdates = true
             }
 
+            // Sync image generation status
+            if (video.imageGenerationStatus && video.imageGenerationStatus !== request.imageGenerationStatus) {
+                updates.imageGenerationStatus = video.imageGenerationStatus
+                hasUpdates = true
+            }
+
             if (hasUpdates) {
                 updateRequest(updates)
             }
         }
-    }, [videoData, videoIdParam, request.segments.length, request.audioDurationSeconds, request.approvedScript, request.audioUrl, request.audioVersions.length, request.selectedAudioId, updateRequest])
+    }, [videoData, videoIdParam, request.segments.length, request.audioDurationSeconds, request.approvedScript, request.audioUrl, request.audioVersions.length, request.selectedAudioId, request.imageGenerationStatus, updateRequest])
+
+    // Poll for status if generating
+    useEffect(() => {
+        if (request.imageGenerationStatus === 'GENERATING' && request.videoId) {
+            const interval = setInterval(() => {
+                queryClient.invalidateQueries({ queryKey: ["editor-video", request.videoId] })
+            }, 3000)
+            return () => clearInterval(interval)
+        }
+    }, [request.imageGenerationStatus, request.videoId, queryClient])
 
     // API hooks
     const analyzeVisualsMutation = useAnalyzeVisuals()
@@ -124,12 +140,15 @@ export default function EditorVisualsStep() {
                 style: request.visualStyle,
             })
 
-            updateRequest({ segments: result.segments })
+            updateRequest({ 
+                segments: result.segments,
+                imageGenerationStatus: 'GENERATING'
+            })
             
             // Invalidate cache so returning to this page shows fresh data
             queryClient.invalidateQueries({ queryKey: ["editor-video", request.videoId] })
             
-            toast.success("All images generated successfully!")
+            toast.success("Image generation started. This may take a few moments.")
         } catch (error: any) {
             toast.error(error.message || "Failed to generate visuals")
         }
@@ -241,7 +260,9 @@ export default function EditorVisualsStep() {
         }
     }
 
-    const isGeneratingAll = generateAllMutation.isPending || analyzeVisualsMutation.isPending
+    const isGeneratingAll = generateAllMutation.isPending || 
+                            analyzeVisualsMutation.isPending || 
+                            request.imageGenerationStatus === 'GENERATING'
     const hasSegments = request.segments.length > 0
 
     return (

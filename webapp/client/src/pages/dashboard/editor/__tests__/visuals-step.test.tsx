@@ -275,6 +275,20 @@ describe('EditorVisualsStep Component', () => {
             // Should show confirmation dialog
             expect(screen.getByText('Regenerate All Images?')).toBeInTheDocument()
         })
+
+        it('should disable Generate All Images button when image generation is in progress', async () => {
+            renderVisualsStep({
+                editorContext: {
+                    request: createMockEditorRequest({ 
+                        segments: MOCK_SEGMENTS,
+                        imageGenerationStatus: 'GENERATING'
+                    })
+                }
+            })
+
+            const generateButton = screen.getByRole('button', { name: /Generate All Images/i })
+            expect(generateButton).toBeDisabled()
+        })
     })
 
     describe('Manual Prompt Editing', () => {

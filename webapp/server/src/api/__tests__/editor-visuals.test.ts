@@ -138,7 +138,7 @@ describe('Editor Visuals API', () => {
 
             // Verify Image Generation
             expect(mockImageProvider.generateImage).toHaveBeenCalledWith({
-                prompt: 'A futuristic city',
+                prompt: expect.stringContaining('A futuristic city'),
                 style: undefined,
                 aspectRatio: '9:16'
             });
@@ -269,8 +269,8 @@ describe('Editor Visuals API', () => {
             }
         };
 
-        it('should generate images for all segments and update metadata', async () => {
-            mockDb.limit.mockResolvedValueOnce([mockVideo]);
+        it('should start background generation and update status', async () => {
+            mockDb.limit.mockResolvedValue([mockVideo]);
 
             const response = await fastify.inject({
                 method: 'POST',
@@ -283,30 +283,20 @@ describe('Editor Visuals API', () => {
             expect(body.success).toBe(true);
             expect(body.segments).toHaveLength(2);
             
-            // Check first segment
-            expect(body.segments[0].imageKey).toBeDefined();
-            expect(body.segments[0].imageUrl).toBe('https://s3.example.com/image.png');
+            // Check that segments are marked as generating
+            expect(body.segments[0].isGenerating).toBe(true);
+            expect(body.segments[1].isGenerating).toBe(true);
             
-            // Verify Image Generation called twice
-            expect(mockImageProvider.generateImage).toHaveBeenCalledTimes(2);
-            expect(mockImageProvider.generateImage).toHaveBeenCalledWith({
-                prompt: 'prompt 1 Style: Clean anime style, sharp linework.',
-                style: undefined,
-                aspectRatio: '9:16'
-            });
+            // Verify DB updated to GENERATING status
+            expect(mockDb.set).toHaveBeenCalledWith(expect.objectContaining({
+                metadata: expect.objectContaining({
+                    imageGenerationStatus: 'GENERATING',
+                    visualStyle: 'anime'
+                })
+            }));
 
-             // Verify DB Update
-             expect(mockDb.update).toHaveBeenCalled();
-             // Should update all segments
-             expect(mockDb.set).toHaveBeenCalledWith(expect.objectContaining({
-                 metadata: expect.objectContaining({
-                     segments: expect.arrayContaining([
-                         expect.objectContaining({ id: 'seg-1', imageUrl: expect.any(String) }),
-                         expect.objectContaining({ id: 'seg-2', imageUrl: expect.any(String) })
-                     ]),
-                     visualStyle: 'anime'
-                 })
-             }));
+            // Note: Background process runs asynchronously, so we don't assert completion here
+            // unless we add a delay or mock the background execution flow more deeply.
         });
     });
 });

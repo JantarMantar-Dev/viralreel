@@ -144,6 +144,7 @@ export default async function editorJobRoutes(fastify: FastifyInstance) {
                     musicName: metadata.musicName,
                     aspectRatio: metadata.aspectRatio || "portrait",
                     duration: metadata.duration,
+                    imageGenerationStatus: metadata.imageGenerationStatus,
                 },
             };
         } catch (error: any) {
