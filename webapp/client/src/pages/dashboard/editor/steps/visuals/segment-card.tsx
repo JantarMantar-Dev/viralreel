@@ -7,6 +7,7 @@ import {
     Pencil,
     Maximize2,
     RefreshCw,
+    Captions
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -103,7 +104,8 @@ export function SegmentCard({
                         <div className="flex flex-col gap-6">
                                 {/* Subtitle Text */}
                             <div className="space-y-2">
-                                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
+                                <span className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider">
+                                    <Captions className="h-3 w-3" />
                                     Subtitle Text
                                 </span>
                                 <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">

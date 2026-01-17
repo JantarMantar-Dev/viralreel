@@ -13,7 +13,10 @@ import {
     Image, 
     ChevronLeft, 
     ChevronRight,
-    X 
+    X,
+    Hash,
+    Captions,
+    Pencil
 } from "lucide-react"
 import { VisualSegment } from "../../context/editor-creation-context"
 import { getSegmentImageUrl } from "./utils"
@@ -193,14 +196,38 @@ export function ImagePreviewDialog({
                     )}
 
                     {/* Footer Info */}
-                    <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent flex justify-between items-end">
-                        <div className="text-white">
-                            <p className="font-medium text-lg">Segment #{currentIndex + 1}</p>
-                            <p className="text-white/60 text-sm line-clamp-2 max-w-2xl">
-                                {currentSegment?.imagePrompt || "No prompt available"}
-                            </p>
+                    <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/90 via-black/60 to-transparent flex justify-between items-end">
+                        <div className="text-white space-y-4 max-w-3xl">
+                            {/* Segment Number */}
+                            <div className="flex items-center gap-2 text-white/90">
+                                <Hash className="h-4 w-4 text-purple-400" />
+                                <span className="font-bold text-lg">Segment #{currentIndex + 1}</span>
+                            </div>
+
+                            {/* Subtitle Text */}
+                            <div className="space-y-1">
+                                <div className="flex items-center gap-2 text-xs font-bold text-white/60 uppercase tracking-wider">
+                                    <Captions className="h-3 w-3" />
+                                    Subtitle Text
+                                </div>
+                                <p className="text-white/90 text-sm leading-relaxed pl-5">
+                                    {currentSegment?.subtitleText || "No subtitle text"}
+                                </p>
+                            </div>
+
+                            {/* Visual Prompt */}
+                            <div className="space-y-1">
+                                <div className="flex items-center gap-2 text-xs font-bold text-white/60 uppercase tracking-wider">
+                                    <Pencil className="h-3 w-3" />
+                                    Visual Prompt
+                                </div>
+                                <p className="text-white/60 text-sm line-clamp-2 pl-5">
+                                    {currentSegment?.imagePrompt || "No prompt available"}
+                                </p>
+                            </div>
                         </div>
-                        <div className="text-white/60 text-sm">
+
+                        <div className="text-white/40 text-sm font-medium bg-black/20 px-3 py-1 rounded-full border border-white/10 backdrop-blur-sm mb-1">
                             {currentIndex + 1} / {segments.length}
                         </div>
                     </div>
