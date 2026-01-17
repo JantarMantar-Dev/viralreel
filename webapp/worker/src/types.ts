@@ -34,8 +34,8 @@ export interface ScriptSegment {
     dialogue: string;
     duration?: number; // estimated duration
     imageAssetPath?: string; // path to generated image (local or public URL)
-    imageKey?: string; 
-    imageSignedUrl?: string; 
+    imageKey?: string;
+    imageSignedUrl?: string;
     imageSignedUrlExpiresAt?: string;
     imageEffect?: string;
     // Add other script-specific fields as needed
@@ -43,9 +43,11 @@ export interface ScriptSegment {
 
 export interface ScriptContent {
     segments: ScriptSegment[];
-    // Add other top-level script fields if needed, e.g. global audio settings
-    audioUrl?: string; // Maybe the script has a decided audio URL?
+    title: string;
+    description?: string;
+    subtitles?: SubtitleSegment[];
     audioKey?: string;
+    audioUrl?: string;
     audioSignedUrl?: string;
     audioSignedUrlExpiresAt?: string;
 }

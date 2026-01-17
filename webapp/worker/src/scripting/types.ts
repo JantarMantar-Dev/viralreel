@@ -23,6 +23,10 @@ export const ScriptContentSchema = z.object({
     title: z.string(),
     description: z.string().optional(),
     subtitles: z.array(SubtitleWordSchema).optional(),
+    audioKey: z.string().optional(),
+    audioUrl: z.string().optional(),
+    audioSignedUrl: z.string().optional(),
+    audioSignedUrlExpiresAt: z.string().optional(),
 });
 
 export const ScriptWriterOutputSchema = z.object({
