@@ -33,7 +33,10 @@ export interface ScriptSegment {
     visualPrompt: string;
     dialogue: string;
     duration?: number; // estimated duration
-    imageAssetPath?: string; // path to generated image
+    imageAssetPath?: string; // path to generated image (local or public URL)
+    imageKey?: string; 
+    imageSignedUrl?: string; 
+    imageSignedUrlExpiresAt?: string;
     imageEffect?: string;
     // Add other script-specific fields as needed
 }
@@ -42,4 +45,7 @@ export interface ScriptContent {
     segments: ScriptSegment[];
     // Add other top-level script fields if needed, e.g. global audio settings
     audioUrl?: string; // Maybe the script has a decided audio URL?
+    audioKey?: string;
+    audioSignedUrl?: string;
+    audioSignedUrlExpiresAt?: string;
 }

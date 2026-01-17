@@ -10,6 +10,7 @@ import {
 import { ScriptWriterOutputSchema, SegmenterOutputSchema, VisualizerOutputSchema, ScriptContent, SubtitlesOutputSchema, ScriptWriterOutput, SegmenterOutput, VisualizerOutput } from './types.js';
 import { resolveWorkDir, writeToFile, addWavHeader, reconstructStoryFromSubtitles } from './utils.js';
 import { CustomGeminiTTS } from './custom_tts_model.js';
+import { uploadToS3 } from '../lib/s3.js';
 import dotenv from 'dotenv';
 import Groq from 'groq-sdk';
 import fs from 'fs';
@@ -189,7 +190,7 @@ async function runSingleAgent<T>(agent: LlmAgent, input: string): Promise<T> {
 /**
  * Step 2: Generate Audio
  */
-export const generateAudio = async (text: string, voiceId: string, videoId?: string): Promise<{ audioBase64: string, wavBase64: string, durationFrames: number }> => {
+export const generateAudio = async (text: string, voiceId: string, videoId?: string): Promise<{ audioBase64: string, wavBase64: string, durationFrames: number, audioKey?: string }> => {
     console.log(`[ScriptingFlow] Generating audio with Voice: ${voiceId}`);
     const audioGenerator = createAudioGenerator({ ttsVoice: voiceId });
     const audioRunner = new InMemoryRunner({
@@ -227,6 +228,8 @@ export const generateAudio = async (text: string, voiceId: string, videoId?: str
     }
 
     let wavBase64 = finalAudioBase64;
+    let audioKey: string | undefined;
+
     // Save locally if videoId provided
     if (videoId) {
         try {
@@ -244,9 +247,14 @@ export const generateAudio = async (text: string, voiceId: string, videoId?: str
             await writeToFile(workDir, 'audio.wav', wavBuffer);
             console.log(`[ScriptingFlow] Saved local audio to: ${audioPath}`);
 
+            // Upload to S3
+            audioKey = `videos/${videoId}/audio.wav`;
+            await uploadToS3(audioPath, audioKey, 'audio/wav');
+            console.log(`[ScriptingFlow] Uploaded audio to S3: ${audioKey}`);
+
             wavBase64 = wavBuffer.toString('base64');
         } catch (err) {
-            console.error(`[ScriptingFlow] Failed to save local audio file:`, err);
+            console.error(`[ScriptingFlow] Failed to save/upload audio file:`, err);
         }
     }
 
@@ -256,7 +264,7 @@ export const generateAudio = async (text: string, voiceId: string, videoId?: str
     const durationSeconds = audioBuffer.length / 48000;
     const durationFrames = Math.ceil(durationSeconds * 30);
 
-    return { audioBase64: finalAudioBase64, wavBase64, durationFrames };
+    return { audioBase64: finalAudioBase64, wavBase64, durationFrames, audioKey };
 };
 
 /**
@@ -344,11 +352,23 @@ export const runContentPipeline = async (videoId: string, prompt: string, voiceI
 
     // 2. Generate Audio
     console.log(`[ContentPipeline] 2. Generating Audio...`);
-    const { durationFrames: audioDurationFrames } = await generateAudio(story, voiceId, videoId);
+    const { durationFrames: audioDurationFrames, audioKey: audioKey } = await generateAudio(story, voiceId, videoId);
 
     // 3. Generate Subtitles
     console.log(`[ContentPipeline] 3. Generating Subtitles...`);
     const subtitles = await generateSubtitles(videoId);
+
+    // Cleanup local audio file
+    try {
+        const workDir = await resolveWorkDir(videoId);
+        const audioPath = path.join(workDir, 'audio.wav');
+        if (fs.existsSync(audioPath)) {
+            await fs.promises.unlink(audioPath);
+            console.log(`[ContentPipeline] Cleaned up local audio file: ${audioPath}`);
+        }
+    } catch (cleanupErr) {
+        console.warn(`[ContentPipeline] Failed to cleanup audio file:`, cleanupErr);
+    }
 
     // 4. Reconstruct Story from Subtitles (Ground Truth)
     const groundTruthStory = reconstructStoryFromSubtitles(subtitles);
@@ -427,7 +447,8 @@ export const runContentPipeline = async (videoId: string, prompt: string, voiceI
     const scriptContent: ScriptContent = {
         title: "",
         segments: finalSegments,
-        subtitles: subtitles || []
+        subtitles: subtitles || [],
+        audioKey: audioKey
     };
 
     // Save final script
@@ -464,11 +485,23 @@ export const runContentPipelineFromStory = async (videoId: string, story: string
 
     // 2. Generate Audio
     console.log(`[ContentPipeline] 2. Generating Audio...`);
-    const { durationFrames: audioDurationFrames } = await generateAudio(story, voiceId, videoId);
+    const { durationFrames: audioDurationFrames, audioKey: audioKey } = await generateAudio(story, voiceId, videoId);
 
     // 3. Generate Subtitles
     console.log(`[ContentPipeline] 3. Generating Subtitles...`);
     const subtitles = await generateSubtitles(videoId);
+
+    // Cleanup local audio file
+    try {
+        const workDir = await resolveWorkDir(videoId);
+        const audioPath = path.join(workDir, 'audio.wav');
+        if (fs.existsSync(audioPath)) {
+            await fs.promises.unlink(audioPath);
+            console.log(`[ContentPipeline] Cleaned up local audio file: ${audioPath}`);
+        }
+    } catch (cleanupErr) {
+        console.warn(`[ContentPipeline] Failed to cleanup audio file:`, cleanupErr);
+    }
 
     // 4. Reconstruct Story from Subtitles (Ground Truth)
     const groundTruthStory = reconstructStoryFromSubtitles(subtitles);
@@ -543,7 +576,8 @@ export const runContentPipelineFromStory = async (videoId: string, story: string
     const scriptContent: ScriptContent = {
         title: "",
         segments: finalSegments,
-        subtitles: subtitles || []
+        subtitles: subtitles || [],
+        audioKey: audioKey
     };
 
     // Save final script

@@ -7,13 +7,11 @@ import { bundle } from '@remotion/bundler';
 import { renderMedia, selectComposition } from '@remotion/renderer';
 import path from 'path';
 import fs from 'fs';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
-import { VideoRendererInput, SubtitleSegment, VideoSegment } from '../types.js';
-import http from 'http';
-import { URL, fileURLToPath } from 'url';
+import { VideoRendererInput, SubtitleSegment, VideoSegment, ScriptContent } from '../types.js';
 import { compressVideo } from '../lib/video.js';
 import { deductCredits } from '../services/credit-service.js';
 import { logger } from '../lib/logger.js';
+import { getSignedUrlForKey, uploadToS3 } from '../lib/s3.js';
 
 const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
 
@@ -67,96 +65,6 @@ function cleanupOldFiles(baseWorkDir: string, maxAgeMs: number = TWO_HOURS_MS): 
 
 export class VideoProcessor implements Processor {
     name = 'VideoProcessor';
-    private serverStarted = false;
-    private localServerPort = 0;
-    private s3: S3Client;
-
-    constructor() {
-        this.s3 = new S3Client({
-            region: process.env.S3_REGION || 'us-east-1',
-            endpoint: process.env.S3_ENDPOINT_URL,
-            credentials: {
-                accessKeyId: process.env.S3_ACCESS_KEY_ID || '',
-                secretAccessKey: process.env.S3_SECRET_ACCESS_KEY || '',
-            },
-            forcePathStyle: true
-        });
-    }
-
-    private async ensureServer() {
-        if (!this.serverStarted) {
-            this.localServerPort = await this.startStaticServer([process.cwd()]);
-            this.serverStarted = true;
-        }
-    }
-
-    private startStaticServer(rootPaths: string[]): Promise<number> {
-        return new Promise((resolve, reject) => {
-            const server = http.createServer((req, res) => {
-                if (!req.url) {
-                    res.writeHead(404);
-                    res.end();
-                    return;
-                }
-                try {
-                    const parsedUrl = new URL(req.url, `http://localhost`);
-                    const relativePath = parsedUrl.pathname.replace(/^\//, '');
-                    const filePath = path.resolve(process.cwd(), relativePath);
-
-                    const ext = path.extname(filePath).toLowerCase();
-                    const mimeTypes: Record<string, string> = {
-                        '.png': 'image/png',
-                        '.jpg': 'image/jpeg',
-                        '.jpeg': 'image/jpeg',
-                        '.wav': 'audio/wav',
-                        '.mp3': 'audio/mpeg',
-                        '.json': 'application/json',
-                        '.mp4': 'video/mp4'
-                    };
-                    const contentType = mimeTypes[ext] || 'application/octet-stream';
-
-                    fs.stat(filePath, (err, stats) => {
-                        if (err || !stats.isFile()) {
-                            res.writeHead(404);
-                            res.end('Not Found');
-                            return;
-                        }
-                        res.writeHead(200, { 'Content-Type': contentType });
-                        fs.createReadStream(filePath).pipe(res);
-                    });
-                } catch (e) {
-                    console.error("Server Error:", e);
-                    res.writeHead(500);
-                    res.end();
-                }
-            });
-
-            server.listen(0, () => {
-                const address = server.address();
-                if (typeof address === 'object' && address) {
-                    resolve(address.port);
-                } else {
-                    reject(new Error("Could not determine port"));
-                }
-            });
-        });
-    }
-
-    private async uploadToS3(filePath: string, key: string): Promise<string> {
-        const fileStream = fs.createReadStream(filePath);
-        const uploadParams = {
-            Bucket: process.env.S3_BUCKET_NAME,
-            Key: key,
-            Body: fileStream,
-            ContentType: 'video/mp4',
-            ACL: 'public-read',
-        };
-
-        await this.s3.send(new PutObjectCommand(uploadParams as any));
-        const endpoint = process.env.S3_ENDPOINT_URL || '';
-        const bucket = process.env.S3_BUCKET_NAME || '';
-        return `${endpoint}/${bucket}/${key}`;
-    }
 
     async findAndLockJob(): Promise<typeof renderJob.$inferSelect | null> {
         return await db.transaction(async (tx) => {
@@ -228,33 +136,114 @@ export class VideoProcessor implements Processor {
             const scriptData = await db.query.script.findFirst({ where: eq(script.videoId, job.videoId) });
             if (!scriptData) throw new Error(`Script not found`);
 
-            const scriptJson = scriptData.content as any;
+            const scriptJson = scriptData.content as ScriptContent;
             const topLevelSubtitles = scriptJson.subtitles || [];
             const segments = scriptJson.segments || [];
+            let scriptUpdated = false;
 
-            await this.ensureServer();
-
-            const toLocalUrl = (filePath: string) => {
-                if (filePath.startsWith('http')) return filePath;
-                let cleanPath = filePath;
-                if (cleanPath.startsWith('file://')) {
-                    try {
-                        cleanPath = fileURLToPath(cleanPath);
-                    } catch { } // Ignore error
-                }
-                cleanPath = cleanPath.replace('file://', '');
-
-                const relPath = path.isAbsolute(cleanPath) ? path.relative(process.cwd(), cleanPath) : cleanPath;
-                return `http://localhost:${this.localServerPort}/${relPath}`;
+            // Helper to check validity
+            const now = new Date();
+            const isValidSignedUrl = (url?: string, expiresAt?: string | Date) => {
+                if (!url || !expiresAt) return false;
+                const expiry = new Date(expiresAt);
+                // Buffer of 5 minutes
+                return expiry.getTime() > (now.getTime() + 5 * 60000);
             };
 
+            // Resolve Audio URL (S3 or fallback)
+            let audioUrl = "";
+            if (isValidSignedUrl(scriptJson.audioSignedUrl, scriptJson.audioSignedUrlExpiresAt)) {
+                audioUrl = scriptJson.audioSignedUrl!;
+                logger.info(`[VideoProcessor] Using cached signed URL for audio`, logContext);
+            } else {
+                let s3Key = scriptJson.audioKey;
+                if (!s3Key) {
+                    s3Key = `videos/${job.videoId}/audio.wav`;
+                    logger.info(`[VideoProcessor] Constructed fallback audio S3 key`, logContext);
+                }
+                
+                try {
+                    const { url, expiresAt } = await getSignedUrlForKey(s3Key);
+                    audioUrl = url;
+                    
+                    // Update script with new signed URL
+                    scriptJson.audioSignedUrl = url;
+                    scriptJson.audioSignedUrlExpiresAt = expiresAt.toISOString();
+                    scriptUpdated = true;
+                    
+                    logger.info(`[VideoProcessor] Generated and cached signed URL for audio`, logContext);
+                } catch (err) {
+                    logger.error(`[VideoProcessor] Failed to sign audio URL`, { ...logContext, error: err });
+                    // If signing fails, we might still try to use the key if local? 
+                    // But we removed local support. So this will likely fail later.
+                }
+            }
+
+            // Process Segments (Update script in place and map for renderer)
+            const processedSegments: VideoSegment[] = [];
+            
+            for (let i = 0; i < segments.length; i++) {
+                const s = segments[i];
+                let imageUrl = s.imageAssetPath;
+                let segmentUpdated = false;
+
+                if (isValidSignedUrl(s.imageSignedUrl, s.imageSignedUrlExpiresAt)) {
+                    imageUrl = s.imageSignedUrl!;
+                } else {
+                    let keyToSign = s.imageKey;
+                    
+                    // Fallback logic for key detection
+                    if (!keyToSign && s.imageAssetPath && !s.imageAssetPath.startsWith('http')) {
+                         if (s.imageAssetPath.includes('videos/')) {
+                             keyToSign = s.imageAssetPath;
+                         }
+                    }
+
+                    if (keyToSign) {
+                        try {
+                            const { url, expiresAt } = await getSignedUrlForKey(keyToSign);
+                            imageUrl = url;
+                            
+                            // Update segment in script
+                            s.imageSignedUrl = url;
+                            s.imageSignedUrlExpiresAt = expiresAt.toISOString();
+                            // Ensure imageKey is set if we found it via fallback
+                            if (!s.imageKey) s.imageKey = keyToSign;
+                            
+                            segmentUpdated = true;
+                            scriptUpdated = true;
+                        } catch (err) {
+                            logger.warn(`[VideoProcessor] Failed to sign image key for segment ${i}`, { ...logContext, error: err });
+                        }
+                    }
+                }
+
+                // Add to processed segments for renderer
+                processedSegments.push({
+                    imageAssetPath: imageUrl || "", // Renderer expects a string
+                    duration: s.duration || 0,
+                    imageEffect: s.imageEffect as any
+                });
+            }
+
+            // Persist updated script content if needed
+            if (scriptUpdated) {
+                await db.update(script)
+                    .set({ 
+                        content: scriptJson,
+                        updatedAt: new Date()
+                    })
+                    .where(eq(script.id, scriptData.id));
+                logger.info(`[VideoProcessor] Persisted updated signed URLs to script`, logContext);
+            }
+
             const inputProps: VideoRendererInput = {
-                audioUrl: toLocalUrl(path.join(workDir, 'audio.wav')),
+                audioUrl: audioUrl,
                 subtitleClassName,
                 subtitleStyle: customSubtitleStyle,
                 subtitleLocation: metadata?.subtitleLocation || 'center',
                 subtitleTemplateId,
-                segments: segments.map((s: any) => ({ ...s, imageAssetPath: toLocalUrl(s.imageAssetPath), duration: s.duration })),
+                segments: processedSegments,
                 subtitles: topLevelSubtitles
             };
 
@@ -292,7 +281,7 @@ export class VideoProcessor implements Processor {
 
             // Upload Original
             logger.info("[VideoProcessor] Uploading original...", logContext);
-            const originalUrl = await this.uploadToS3(outputLocation, `renders/${job.id}_original.mp4`);
+            const originalUrl = await uploadToS3(outputLocation, `renders/${job.id}_original.mp4`, 'video/mp4');
 
             // Compress
             logger.info("[VideoProcessor] Compressing...", logContext);
@@ -300,7 +289,7 @@ export class VideoProcessor implements Processor {
             await compressVideo(outputLocation, compressedLocation);
 
             // Upload Compressed
-            const compressedUrl = await this.uploadToS3(compressedLocation, `renders/${job.id}.mp4`);
+            const compressedUrl = await uploadToS3(compressedLocation, `renders/${job.id}.mp4`, 'video/mp4');
 
             // Update DB
             await db.update(renderJob)

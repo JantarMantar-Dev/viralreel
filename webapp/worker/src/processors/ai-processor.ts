@@ -8,6 +8,7 @@ import { ScriptContent, ScriptSegment } from '../types.js';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import { logger } from '../lib/logger.js';
+import { uploadToS3 } from '../lib/s3.js';
 
 export class AiProcessor implements Processor {
     name = 'AiProcessor';
@@ -113,9 +114,20 @@ export class AiProcessor implements Processor {
 
                     await this.imageGenerator.generateAndSave(prompt, outputPath, aspectRatio, visualStyle);
 
+                    const imageKey = `videos/${job.videoId}/assets/${fileName}`;
+                    await uploadToS3(outputPath, imageKey, 'image/png');
+                    
+                    // Cleanup local file
+                    try {
+                        await fs.unlink(outputPath);
+                    } catch (cleanupErr) {
+                        logger.warn(`[AiProcessor] Failed to cleanup local image: ${outputPath}`, { ...logContext, error: cleanupErr });
+                    }
+
                     updatedSegments.push({
                         ...segment,
-                        imageAssetPath: outputPath
+                        imageKey: imageKey,
+                        imageAssetPath: imageKey // For backward compatibility or as a placeholder
                     });
                 } catch (err) {
                     logger.error(`[AiProcessor] Failed segment ${i}`, { ...logContext, error: err });
