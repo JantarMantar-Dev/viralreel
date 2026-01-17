@@ -4,10 +4,12 @@ export class GoogleImageProvider implements IImageModelProvider {
     public providerName = 'google';
     private apiKey: string;
     private modelName: string;
+    private isDev: boolean;
 
     constructor(config: ImageProviderConfig) {
         this.apiKey = config.apiKey;
         this.modelName = config.modelName || 'gemini-3-pro-image-preview';
+        this.isDev = process.env.NODE_ENV === 'development';
     }
 
     async generateImage(options: ImageGenerationOptions): Promise<Buffer> {
@@ -33,7 +35,12 @@ export class GoogleImageProvider implements IImageModelProvider {
 
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.modelName}:generateContent?key=${this.apiKey}`;
 
-        console.log(`[GoogleImageProvider] Generating image: "${augmentedPrompt.substring(0, 50)}..." with AR: ${mappedAR}`);
+        if (this.isDev) {
+            console.log(`[GoogleImageProvider] Generating image with AR: ${mappedAR}`);
+            console.log(`[GoogleImageProvider] Prompt:\n${augmentedPrompt}`);
+        } else {
+            console.log(`[GoogleImageProvider] Generating image: "${augmentedPrompt.substring(0, 50)}..." with AR: ${mappedAR}`);
+        }
 
         const response = await fetch(url, {
             method: 'POST',

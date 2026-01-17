@@ -8,6 +8,7 @@ import { ImageProviderFactory } from "../../../shared/image-provider/factory.js"
 import { IMAGE_STYLES as SHARED_STYLES } from "../../../shared/image-provider/types.js";
 
 const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
+const IS_DEV = process.env.NODE_ENV === 'development';
 // Use the same model as the worker for consistent results
 // const IMAGE_MODEL = process.env.GOOGLE_IMAGE_MODEL || 'gemini-3-pro-image-preview'; // Moved to provider
 const SCRIPT_MODEL = process.env.GOOGLE_SCRIPT_MODEL || 'gemini-3-flash-preview';
@@ -99,6 +100,10 @@ Return a JSON object with this structure:
 Return ONLY the JSON object.`;
 
     console.log(`[EditorVisualService] Generating prompts for ${segments.length} existing segments`);
+
+    if (IS_DEV) {
+        console.log(`[EditorVisualService] LLM Prompt:\n${prompt}`);
+    }
 
     const response = await fetch(url, {
         method: 'POST',

@@ -8,6 +8,7 @@ import { v4 as uuidv4 } from "uuid";
 
 const TTS_MODEL_NAME = process.env.GOOGLE_TTS_MODEL || 'gemini-2.5-flash-preview-tts';
 const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
+const IS_DEV = process.env.NODE_ENV === 'development';
 
 // =============================================================================
 // TYPES
@@ -127,6 +128,9 @@ async function generateTTSAudio(text: string, voiceName: string): Promise<{ audi
     };
 
     console.log(`[EditorAudioService] Generating TTS with voice: ${voiceName}, model: ${TTS_MODEL_NAME}`);
+    if (IS_DEV) {
+        console.log(`[EditorAudioService] TTS Text:\n${text}`);
+    }
 
     const response = await fetch(url, {
         method: 'POST',
@@ -647,6 +651,9 @@ Output a JSON object with a 'segments' array following this schema:
     };
 
     console.log(`[EditorAudioService] Running LLM segmenter with ${subtitles.length} words...`);
+    if (IS_DEV) {
+        console.log(`[EditorAudioService] Segmenter System Prompt:\n${systemPrompt}`);
+    }
 
     const response = await fetch(url, {
         method: 'POST',

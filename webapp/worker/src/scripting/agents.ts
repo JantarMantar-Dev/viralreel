@@ -21,6 +21,7 @@ const MODEL_NAME = process.env.GOOGLE_SCRIPT_MODEL || 'gemini-3-flash-preview';
 const TTS_MODEL_NAME = process.env.GOOGLE_TTS_MODEL || 'gemini-2.5-flash-preview-tts';
 const DEFAULT_VOICE = process.env.GOOGLE_TTS_VOICE || 'Zephyr';
 const API_KEY = process.env.GOOGLE_API_KEY;
+const IS_DEV = process.env.NODE_ENV === 'development';
 
 // Ensure the Gemini model is registered
 LLMRegistry.register(Gemini);
@@ -146,6 +147,10 @@ Ensure the frames align perfectly with the voice sections.`,
 // --- Execution Helpers ---
 
 async function runSingleAgent<T>(agent: LlmAgent, input: string): Promise<T> {
+    if (IS_DEV) {
+        console.log(`[Agent: ${agent.name}] Instruction:\n${agent.instruction}`);
+        console.log(`[Agent: ${agent.name}] Input:\n${input}`);
+    }
     const runner = new InMemoryRunner({
         agent: agent,
         appName: 'single-agent-runner'

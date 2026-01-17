@@ -28,10 +28,12 @@ export class KieImageProvider implements IImageModelProvider {
     private apiKey: string;
     private modelName: string;
     private baseUrl = 'https://api.kie.ai/api/v1';
+    private isDev: boolean;
 
     constructor(config: ImageProviderConfig) {
         this.apiKey = config.apiKey;
         this.modelName = config.modelName || 'z-image';
+        this.isDev = process.env.NODE_ENV === 'development';
     }
 
     private getAspectRatio(aspectRatio?: string): string {
@@ -127,7 +129,11 @@ export class KieImageProvider implements IImageModelProvider {
             throw new Error("KIE API Key not configured");
         }
 
-        console.log(`[KieImageProvider] Generating image for prompt: "${prompt.substring(0, 50)}..."`);
+        if (this.isDev) {
+            console.log(`[KieImageProvider] Generating image for prompt:\n${prompt}`);
+        } else {
+            console.log(`[KieImageProvider] Generating image for prompt: "${prompt.substring(0, 50)}..."`);
+        }
         
         try {
             const ratio = this.getAspectRatio(aspectRatio);
