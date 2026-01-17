@@ -75,7 +75,35 @@ export default async function editorJobRoutes(fastify: FastifyInstance) {
             }
 
             // Generate signed URLs for segment images
-            const segments = metadata.segments || [];
+            // If metadata.segments (VisualSegments) is empty, fall back to scriptSegments converted to basic VisualSegments
+            let segments = metadata.segments || [];
+            
+            if (segments.length === 0) {
+                // Try to get scriptSegments from metadata
+                let scriptSegments = metadata.scriptSegments;
+                
+                // If not in metadata, try to get from the selected audio version
+                if ((!scriptSegments || scriptSegments.length === 0) && metadata.selectedAudioId) {
+                    const audioVersions = metadata.audioVersions || [];
+                    const selectedVersion = audioVersions.find((av: any) => av.id === metadata.selectedAudioId);
+                    if (selectedVersion?.segments) {
+                        scriptSegments = selectedVersion.segments;
+                    }
+                }
+                
+                // Convert ScriptSegments to basic VisualSegments for display
+                if (scriptSegments && scriptSegments.length > 0) {
+                    segments = scriptSegments.map((seg: any, index: number) => ({
+                        id: `seg-script-${index}`,
+                        index,
+                        timeRange: [seg.start / 30, seg.end / 30], // Convert frames to seconds (30fps)
+                        subtitleText: seg.dialogue,
+                        imagePrompt: "", // Empty - user will generate on Visuals step
+                        isGenerating: false
+                    }));
+                }
+            }
+            
             const segmentsWithUrls = await Promise.all(
                 segments.map(async (seg: any) => {
                     if (seg.imageKey) {

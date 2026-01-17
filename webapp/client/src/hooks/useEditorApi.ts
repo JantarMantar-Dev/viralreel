@@ -431,34 +431,31 @@ export interface EditorVideoData {
     mode: string
     createdAt: string
     updatedAt: string
+    // Note: The API flattens all data to top-level properties.
+    // metadata is only kept for backward compatibility but should not be used.
     metadata: {
         currentPhase?: string
-        episodeTitle?: string
-        scriptIdea?: string
-        duration?: number
-        visualStyle?: string
-        voiceId?: string
-        voiceName?: string
-        tonePrompt?: string
-        subtitleStyleId?: string
-        subtitleStyleName?: string
-        musicId?: string
-        musicName?: string
-        approvedScript?: GeneratedScript
-        segments?: VisualSegment[]
-        subtitles?: SubtitleWord[]
-        audioVersions?: AudioVersion[]
-        selectedAudioId?: string
     } | null
     niche: {
         id: string
         name: string
     } | null
+    // All these are flattened from metadata by the API
+    scriptIdea?: string
+    approvedScript?: GeneratedScript
+    voiceId?: string
+    voiceName?: string
+    tonePrompt?: string
+    visualStyle?: string
+    subtitleStyleId?: string
+    subtitleStyleName?: string
+    duration?: number
     audioUrl: string | null
     audioDurationSeconds: number | null
     audioGenerationCount: number
     audioVersions: AudioVersion[]
     selectedAudioId?: string
+    subtitles?: SubtitleWord[]
     segments: VisualSegment[]
 }
 

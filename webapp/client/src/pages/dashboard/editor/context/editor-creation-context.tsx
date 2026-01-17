@@ -39,6 +39,7 @@ export interface AudioVersion {
     voiceId: string
     voiceName: string
     tonePrompt?: string
+    script: string // The script text used to generate this audio version
     subtitles?: SubtitleWord[] // Optional - generated separately via transcription step
     segments?: ScriptSegment[] // Optional - generated separately via segmentation step
     generatedAt: string

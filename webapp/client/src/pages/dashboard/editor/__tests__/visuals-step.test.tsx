@@ -166,8 +166,8 @@ describe('EditorVisualsStep Component', () => {
                 expect(screen.getByText('Visual Generation')).toBeInTheDocument()
             })
             
-            // Should show initial generate button
-            expect(screen.getByRole('button', { name: /Generate Visual Prompts/i })).toBeInTheDocument()
+            // Should show empty state text in gallery
+            expect(screen.getByText('Generate images for all segments of your video')).toBeInTheDocument()
         })
 
         it('should render segments when available', async () => {
@@ -184,8 +184,8 @@ describe('EditorVisualsStep Component', () => {
         })
     })
 
-    describe('Regenerate Prompts Logic', () => {
-        it('should open confirmation dialog when clicking Regenerate Prompts', async () => {
+    describe('Generate Visual Prompts Logic', () => {
+        it('should open confirmation dialog when clicking Generate Visual Prompts', async () => {
             renderVisualsStep({
                 editorContext: {
                     request: createMockEditorRequest({ segments: MOCK_SEGMENTS })
@@ -193,7 +193,7 @@ describe('EditorVisualsStep Component', () => {
             })
 
             const user = userEvent.setup()
-            const regenButton = screen.getByRole('button', { name: /Regenerate Prompts/i })
+            const regenButton = screen.getByRole('button', { name: /Generate Visual Prompts/i })
             
             await user.click(regenButton)
 
@@ -213,10 +213,10 @@ describe('EditorVisualsStep Component', () => {
             const user = userEvent.setup()
             
             // Open dialog
-            await user.click(screen.getByRole('button', { name: /Regenerate Prompts/i }))
+            await user.click(screen.getByRole('button', { name: /Generate Visual Prompts/i }))
             
             // Click confirm in dialog
-            const confirmButton = screen.getByRole('button', { name: /^Regenerate Prompts$/i }) // Regex to match exact button text inside dialog
+            const confirmButton = screen.getByRole('button', { name: /^Generate Visual Prompts$/i }) // Regex to match exact button text inside dialog
             await user.click(confirmButton)
 
             expect(mockAnalyzeVisuals).toHaveBeenCalledWith({
@@ -228,12 +228,25 @@ describe('EditorVisualsStep Component', () => {
     })
 
     describe('Image Generation', () => {
-        it('should call generateAllImages when clicking Generate All Images', async () => {
-            mockGenerateAllImages.mockResolvedValue({ segments: MOCK_SEGMENTS })
+        it('should call generateAllImages when clicking Generate All Images (no existing images)', async () => {
+            // Use segments WITHOUT images to skip confirmation dialog
+            const segmentsWithoutImages: VisualSegment[] = [
+                {
+                    id: 'seg-1',
+                    index: 0,
+                    timeRange: [0, 5],
+                    subtitleText: 'Welcome to the video',
+                    imagePrompt: 'A welcoming scene',
+                    isGenerating: false
+                    // No imageUrl
+                }
+            ]
+            
+            mockGenerateAllImages.mockResolvedValue({ segments: segmentsWithoutImages })
             
             renderVisualsStep({
                 editorContext: {
-                    request: createMockEditorRequest({ segments: MOCK_SEGMENTS })
+                    request: createMockEditorRequest({ segments: segmentsWithoutImages })
                 }
             })
 
@@ -246,6 +259,22 @@ describe('EditorVisualsStep Component', () => {
                 videoId: 'video-123',
                 style: 'comic' // Default style
             })
+        })
+
+        it('should show confirmation dialog when segments have existing images', async () => {
+            renderVisualsStep({
+                editorContext: {
+                    request: createMockEditorRequest({ segments: MOCK_SEGMENTS }) // Segment 2 has imageUrl
+                }
+            })
+
+            const user = userEvent.setup()
+            const generateButton = screen.getByRole('button', { name: /Generate All Images/i })
+            
+            await user.click(generateButton)
+
+            // Should show confirmation dialog
+            expect(screen.getByText('Regenerate All Images?')).toBeInTheDocument()
         })
     })
 
@@ -301,16 +330,175 @@ describe('EditorVisualsStep Component', () => {
             const expandButton = screen.getByRole('button', { name: /Expand View/i })
             await user.click(expandButton)
 
-            // Check if dialog opened
-            expect(screen.getByAltText('Full preview')).toBeInTheDocument()
-            
-            // The text appears in both the textarea and the dialog overlay
-            const textElements = screen.getAllByText('A second scene description')
-            expect(textElements.length).toBeGreaterThanOrEqual(2)
-            
-            // Verify one of them is the dialog overlay text
-            const dialogText = textElements.find(el => el.tagName === 'P' && el.className.includes('text-white/90'))
-            expect(dialogText).toBeInTheDocument()
+            // Check if dialog opened - the preview shows segment number as alt text
+            // The dialog shows "Segment #2" text in the footer
+            await waitFor(() => {
+                expect(screen.getByText('Segment #2')).toBeInTheDocument()
+            })
+        })
+    })
+
+    describe('Segment Preload Workflow', () => {
+        it('should display segments from previous run when preloaded in context', async () => {
+            // Simulate a page load where segments already exist from a previous run
+            const preloadedSegments: VisualSegment[] = [
+                {
+                    id: 'preload-seg-1',
+                    index: 0,
+                    timeRange: [0, 3],
+                    subtitleText: 'Preloaded segment one',
+                    imagePrompt: 'A preloaded scene description',
+                    imageUrl: 'https://example.com/preloaded1.png',
+                    isGenerating: false
+                },
+                {
+                    id: 'preload-seg-2',
+                    index: 1,
+                    timeRange: [3, 6],
+                    subtitleText: 'Preloaded segment two',
+                    imagePrompt: 'Another preloaded scene',
+                    imageUrl: 'https://example.com/preloaded2.png',
+                    isGenerating: false
+                }
+            ]
+
+            renderVisualsStep({
+                editorContext: {
+                    request: createMockEditorRequest({ segments: preloadedSegments })
+                }
+            })
+
+            // Segments should be visible immediately
+            await waitFor(() => {
+                expect(screen.getByText('Segment 1')).toBeInTheDocument()
+                expect(screen.getByText('Segment 2')).toBeInTheDocument()
+            })
+
+            // Should show gallery with correct segment count
+            expect(screen.getByText('2 segments generated')).toBeInTheDocument()
+
+            // Should show "Generate All Images" button (not the initial "Generate Visual Prompts")
+            expect(screen.getByRole('button', { name: /Generate All Images/i })).toBeInTheDocument()
+        })
+
+        it('should show hasSegments as true when segments are preloaded', async () => {
+            const preloadedSegments: VisualSegment[] = [
+                {
+                    id: 'seg-1',
+                    index: 0,
+                    timeRange: [0, 5],
+                    subtitleText: 'Test segment',
+                    imagePrompt: 'Test prompt',
+                    isGenerating: false
+                }
+            ]
+
+            renderVisualsStep({
+                editorContext: {
+                    request: createMockEditorRequest({ segments: preloadedSegments })
+                }
+            })
+
+            // The segment cards section should be visible (only renders when hasSegments is true)
+            await waitFor(() => {
+                expect(screen.getByText('Segment 1')).toBeInTheDocument()
+            })
+
+            // Should show the segment count in gallery header
+            expect(screen.getByText('1 segments generated')).toBeInTheDocument()
+        })
+    })
+
+    describe('Prompt Validation', () => {
+        it('should not call generateSegmentImage when prompt is empty', async () => {
+            const segmentWithEmptyPrompt: VisualSegment[] = [
+                {
+                    id: 'seg-empty',
+                    index: 0,
+                    timeRange: [0, 5],
+                    subtitleText: 'Segment with no prompt',
+                    imagePrompt: '', // Empty prompt
+                    isGenerating: false
+                }
+            ]
+
+            renderVisualsStep({
+                editorContext: {
+                    request: createMockEditorRequest({ segments: segmentWithEmptyPrompt })
+                }
+            })
+
+            const user = userEvent.setup()
+
+            // Expand segment
+            await user.click(screen.getByText('Segment 1'))
+
+            // Click regenerate button
+            const regenerateButton = screen.getByRole('button', { name: /Generate Image/i })
+            await user.click(regenerateButton)
+
+            // Should NOT call the mutation because prompt is empty
+            expect(mockGenerateSegmentImage).not.toHaveBeenCalled()
+        })
+
+        it('should not call generateSegmentImage when prompt is only whitespace', async () => {
+            const segmentWithWhitespacePrompt: VisualSegment[] = [
+                {
+                    id: 'seg-whitespace',
+                    index: 0,
+                    timeRange: [0, 5],
+                    subtitleText: 'Segment with whitespace prompt',
+                    imagePrompt: '   ', // Whitespace only
+                    isGenerating: false
+                }
+            ]
+
+            renderVisualsStep({
+                editorContext: {
+                    request: createMockEditorRequest({ segments: segmentWithWhitespacePrompt })
+                }
+            })
+
+            const user = userEvent.setup()
+
+            // Expand segment
+            await user.click(screen.getByText('Segment 1'))
+
+            // Click regenerate button
+            const regenerateButton = screen.getByRole('button', { name: /Generate Image/i })
+            await user.click(regenerateButton)
+
+            // Should NOT call the mutation because prompt is only whitespace
+            expect(mockGenerateSegmentImage).not.toHaveBeenCalled()
+        })
+
+        it('should call generateSegmentImage with valid prompt', async () => {
+            mockGenerateSegmentImage.mockResolvedValue({ 
+                segment: { ...MOCK_SEGMENTS[0], imageUrl: 'https://example.com/new.png' } 
+            })
+
+            renderVisualsStep({
+                editorContext: {
+                    request: createMockEditorRequest({ segments: MOCK_SEGMENTS })
+                }
+            })
+
+            const user = userEvent.setup()
+
+            // Expand first segment (which has a valid prompt)
+            await user.click(screen.getByText('Segment 1'))
+
+            // Click regenerate button
+            const regenerateButton = screen.getByRole('button', { name: /Generate Image/i })
+            await user.click(regenerateButton)
+
+            // Should call the mutation with the prompt
+            expect(mockGenerateSegmentImage).toHaveBeenCalledWith({
+                videoId: 'video-123',
+                segmentId: 'seg-1',
+                prompt: 'A welcoming scene',
+                style: 'comic'
+            })
         })
     })
 })

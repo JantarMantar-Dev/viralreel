@@ -1,9 +1,10 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
 import { AlertCircle } from "lucide-react"
 import { useEditorCreation, VisualSegment } from "../context/editor-creation-context"
 import StepHeader from "../../create/components/step-header"
-import { useAnalyzeVisuals, useGenerateSegmentImage, useGenerateAllImages, useUpdateSegmentPrompt } from "@/hooks/useEditorApi"
+import { useAnalyzeVisuals, useGenerateSegmentImage, useGenerateAllImages, useUpdateSegmentPrompt, useEditorVideo } from "@/hooks/useEditorApi"
 import { useQueryClient } from "@tanstack/react-query"
 import { ImageGallerySection } from "./visuals/image-gallery"
 import { SegmentCard } from "./visuals/segment-card"
@@ -16,6 +17,58 @@ export default function EditorVisualsStep() {
     const [showRegenerateImagesDialog, setShowRegenerateImagesDialog] = useState(false)
     const [previewIndex, setPreviewIndex] = useState<number | null>(null)
     const queryClient = useQueryClient()
+    const [searchParams] = useSearchParams()
+    const videoIdParam = searchParams.get("videoId")
+    const { data: videoData } = useEditorVideo(videoIdParam || undefined)
+
+    // Sync data if missing from request but available in videoData
+    useEffect(() => {
+        if (videoData?.video && videoIdParam) {
+            const video = videoData.video
+            
+            const updates: any = {}
+            let hasUpdates = false
+
+            // Sync segments if missing - API flattens segments to top level
+            const videoSegments = video.segments || []
+            if (request.segments.length === 0 && videoSegments.length > 0) {
+                updates.segments = videoSegments
+                hasUpdates = true
+            }
+
+            // Sync other required fields for visuals
+            if (!request.audioDurationSeconds && video.audioDurationSeconds) {
+                updates.audioDurationSeconds = video.audioDurationSeconds
+                hasUpdates = true
+            }
+
+            if (!request.approvedScript && video.approvedScript) {
+                updates.approvedScript = video.approvedScript
+                hasUpdates = true
+            }
+
+            if (!request.audioUrl && video.audioUrl) {
+                updates.audioUrl = video.audioUrl
+                hasUpdates = true
+            }
+
+            // Sync audio versions if missing (needed to get script for selected audio version)
+            if (request.audioVersions.length === 0 && video.audioVersions && video.audioVersions.length > 0) {
+                updates.audioVersions = video.audioVersions
+                hasUpdates = true
+            }
+
+            // Sync selected audio ID if missing
+            if (!request.selectedAudioId && video.selectedAudioId) {
+                updates.selectedAudioId = video.selectedAudioId
+                hasUpdates = true
+            }
+
+            if (hasUpdates) {
+                updateRequest(updates)
+            }
+        }
+    }, [videoData, videoIdParam, request.segments.length, request.audioDurationSeconds, request.approvedScript, request.audioUrl, request.audioVersions.length, request.selectedAudioId, updateRequest])
 
     // API hooks
     const analyzeVisualsMutation = useAnalyzeVisuals()
@@ -26,7 +79,12 @@ export default function EditorVisualsStep() {
     // Check if we have required data
     const hasVideoId = !!request.videoId
     const hasAudio = !!request.audioUrl && !!request.audioDurationSeconds
-    const canAnalyze = hasVideoId && hasAudio && !!request.approvedScript
+    
+    // Get the selected audio version to use its script
+    const selectedAudioVersion = request.audioVersions.find(v => v.id === request.selectedAudioId)
+    // Use script from selected audio version, fallback to approvedScript for backward compatibility
+    const scriptForVisuals = selectedAudioVersion?.script || request.approvedScript?.story
+    const canAnalyze = hasVideoId && hasAudio && !!scriptForVisuals
 
     // Generate all images mutation handler
     const handleGenerateAll = async (skipConfirmation = false) => {
@@ -35,7 +93,7 @@ export default function EditorVisualsStep() {
             return
         }
 
-        if (!request.approvedScript || !request.audioDurationSeconds) {
+        if (!scriptForVisuals || !request.audioDurationSeconds) {
             toast.error("Missing required data. Please complete the Audio step first.")
             return
         }
@@ -54,7 +112,7 @@ export default function EditorVisualsStep() {
             if (request.segments.length === 0) {
                 const analyzeResult = await analyzeVisualsMutation.mutateAsync({
                     videoId: request.videoId,
-                    script: request.approvedScript.story,
+                    script: scriptForVisuals,
                     audioDurationSeconds: request.audioDurationSeconds,
                 })
 
@@ -80,7 +138,7 @@ export default function EditorVisualsStep() {
 
     // Analyze script to get segments (without generating images)
     const handleAnalyzeScript = async () => {
-        if (!request.videoId || !request.approvedScript || !request.audioDurationSeconds) {
+        if (!request.videoId || !scriptForVisuals || !request.audioDurationSeconds) {
             toast.error("Missing required data")
             return
         }
@@ -88,7 +146,7 @@ export default function EditorVisualsStep() {
         try {
             const result = await analyzeVisualsMutation.mutateAsync({
                 videoId: request.videoId,
-                script: request.approvedScript.story,
+                script: scriptForVisuals,
                 audioDurationSeconds: request.audioDurationSeconds,
             })
 
@@ -111,6 +169,13 @@ export default function EditorVisualsStep() {
             return
         }
 
+        // Validate that segment has an imagePrompt
+        const prompt = segment.imagePrompt?.trim()
+        if (!prompt) {
+            toast.error("Image prompt is required. Please add a prompt for this segment first.")
+            return
+        }
+
         // Mark segment as generating
         const updatedSegments = request.segments.map(seg =>
             seg.id === segment.id ? { ...seg, isGenerating: true } : seg
@@ -121,7 +186,7 @@ export default function EditorVisualsStep() {
             const result = await generateSegmentMutation.mutateAsync({
                 videoId: request.videoId,
                 segmentId: segment.id,
-                prompt: segment.imagePrompt,
+                prompt: prompt,
                 style: request.visualStyle,
             })
 

@@ -91,31 +91,34 @@ export default function EditorModeLayout() {
             // Always sync when we have new data (dataUpdatedAt changed)
             // This ensures fresh data from refetch is applied even for the same video ID
             if (dataUpdatedAt && dataUpdatedAt > lastSyncedAtRef.current) {
-                const metadata = video.metadata || {}
-                
-                setRequest(prev => ({
-                    ...prev,
-                    videoId: video.id,
-                    nicheId: video.niche?.id || null,
-                    nicheName: video.niche?.name,
-                    episodeTitle: video.title || metadata.episodeTitle || "",
-                    scriptIdea: metadata.scriptIdea || video.scriptIdea || "",
-                    duration: normalizeDuration(metadata.duration || video.duration),
-                    visualStyle: metadata.visualStyle || video.visualStyle,
-                    voiceId: metadata.voiceId || video.voiceId,
-                    voiceName: metadata.voiceName || video.voiceName,
-                    tonePrompt: metadata.tonePrompt || video.tonePrompt,
-                    subtitleStyleId: metadata.subtitleStyleId || video.subtitleStyleId,
-                    subtitleStyleName: metadata.subtitleStyleName || video.subtitleStyleName,
-                    approvedScript: video.approvedScript || metadata.approvedScript,
-                    audioUrl: video.audioUrl || undefined,
-                    audioDurationSeconds: video.audioDurationSeconds || undefined,
-                    audioGenerationCount: video.audioGenerationCount || 0,
-                    subtitles: video.subtitles || metadata.subtitles || [],
-                    audioVersions: video.audioVersions || metadata.audioVersions || [],
-                    selectedAudioId: video.selectedAudioId || metadata.selectedAudioId,
-                    segments: video.segments || metadata.segments || [],
-                }))
+                // The API flattens all data to top-level video properties.
+                // We only need to read from video.*, not metadata.*
+                setRequest(prev => {
+                    const newRequest = {
+                        ...prev,
+                        videoId: video.id,
+                        nicheId: video.niche?.id || null,
+                        nicheName: video.niche?.name,
+                        episodeTitle: video.title || "",
+                        scriptIdea: video.scriptIdea || "",
+                        duration: normalizeDuration(video.duration),
+                        visualStyle: video.visualStyle,
+                        voiceId: video.voiceId,
+                        voiceName: video.voiceName,
+                        tonePrompt: video.tonePrompt,
+                        subtitleStyleId: video.subtitleStyleId,
+                        subtitleStyleName: video.subtitleStyleName,
+                        approvedScript: video.approvedScript,
+                        audioUrl: video.audioUrl || undefined,
+                        audioDurationSeconds: video.audioDurationSeconds || undefined,
+                        audioGenerationCount: video.audioGenerationCount || 0,
+                        subtitles: video.subtitles || [],
+                        audioVersions: video.audioVersions || [],
+                        selectedAudioId: video.selectedAudioId,
+                        segments: video.segments || [],
+                    }
+                    return newRequest
+                })
                 setLoadedVideoId(video.id)
                 lastSyncedAtRef.current = dataUpdatedAt
             }
@@ -163,6 +166,7 @@ export default function EditorModeLayout() {
             tonePrompt: request.tonePrompt,
             subtitleStyleId: request.subtitleStyleId,
             subtitleStyleName: request.subtitleStyleName,
+            selectedAudioId: request.selectedAudioId, // Track audio selection changes
         }
 
         const serialized = JSON.stringify(dataToSave)
@@ -192,7 +196,7 @@ export default function EditorModeLayout() {
             if (dataToSave.voiceId) metadata.voiceId = dataToSave.voiceId
             if (dataToSave.voiceName) metadata.voiceName = dataToSave.voiceName
             if (dataToSave.tonePrompt) metadata.tonePrompt = dataToSave.tonePrompt
-            if (request.selectedAudioId) metadata.selectedAudioId = request.selectedAudioId
+            if (dataToSave.selectedAudioId) metadata.selectedAudioId = dataToSave.selectedAudioId
             if (dataToSave.subtitleStyleId) metadata.subtitleStyleId = dataToSave.subtitleStyleId
             if (dataToSave.subtitleStyleName) metadata.subtitleStyleName = dataToSave.subtitleStyleName
 
@@ -229,6 +233,7 @@ export default function EditorModeLayout() {
         request.tonePrompt,
         request.subtitleStyleId,
         request.subtitleStyleName,
+        request.selectedAudioId, // Track audio selection changes
         currentPhase,
         loadedVideoId,
         updateMetadata,
@@ -479,7 +484,9 @@ export default function EditorModeLayout() {
 
                 {/* Main Content Area */}
                 <main className="flex-1 max-w-6xl mx-auto w-full px-4 md:px-6 py-8 md:py-12">
-                    {isLoadingVideo ? (
+                    {/* Wait for both loading AND data sync before rendering child routes */}
+                    {/* This ensures segments and other data are synced to request state before children mount */}
+                    {(isLoadingVideo || (videoIdParam && loadedVideoId !== videoIdParam)) ? (
                         <div className="flex flex-col items-center justify-center py-20">
                             <Loader2 className="h-8 w-8 animate-spin text-purple-600 mb-4" />
                             <p className="text-slate-500">Loading your video...</p>

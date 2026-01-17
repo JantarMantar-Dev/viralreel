@@ -28,6 +28,7 @@ export interface AudioVersion {
     voiceId: string;
     voiceName: string;
     tonePrompt?: string;
+    script: string; // The script text used to generate this audio version
     subtitles?: SubtitleWord[]; // Optional - generated separately via transcription step
     segments?: ScriptSegment[];  // Optional - generated separately via segmentation step
     generatedAt: string;
@@ -301,6 +302,7 @@ export async function generateAudio(params: GenerateAudioParams): Promise<Genera
         voiceId,
         voiceName,
         tonePrompt,
+        script, // Store the script text used for this audio version
         // subtitles are NOT included - they will be generated in a separate transcription step
         generatedAt,
     };

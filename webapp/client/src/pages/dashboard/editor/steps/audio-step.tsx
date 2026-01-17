@@ -4,7 +4,7 @@ import { toast } from "sonner"
 import { useEditorCreation, AudioVersion, SubtitleWord, ScriptSegment, VisualSegment } from "../context/editor-creation-context"
 import StepHeader from "../../create/components/step-header"
 import { API_BASE_URL } from "@/lib/config"
-import { useGenerateAudio, useCreateDraftVideo, useGenerateTranscription, useGenerateSegments, useSaveSegments } from "@/hooks/useEditorApi"
+import { useGenerateAudio, useCreateDraftVideo, useGenerateTranscription, useGenerateSegments, useSaveSegments, useUpdateVideoMetadata } from "@/hooks/useEditorApi"
 
 // Import sub-components
 import { VoiceSelector, Voice } from "./audio/voice-selector"
@@ -43,6 +43,7 @@ export default function EditorAudioStep() {
     const generateTranscriptionMutation = useGenerateTranscription()
     const generateSegmentsMutation = useGenerateSegments()
     const saveSegmentsMutation = useSaveSegments()
+    const updateMetadataMutation = useUpdateVideoMetadata()
 
     // Transcription error state
     const [transcriptionError, setTranscriptionError] = useState<string | null>(null)
@@ -201,8 +202,8 @@ export default function EditorAudioStep() {
         return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
 
-    // Select a version to use
-    const handleSelectVersion = (version: AudioVersion) => {
+    // Select a version to use - immediately saves to DB so navigation works correctly
+    const handleSelectVersion = async (version: AudioVersion) => {
         const updateData: Partial<any> = {
             audioUrl: version.audioUrl,
             audioKey: version.audioKey,
@@ -221,6 +222,20 @@ export default function EditorAudioStep() {
         
         setTranscriptionError(null)
         toast.success(`Selected audio version from ${formatDate(version.generatedAt)}`)
+        
+        // Immediately save selectedAudioId to DB so navigation to next page works
+        if (request.videoId) {
+            try {
+                await updateMetadataMutation.mutateAsync({
+                    videoId: request.videoId,
+                    metadata: { selectedAudioId: version.id }
+                })
+            } catch (error) {
+                console.error("Failed to save audio selection:", error)
+                // Don't show error toast - the local state is already updated
+                // and auto-save will retry
+            }
+        }
     }
 
     // Generate transcription for the selected audio version

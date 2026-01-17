@@ -9,6 +9,12 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { VisualSegment } from "../../context/editor-creation-context"
 import { getSegmentImageUrl } from "./utils"
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 interface ImageGallerySectionProps {
     segments: VisualSegment[]
@@ -36,6 +42,10 @@ export function ImageGallerySection({
     onPreview
 }: ImageGallerySectionProps) {
     const hasSegments = segments.length > 0
+    // Check if any segment has a valid image prompt
+    const hasPrompts = segments.some(segment => segment.imagePrompt?.trim())
+    // Generate All Images should be disabled if no prompts exist yet
+    const canGenerateImages = hasPrompts && canAnalyze
 
     const openViewer = (e: React.MouseEvent, index: number) => {
         e.stopPropagation()
@@ -67,20 +77,33 @@ export function ImageGallerySection({
                             className="gap-2"
                         >
                             <Pencil className="h-4 w-4" />
-                            Regenerate Prompts
+                            Generate Visual Prompts
                         </Button>
-                        <Button
-                            onClick={() => onGenerateAll(false)}
-                            disabled={isGeneratingAll || !canAnalyze}
-                            className="gap-2 bg-purple-600 hover:bg-purple-700"
-                        >
-                            {isGeneratingAll ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                                <Sparkles className="h-4 w-4" />
-                            )}
-                            Generate All Images
-                        </Button>
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <span className="inline-flex">
+                                        <Button
+                                            onClick={() => onGenerateAll(false)}
+                                            disabled={isGeneratingAll || !canGenerateImages}
+                                            className="gap-2 bg-purple-600 hover:bg-purple-700"
+                                        >
+                                            {isGeneratingAll ? (
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                            ) : (
+                                                <Sparkles className="h-4 w-4" />
+                                            )}
+                                            Generate All Images
+                                        </Button>
+                                    </span>
+                                </TooltipTrigger>
+                                {!hasPrompts && hasSegments && (
+                                    <TooltipContent>
+                                        <p>Please click on "Generate Visual Prompts" before generating images</p>
+                                    </TooltipContent>
+                                )}
+                            </Tooltip>
+                        </TooltipProvider>
                     </div>
                 )}
             </div>

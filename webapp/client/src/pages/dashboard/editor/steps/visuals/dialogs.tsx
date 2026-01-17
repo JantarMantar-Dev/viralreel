@@ -53,7 +53,7 @@ export function RegeneratePromptsDialog({
                                 Analyzing...
                             </>
                         ) : (
-                            "Regenerate Prompts"
+                            "Generate Visual Prompts"
                         )}
                     </Button>
                 </DialogFooter>
