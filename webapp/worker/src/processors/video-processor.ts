@@ -4,7 +4,7 @@ import { renderJob, video, subtitleStyle, script } from '../db/schema.js';
 import { eq, or } from 'drizzle-orm';
 import { Processor } from './types.js';
 import { bundle } from '@remotion/bundler';
-import { renderMedia, selectComposition } from '@remotion/renderer';
+import { renderMedia, selectComposition, ensureBrowser } from '@remotion/renderer';
 import path from 'path';
 import fs from 'fs';
 import { VideoRendererInput, SubtitleSegment, VideoSegment, ScriptContent } from '../types.js';
@@ -161,16 +161,16 @@ export class VideoProcessor implements Processor {
                     s3Key = `videos/${job.videoId}/audio.wav`;
                     logger.info(`[VideoProcessor] Constructed fallback audio S3 key`, logContext);
                 }
-                
+
                 try {
                     const { url, expiresAt } = await getSignedUrlForKey(s3Key);
                     audioUrl = url;
-                    
+
                     // Update script with new signed URL
                     scriptJson.audioSignedUrl = url;
                     scriptJson.audioSignedUrlExpiresAt = expiresAt.toISOString();
                     scriptUpdated = true;
-                    
+
                     logger.info(`[VideoProcessor] Generated and cached signed URL for audio`, logContext);
                 } catch (err) {
                     logger.error(`[VideoProcessor] Failed to sign audio URL`, { ...logContext, error: err });
@@ -181,7 +181,7 @@ export class VideoProcessor implements Processor {
 
             // Process Segments (Update script in place and map for renderer)
             const processedSegments: VideoSegment[] = [];
-            
+
             for (let i = 0; i < segments.length; i++) {
                 const s = segments[i];
                 let imageUrl = s.imageAssetPath;
@@ -191,25 +191,25 @@ export class VideoProcessor implements Processor {
                     imageUrl = s.imageSignedUrl!;
                 } else {
                     let keyToSign = s.imageKey;
-                    
+
                     // Fallback logic for key detection
                     if (!keyToSign && s.imageAssetPath && !s.imageAssetPath.startsWith('http')) {
-                         if (s.imageAssetPath.includes('videos/')) {
-                             keyToSign = s.imageAssetPath;
-                         }
+                        if (s.imageAssetPath.includes('videos/')) {
+                            keyToSign = s.imageAssetPath;
+                        }
                     }
 
                     if (keyToSign) {
                         try {
                             const { url, expiresAt } = await getSignedUrlForKey(keyToSign);
                             imageUrl = url;
-                            
+
                             // Update segment in script
                             s.imageSignedUrl = url;
                             s.imageSignedUrlExpiresAt = expiresAt.toISOString();
                             // Ensure imageKey is set if we found it via fallback
                             if (!s.imageKey) s.imageKey = keyToSign;
-                            
+
                             segmentUpdated = true;
                             scriptUpdated = true;
                         } catch (err) {
@@ -229,7 +229,7 @@ export class VideoProcessor implements Processor {
             // Persist updated script content if needed
             if (scriptUpdated) {
                 await db.update(script)
-                    .set({ 
+                    .set({
                         content: scriptJson,
                         updatedAt: new Date()
                     })
@@ -255,12 +255,30 @@ export class VideoProcessor implements Processor {
                 webpackOverride: (config) => ({ ...config, resolve: { ...config.resolve, extensionAlias: { ".js": [".ts", ".tsx", ".js", ".jsx"] } } }),
             });
 
+            // Ensure browser is available (will fail fast if not pre-installed)
+            const browserExecutablePath = process.env.CHROME_EXECUTABLE_PATH || process.env.PUPPETEER_EXECUTABLE_PATH;
+            if (browserExecutablePath) {
+                logger.info(`[VideoProcessor] Using Chrome at: ${browserExecutablePath}`, logContext);
+            } else {
+                logger.warn(`[VideoProcessor] No CHROME_EXECUTABLE_PATH set, Remotion will attempt to find/download browser`, logContext);
+            }
+
             // Composition
             const templateId = (videoData.metadata as any)?.templateId || 'simple';
             const composition = await selectComposition({
                 serveUrl: bundleLocation,
                 id: templateId,
                 inputProps: inputProps as any,
+                browserExecutable: browserExecutablePath || null,
+                onBrowserDownload: (options) => {
+                    logger.info(`[VideoProcessor] Chrome download started for composition. Mode: ${options.chromeMode}`, logContext);
+                    return {
+                        version: null,
+                        onProgress: (info) => {
+                            logger.info(`[VideoProcessor] Downloading Chrome for composition: ${info.percent}%`, logContext);
+                        }
+                    };
+                },
             });
 
             // Render
@@ -277,6 +295,16 @@ export class VideoProcessor implements Processor {
                 outputLocation,
                 inputProps: inputProps as any,
                 dumpBrowserLogs: true,
+                browserExecutable: browserExecutablePath || null,
+                onBrowserDownload: (options) => {
+                    logger.info(`[VideoProcessor] Chrome download started for rendering. Mode: ${options.chromeMode}`, logContext);
+                    return {
+                        version: null,
+                        onProgress: (info) => {
+                            logger.info(`[VideoProcessor] Downloading Chrome for rendering: ${info.percent}%`, logContext);
+                        }
+                    };
+                },
             });
 
             // Upload Original
