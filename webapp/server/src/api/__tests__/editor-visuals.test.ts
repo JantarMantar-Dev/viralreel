@@ -139,7 +139,7 @@ describe('Editor Visuals API', () => {
             // Verify Image Generation
             expect(mockImageProvider.generateImage).toHaveBeenCalledWith({
                 prompt: 'A futuristic city',
-                style: 'cyberpunk',
+                style: undefined,
                 aspectRatio: '9:16'
             });
 
@@ -290,8 +290,8 @@ describe('Editor Visuals API', () => {
             // Verify Image Generation called twice
             expect(mockImageProvider.generateImage).toHaveBeenCalledTimes(2);
             expect(mockImageProvider.generateImage).toHaveBeenCalledWith({
-                prompt: 'prompt 1',
-                style: 'anime',
+                prompt: 'prompt 1 Style: Clean anime style, sharp linework.',
+                style: undefined,
                 aspectRatio: '9:16'
             });
 

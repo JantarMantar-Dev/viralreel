@@ -1,4 +1,5 @@
 import { IImageModelProvider, ImageGenerationOptions, ImageProviderConfig, IMAGE_STYLES, ASPECT_RATIOS } from './types.js';
+import { applyStyle } from './style-presets.js';
 
 export class GoogleImageProvider implements IImageModelProvider {
     public providerName = 'google';
@@ -25,7 +26,13 @@ export class GoogleImageProvider implements IImageModelProvider {
         let styledPrompt = prompt;
         if (style) {
             const normalizedStyle = style.toLowerCase().replace(/-/g, ' ');
-            if (IMAGE_STYLES[normalizedStyle]) {
+            
+            // Try new preset system first
+            const presetPrompt = applyStyle(prompt, normalizedStyle);
+            
+            if (presetPrompt !== prompt) {
+                styledPrompt = presetPrompt;
+            } else if (IMAGE_STYLES[normalizedStyle]) {
                 styledPrompt = `${prompt} Style: ${IMAGE_STYLES[normalizedStyle]}.`;
             }
         }

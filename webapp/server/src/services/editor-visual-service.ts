@@ -270,10 +270,25 @@ export async function generateSegmentImage(params: GenerateSegmentImageParams): 
         throw new AppError("NotFound", "Segment not found", 404);
     }
 
+    const visualStyleId = style || metadata.visualStyle;
+    let styleDetails;
+
+    if (visualStyleId && IMAGE_STYLES[visualStyleId]) {
+        styleDetails = {
+            name: visualStyleId,
+            description: IMAGE_STYLES[visualStyleId]
+        };
+    }
+
+    let finalPrompt = prompt;
+    if (styleDetails) {
+        finalPrompt = `${prompt} Style: ${styleDetails.description}.`;
+    }
+
     // 3. Generate image
     const imageBuffer = await generateImage(
-        prompt,
-        style || metadata.visualStyle,
+        finalPrompt,
+        undefined,
         metadata.aspectRatio || "portrait" // Default to portrait if not set
     );
 
@@ -327,6 +342,15 @@ export async function generateAllImages(params: GenerateAllImagesParams): Promis
     }
 
     const visualStyle = style || metadata.visualStyle;
+    let styleDetails;
+
+    if (visualStyle && IMAGE_STYLES[visualStyle]) {
+        styleDetails = {
+            name: visualStyle,
+            description: IMAGE_STYLES[visualStyle]
+        };
+    }
+
     const updatedSegments: VisualSegment[] = [];
 
     // 2. Generate images for each segment (sequentially to avoid rate limits)
@@ -334,9 +358,14 @@ export async function generateAllImages(params: GenerateAllImagesParams): Promis
         try {
             console.log(`[EditorVisualService] Generating image for segment ${segment.index + 1}/${metadata.segments.length}`);
 
+            let promptToUse = segment.imagePrompt;
+            if (styleDetails) {
+                promptToUse = `${segment.imagePrompt} Style: ${styleDetails.description}.`;
+            }
+
             const imageBuffer = await generateImage(
-                segment.imagePrompt,
-                visualStyle,
+                promptToUse,
+                undefined,
                 metadata.aspectRatio || "portrait" // Default to portrait if not set
             );
 

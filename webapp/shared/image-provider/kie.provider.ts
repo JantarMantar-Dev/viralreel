@@ -1,4 +1,5 @@
-import { IImageModelProvider, ImageGenerationOptions, ImageProviderConfig, ASPECT_RATIOS } from './types.js';
+import { IImageModelProvider, ImageGenerationOptions, ImageProviderConfig, ASPECT_RATIOS, IMAGE_STYLES } from './types.js';
+import { applyStyle } from './style-presets.js';
 
 interface KieCreateTaskResponse {
     code: number;
@@ -123,21 +124,34 @@ export class KieImageProvider implements IImageModelProvider {
     }
 
     async generateImage(options: ImageGenerationOptions): Promise<Buffer> {
-        const { prompt, aspectRatio } = options;
+        const { prompt, aspectRatio, style } = options;
 
         if (!this.apiKey) {
             throw new Error("KIE API Key not configured");
         }
 
+        // Apply style if provided
+        let styledPrompt = prompt;
+        if (style) {
+            const normalizedStyle = style.toLowerCase().replace(/-/g, ' ');
+            const presetPrompt = applyStyle(prompt, normalizedStyle);
+            
+            if (presetPrompt !== prompt) {
+                styledPrompt = presetPrompt;
+            } else if (IMAGE_STYLES[normalizedStyle]) {
+                styledPrompt = `${prompt} Style: ${IMAGE_STYLES[normalizedStyle]}.`;
+            }
+        }
+
         if (this.isDev) {
-            console.log(`[KieImageProvider] Generating image for prompt:\n${prompt}`);
+            console.log(`[KieImageProvider] Generating image for prompt:\n${styledPrompt}`);
         } else {
-            console.log(`[KieImageProvider] Generating image for prompt: "${prompt.substring(0, 50)}..."`);
+            console.log(`[KieImageProvider] Generating image for prompt: "${styledPrompt.substring(0, 50)}..."`);
         }
         
         try {
             const ratio = this.getAspectRatio(aspectRatio);
-            const taskId = await this.createTask(prompt, ratio);
+            const taskId = await this.createTask(styledPrompt, ratio);
             
             console.log(`[KieImageProvider] Task created: ${taskId}, waiting for completion...`);
             
