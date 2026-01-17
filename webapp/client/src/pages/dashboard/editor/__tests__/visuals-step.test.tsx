@@ -221,8 +221,7 @@ describe('EditorVisualsStep Component', () => {
 
             expect(mockAnalyzeVisuals).toHaveBeenCalledWith({
                 videoId: 'video-123',
-                script: 'Test script',
-                audioDurationSeconds: 10
+                segments: MOCK_SEGMENTS
             })
         })
     })
@@ -501,4 +500,47 @@ describe('EditorVisualsStep Component', () => {
             })
         })
     })
+
+    describe('Segment Regeneration Workflow', () => {
+        it('should update segment image url after regeneration', async () => {
+             const segment: VisualSegment = {
+                ...MOCK_SEGMENTS[0],
+                imageUrl: 'https://example.com/old.png'
+             };
+
+             const newImageUrl = 'https://example.com/new-regenerated.png';
+             mockGenerateSegmentImage.mockResolvedValue({ 
+                 segment: { ...segment, imageUrl: newImageUrl } 
+             });
+
+             const updateRequestMock = vi.fn();
+
+             renderVisualsStep({
+                 editorContext: {
+                     request: createMockEditorRequest({ segments: [segment] }),
+                     updateRequest: updateRequestMock
+                 }
+             });
+
+             const user = userEvent.setup();
+
+             // Expand segment
+             await user.click(screen.getByText('Segment 1'));
+
+             // Click regenerate button
+             const regenerateButton = screen.getByRole('button', { name: /Regenerate This Image/i });
+             await user.click(regenerateButton);
+
+             await waitFor(() => {
+                 expect(updateRequestMock).toHaveBeenCalledWith(expect.objectContaining({
+                     segments: expect.arrayContaining([
+                         expect.objectContaining({
+                             id: segment.id,
+                             imageUrl: newImageUrl
+                         })
+                     ])
+                 }));
+             });
+        });
+    });
 })

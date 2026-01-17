@@ -49,6 +49,9 @@ export class StorageProvider {
 
         await upload.done();
 
+        // Invalidate cache for this key so next getSignedUrl returns a fresh URL
+        this.signedUrlCache.delete(key);
+
         // Return the key directly for storage, or constructed URL if needed by legacy
         // For now, we return the URL structure, but we will mostly rely on key extraction or signed URLs
         const endpoint = process.env.S3_ENDPOINT_URL?.replace("https://", "") || "s3.wasabisys.com";
