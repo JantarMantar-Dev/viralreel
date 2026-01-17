@@ -74,63 +74,21 @@ services:
     networks:
       - webapp-network
 
-  worker-script:
+  worker:
     build:
       context: ./worker
       dockerfile: Dockerfile.dev
-    container_name: webapp-worker-script
+    container_name: webapp-worker
     volumes:
       - ./worker:/app
       - ./shared:/shared
-      - /app/node_modules
-    environment:
-      - DATABASE_URL=postgresql://user:password@postgres:5432/webapp
-      - SCRIPT_WORKER_SIZE=1
-      - VIDEO_WORK_DIR=/app/work_dir
-    env_file: .env
-    command: npx tsx watch src/script_renderer.ts
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - webapp-network
-
-  worker-ai:
-    build:
-      context: ./worker
-      dockerfile: Dockerfile.dev
-    container_name: webapp-worker-ai
-    volumes:
-      - ./worker:/app
-      - ./shared:/shared
-      - /app/node_modules
-    environment:
-      - DATABASE_URL=postgresql://user:password@postgres:5432/webapp
-      - AI_GEN_WORKER_SIZE=1
-      - VIDEO_WORK_DIR=/app/work_dir
-    env_file: .env
-    command: npx tsx watch src/ai_asset_generator.ts
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - webapp-network
-
-  worker-video:
-    build:
-      context: ./worker
-      dockerfile: Dockerfile.dev
-    container_name: webapp-worker-video
-    volumes:
-      - ./worker:/app
-      - ./shared:/shared
-      - /app/node_modules
     environment:
       - DATABASE_URL=postgresql://user:password@postgres:5432/webapp
       - VIDEO_WORK_DIR=/app/work_dir
-      - VIDEO_WORKER_SIZE=1
+      - WORKER_ID=unified-worker-1
+      - ESBUILD_BINARY_PATH=/app/node_modules/@esbuild/linux-arm64/bin/esbuild
     env_file: .env
-    command: npx tsx watch src/video_renderer.ts
+    command: npx tsx watch src/worker.ts
     depends_on:
       postgres:
         condition: service_healthy
