@@ -73,7 +73,7 @@ export async function createEditorDraftVideo(params: CreateEditorDraftParams): P
         nicheName, // Save nicheName for reference
         aspectRatio: "portrait",
         templateId: "simple",
-        isEditorMode: true,
+        editorMode: true,
         generatedScript: approvedScript,
         // Script version tracking
         scriptVersions: [initialScriptVersion],
@@ -137,7 +137,7 @@ export async function createEditorVideoJob({
         aspectRatio: body.aspectRatio || "portrait",
         templateId: "simple",
         // Editor mode markers
-        isEditorMode: true,
+        editorMode: true,
         generatedScript: body.generatedScript,
     };
 
@@ -230,7 +230,7 @@ export async function updateEditorVideoMetadata(
         nicheId: body.nicheId ?? undefined,
         aspectRatio: body.aspectRatio || "portrait",
         templateId: "simple",
-        isEditorMode: true,
+        editorMode: true,
         generatedScript: body.generatedScript,
     };
 

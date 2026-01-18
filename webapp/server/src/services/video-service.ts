@@ -177,7 +177,7 @@ export async function queueVideoRender(videoId: string, userId: string) {
 
     // Determine initial status based on whether this is an editor mode video
     // Editor mode videos have a pre-generated script and start at SCRIPT_READY
-    const isEditorMode = metadata?.isEditorMode === true;
+    const isEditorMode = metadata?.isEditorMode === true || v.mode === "editor";
     const initialStatus = isEditorMode ? "SCRIPT_READY" : "SCRIPTING";
 
     // Update video status
@@ -185,9 +185,12 @@ export async function queueVideoRender(videoId: string, userId: string) {
         .set({ status: initialStatus, updatedAt: new Date() })
         .where(eq(video.id, videoId));
 
-    // Update render_job status to QUEUED
+    // Update render_job status to QUEUED or VIDEO_QUEUED
+    // Editor mode uses VIDEO_QUEUED to skip script generation
+    const renderStatus = isEditorMode ? "VIDEO_QUEUED" : "QUEUED";
+
     await db.update(renderJob)
-        .set({ status: "QUEUED", updatedAt: new Date() })
+        .set({ status: renderStatus, updatedAt: new Date() })
         .where(eq(renderJob.videoId, videoId));
 
     return { success: true, message: "Rendering queued successfully" };
@@ -267,7 +270,7 @@ export async function retryVideoProcessing(videoId: string, userId: string) {
     }
 
     // Determine initial status based on whether this is an editor mode video
-    const isEditorMode = metadata?.isEditorMode === true;
+    const isEditorMode = metadata?.isEditorMode === true || v.mode === "editor";
     const initialStatus = isEditorMode ? "SCRIPT_READY" : "SCRIPTING";
 
     // Reset video status
@@ -278,10 +281,13 @@ export async function retryVideoProcessing(videoId: string, userId: string) {
         })
         .where(eq(video.id, videoId));
 
-    // Reset render_job status to QUEUED so processor will pick it up
+    // Reset render_job status to QUEUED or VIDEO_QUEUED
+    // Editor mode uses VIDEO_QUEUED to skip script generation
+    const renderStatus = isEditorMode ? "VIDEO_QUEUED" : "QUEUED";
+
     await db.update(renderJob)
         .set({
-            status: "QUEUED",
+            status: renderStatus,
             error: null,
             retryCount: 0,
             progress: 0,

@@ -253,16 +253,40 @@ function VideoCard({ project, onClick, onDelete, onRender, onRetry, onOpen, onEd
                             </>
                         )}
                         {project.type === "Single Video" && project.status === "Draft" && onRender && (
-                            <DropdownMenuItem
-                                className="text-purple-600 font-medium"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onRender();
-                                }}
-                            >
-                                <Zap className="h-4 w-4 mr-2 text-yellow-500" />
-                                Render Now
-                            </DropdownMenuItem>
+                            <>
+                                {project.mode === "editor" && project.currentPhase && project.currentPhase !== "review" ? (
+                                    <TooltipProvider>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <span>
+                                                    <DropdownMenuItem
+                                                        disabled
+                                                        className="text-slate-400 font-medium cursor-not-allowed opacity-50"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    >
+                                                        <Zap className="h-4 w-4 mr-2" />
+                                                        Render Now
+                                                    </DropdownMenuItem>
+                                                </span>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                                <p>You are at {project.currentPhase} stage. Finish editing planning.</p>
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
+                                ) : (
+                                    <DropdownMenuItem
+                                        className="text-purple-600 font-medium"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onRender();
+                                        }}
+                                    >
+                                        <Zap className="h-4 w-4 mr-2 text-yellow-500" />
+                                        Render Now
+                                    </DropdownMenuItem>
+                                )}
+                            </>
                         )}
                         {project.type === "Single Video" && project.status === "Failed" && onRetry && (
                             <DropdownMenuItem
@@ -526,7 +550,8 @@ export default function MyVideosPage() {
         videoCount: j.videoCount,
         outputUrl: j.outputUrl,
         compressedUrl: j.compressedUrl,
-        aspectRatio: j.aspectRatio
+        aspectRatio: j.aspectRatio,
+        currentPhase: j.currentPhase
     }))
 
     // Sort by date (assuming id or createdAt is comparable, technically createdAt string needs parsing but fine for now)
