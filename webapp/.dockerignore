@@ -1,0 +1,36 @@
+# Exclude node_modules for performance
+**/node_modules
+node_modules
+
+# Exclude git
+.git
+.gitignore
+
+# Exclude build artifacts
+dist
+build
+out
+.next
+.nuxt
+
+# Exclude temp files
+.DS_Store
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Exclude env files (be careful if you need them in build, but usually secrets are args)
+.env
+.env.*
+! .env.example
+
+# Exclude documentation and other non-essential files
+README.md
+docs
+tests
+e2e
+
+# Ensure shared and worker are NOT ignored (implicit, but good to keep in mind)
+# !shared
+# !worker
