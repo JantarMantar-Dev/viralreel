@@ -193,9 +193,11 @@ export class VideoProcessor implements Processor {
             const compressedLocation = path.join(workDir, `${job.id}_compressed.mp4`);
             await compressVideo(outputLocation, compressedLocation);
 
+            logger.info("[VideoProcessor] Uploading compressed...", logContext);
             // Upload Compressed
             const compressedUrl = await uploadToS3(compressedLocation, `renders/${job.id}.mp4`, 'video/mp4');
 
+            logger.info("[VideoProcessor] Updating DB...", logContext);
             // Update DB
             await db.update(renderJob)
                 .set({ status: 'VIDEO_COMPLETED', progress: 100, completedAt: new Date(), updatedAt: new Date(), originalUrl, compressedUrl, metadata: {} })
@@ -205,6 +207,7 @@ export class VideoProcessor implements Processor {
                 .set({ status: 'COMPLETED', outputUrl: originalUrl, compressedUrl })
                 .where(eq(video.id, job.videoId));
 
+            logger.info("[VideoProcessor] Deducting credits...", logContext);
             // Deduct credits
             try {
                 await deductCredits(
@@ -222,6 +225,7 @@ export class VideoProcessor implements Processor {
 
             // Cleanup resources in production environment
             if (isProduction()) {
+                logger.info("[VideoProcessor] Cleaning up resources...", logContext);
                 try {
                     // Delete job-specific work directory
                     deleteDirectory(workDir);
@@ -302,7 +306,7 @@ export class VideoProcessor implements Processor {
                 if (!duration && s.timeRange && Array.isArray(s.timeRange) && s.timeRange.length === 2) {
                     duration = s.timeRange[1] - s.timeRange[0];
                 }
-                
+
                 return {
                     imageAssetPath: s.imageKey || s.imageAssetPath || "",
                     duration: duration,
@@ -338,7 +342,7 @@ export class VideoProcessor implements Processor {
         let customSubtitleStyle: any = {};
         let subtitleTemplateId: string | undefined = undefined;
 
-        const styleId = metadata?.subtitleTemplateId || metadata?.subtitleStyleId;
+        const styleId = metadata?.subtitleTemplateId || metadata?.subtitleStyleId || renderData?.subtitleTemplateId || renderData?.subtitleStyleId;
         if (styleId) {
             const style = await db.query.subtitleStyle.findFirst({ where: eq(subtitleStyle.id, styleId) });
             if (style) {

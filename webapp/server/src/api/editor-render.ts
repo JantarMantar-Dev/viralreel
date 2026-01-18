@@ -107,6 +107,8 @@ export default async function editorRenderRoutes(fastify: FastifyInstance) {
                 audioDurationSeconds: metadata.audioDurationSeconds || 0,
                 subtitles: subtitles || [],
                 segments: renderSegments,
+                subtitleTemplateId: metadata.subtitleTemplateId || metadata.renderData?.subtitleTemplateId,
+                subtitleStyleId: metadata.subtitleStyleId || metadata.renderData?.subtitleStyleId,
                 isReady: true
             };
 

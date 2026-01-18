@@ -160,7 +160,11 @@ export class ScriptingJob implements ScriptingJobInterface {
             script: finalScriptContent, // Keep for backward compatibility
             genScriptId: finalScriptId,
             // Unified render data - used by video processor
-            renderData,
+            renderData: {
+                ...renderData,
+                subtitleTemplateId: metadata?.subtitleTemplateId,
+                subtitleStyleId: metadata?.subtitleStyleId
+            },
             // Also set top-level audioKey for compatibility
             audioKey: renderData.audioKey,
             audioDurationSeconds: renderData.audioDurationSeconds,

@@ -68,6 +68,7 @@ interface Project {
     mode?: "auto" | "editor"
     videoCount?: number
     date: string
+    createdAt?: string
     duration?: string
     isHd?: boolean
     is4k?: boolean
@@ -536,23 +537,41 @@ export default function MyVideosPage() {
         refetchInterval: 10000,
     })
 
-    const projects: Project[] = (response?.projects || []).map((j: any) => ({
-        id: j.id,
-        title: j.title || "Untitled Video",
-        description: j.description || "",
-        thumbnailUrl: j.thumbnailUrl || "",
-        type: j.type, // 'Series' or 'Single Video'
-        status: j.status, // 'Rendering', 'Completed', 'Draft' from backend
-        mode: j.mode || "auto",
-        date: formatRelativeDate(j.date),
-        duration: j.duration ? (j.duration === 0.5 ? "00:30" : `${j.duration}:00`) : undefined,
-        isHd: true,
-        videoCount: j.videoCount,
-        outputUrl: j.outputUrl,
-        compressedUrl: j.compressedUrl,
-        aspectRatio: j.aspectRatio,
-        currentPhase: j.currentPhase
-    }))
+    const projects: Project[] = (response?.projects || []).map((j: any) => {
+        let status = j.status;
+        const createdAt = j.date;
+
+        // Check if rendering takes more than 2 hours
+        if (status === "Rendering" && createdAt) {
+            const createdDate = new Date(createdAt);
+            const now = new Date();
+            const diffInMs = now.getTime() - createdDate.getTime();
+            const diffInHours = diffInMs / (1000 * 60 * 60);
+
+            if (diffInHours > 2) {
+                status = "Failed";
+            }
+        }
+
+        return {
+            id: j.id,
+            title: j.title || "Untitled Video",
+            description: j.description || "",
+            thumbnailUrl: j.thumbnailUrl || "",
+            type: j.type, // 'Series' or 'Single Video'
+            status: status, // 'Rendering', 'Completed', 'Draft' from backend
+            mode: j.mode || "auto",
+            date: formatRelativeDate(j.date),
+            createdAt: j.date,
+            duration: j.duration ? (j.duration === 0.5 ? "00:30" : `${j.duration}:00`) : undefined,
+            isHd: true,
+            videoCount: j.videoCount,
+            outputUrl: j.outputUrl,
+            compressedUrl: j.compressedUrl,
+            aspectRatio: j.aspectRatio,
+            currentPhase: j.currentPhase
+        };
+    })
 
     // Sort by date (assuming id or createdAt is comparable, technically createdAt string needs parsing but fine for now)
     // Actually better to not sort on client unless we have raw dates. API said "orderBy(desc(series.createdAt))" so they come sorted.

@@ -144,6 +144,10 @@ export interface RenderData {
     // Segments - visual segments with timing and images
     segments: RenderSegment[];
     
+    // Subtitle Style
+    subtitleTemplateId?: string;
+    subtitleStyleId?: string;
+    
     // Ready flag - set to true when all render data is complete
     isReady: boolean;
 }
