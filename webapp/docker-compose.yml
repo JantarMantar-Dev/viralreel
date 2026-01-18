@@ -82,11 +82,11 @@ services:
     volumes:
       - ./worker:/app
       - ./shared:/shared
+      - /app/node_modules
     environment:
       - DATABASE_URL=postgresql://user:password@postgres:5432/webapp
       - VIDEO_WORK_DIR=/app/work_dir
       - WORKER_ID=unified-worker-1
-      - ESBUILD_BINARY_PATH=/app/node_modules/@esbuild/linux-arm64/bin/esbuild
     env_file: .env
     command: npx tsx watch src/worker.ts
     depends_on:

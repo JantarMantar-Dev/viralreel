@@ -9,7 +9,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
       POSTGRES_DB: ${POSTGRES_DB:-webapp}
     volumes:
-      - postgres_data_prod:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-user} -d ${POSTGRES_DB:-webapp}"]
       interval: 5s
@@ -205,5 +205,5 @@ networks:
     driver: bridge
 
 volumes:
-  postgres_data_prod:
+  postgres_data:
   openobserve_data_prod:
