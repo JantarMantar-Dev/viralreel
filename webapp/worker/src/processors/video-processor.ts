@@ -118,146 +118,11 @@ export class VideoProcessor implements Processor {
             });
             if (!videoData) throw new Error(`Video not found ${job.videoId}`);
 
-            // Subtitle Style
-            const metadata = videoData.metadata as any;
-
-            // =========================================================================
-            // UNIFIED RENDER DATA RESOLUTION
-            // =========================================================================
-            // We prefer video.metadata.renderData (Unified Schema)
-            // But fallback to script.content for backward compatibility
-
-            let audioKey = "";
-            let subtitles: SubtitleSegment[] = [];
-            let segments: VideoSegment[] = [];
-            let renderData = metadata.renderData;
-
-            // Legacy Script Content Fallback
+            // Fetch script data
             const scriptData = await db.query.script.findFirst({ where: eq(script.videoId, job.videoId) });
-            const scriptJson = scriptData?.content as ScriptContent | undefined;
 
-            if (renderData) {
-                logger.info(`[VideoProcessor] Using unified RenderData from metadata`, logContext);
-                audioKey = renderData.audioKey;
-                subtitles = renderData.subtitles || [];
-
-                // Convert RenderData segments to VideoSegments
-                segments = (renderData.segments || []).map((s: any) => ({
-                    imageAssetPath: s.imageKey || s.imageAssetPath || "",
-                    duration: s.duration || 0,
-                    imageEffect: s.imageEffect
-                }));
-
-            } else if (scriptJson) {
-                logger.info(`[VideoProcessor] Using legacy script content`, logContext);
-                audioKey = scriptJson.audioKey || `videos/${job.videoId}/audio.wav`; // Legacy auto mode fallback
-
-                // Check if this is a "broken" editor mode video (old schema)
-                if (metadata.editorMode && !scriptJson.audioKey && metadata.audioKey) {
-                    audioKey = metadata.audioKey;
-                    logger.info(`[VideoProcessor] Legacy editor mode audio fallback`, logContext);
-                }
-
-                subtitles = scriptJson.subtitles || [];
-                segments = (scriptJson.segments || []).map(s => ({
-                    imageAssetPath: s.imageKey || s.imageAssetPath || "",
-                    duration: s.duration || 0,
-                    imageEffect: s.imageEffect as any
-                }));
-            } else {
-                throw new Error("No render data or script content found");
-            }
-
-            // =========================================================================
-            // ASSET URL RESOLUTION (Signing)
-            // =========================================================================
-
-            let subtitleClassName = "";
-            let customSubtitleStyle: any = {};
-            let subtitleTemplateId: string | undefined = undefined;
-
-            const styleId = metadata?.subtitleTemplateId || metadata?.subtitleStyleId;
-            if (styleId) {
-                const style = await db.query.subtitleStyle.findFirst({ where: eq(subtitleStyle.id, styleId) });
-                if (style) {
-                    subtitleClassName = style.css || "";
-                    subtitleTemplateId = style.name.toLowerCase().replace(/\s+/g, '-');
-                    customSubtitleStyle = { color: style.fontColor || 'white', fontSize: style.fontSize || 50, fontFamily: style.fontName || 'sans-serif' };
-                }
-            }
-
-            // Helper to check validity
-            const now = new Date();
-            const isValidSignedUrl = (url?: string, expiresAt?: string | Date) => {
-                if (!url || !expiresAt) return false;
-                const expiry = new Date(expiresAt);
-                // Buffer of 5 minutes
-                return expiry.getTime() > (now.getTime() + 5 * 60000);
-            };
-
-            // Resolve Audio URL
-            let audioUrl = "";
-
-            // Check cache in renderData first
-            if (renderData && isValidSignedUrl(renderData.audioSignedUrl, renderData.audioSignedUrlExpiresAt)) {
-                audioUrl = renderData.audioSignedUrl!;
-            }
-            // Check cache in legacy script
-            else if (scriptJson && isValidSignedUrl(scriptJson.audioSignedUrl, scriptJson.audioSignedUrlExpiresAt)) {
-                audioUrl = scriptJson.audioSignedUrl!;
-            }
-            // Generate new signed URL
-            else if (audioKey) {
-                try {
-                    const { url, expiresAt } = await getSignedUrlForKey(audioKey);
-                    audioUrl = url;
-
-                    // Update cache in metadata (if using renderData)
-                    if (renderData) {
-                        renderData.audioSignedUrl = url;
-                        renderData.audioSignedUrlExpiresAt = expiresAt.toISOString();
-
-                        await db.update(video)
-                            .set({ metadata: { ...metadata, renderData } })
-                            .where(eq(video.id, job.videoId));
-                    }
-                } catch (err) {
-                    logger.error(`[VideoProcessor] Failed to sign audio URL: ${audioKey}`, { ...logContext, error: err });
-                }
-            }
-
-            // Resolve Image URLs for Segments
-            const processedSegments: VideoSegment[] = [];
-            for (let i = 0; i < segments.length; i++) {
-                const s = segments[i];
-                let imageUrl = s.imageAssetPath;
-
-                // If it looks like an S3 key (doesn't start with http), sign it
-                if (imageUrl && !imageUrl.startsWith('http')) {
-                    try {
-                        const { url } = await getSignedUrlForKey(imageUrl);
-                        imageUrl = url;
-                    } catch (err) {
-                        logger.warn(`[VideoProcessor] Failed to sign image key: ${imageUrl}`, { ...logContext, error: err });
-                    }
-                }
-
-                processedSegments.push({
-                    imageAssetPath: imageUrl || "",
-                    duration: s.duration,
-                    imageEffect: s.imageEffect
-                });
-            }
-
-            const inputProps: VideoRendererInput = {
-                audioUrl: audioUrl,
-                subtitleClassName,
-                subtitleStyle: customSubtitleStyle,
-                subtitleLocation: metadata?.subtitleLocation || 'center',
-                subtitleTemplateId,
-                segments: processedSegments,
-                subtitles: subtitles
-            };
+            // Prepare Input Props (Refactored for testing)
+            const inputProps = await this.prepareInputProps(job, videoData, scriptData, logContext);
 
             // Bundle
             logger.info("[VideoProcessor] Bundling Remotion...", logContext);
@@ -403,4 +268,158 @@ export class VideoProcessor implements Processor {
             }
         }
     }
+
+    public async prepareInputProps(
+        job: typeof renderJob.$inferSelect,
+        videoData: typeof video.$inferSelect,
+        scriptData: typeof script.$inferSelect | undefined,
+        logContext: any
+    ): Promise<VideoRendererInput> {
+        // Subtitle Style
+        const metadata = videoData.metadata as any;
+
+        // =========================================================================
+        // UNIFIED RENDER DATA RESOLUTION
+        // =========================================================================
+        // We prefer video.metadata.renderData (Unified Schema)
+        // But fallback to script.content for backward compatibility
+
+        let audioKey = "";
+        let subtitles: SubtitleSegment[] = [];
+        let segments: VideoSegment[] = [];
+        let renderData = metadata.renderData;
+
+        const scriptJson = scriptData?.content as ScriptContent | undefined;
+
+        if (renderData) {
+            logger.info(`[VideoProcessor] Using unified RenderData from metadata`, logContext);
+            audioKey = renderData.audioKey;
+            subtitles = renderData.subtitles || [];
+
+            // Convert RenderData segments to VideoSegments
+            segments = (renderData.segments || []).map((s: any) => {
+                let duration = s.duration || 0;
+                if (!duration && s.timeRange && Array.isArray(s.timeRange) && s.timeRange.length === 2) {
+                    duration = s.timeRange[1] - s.timeRange[0];
+                }
+                
+                return {
+                    imageAssetPath: s.imageKey || s.imageAssetPath || "",
+                    duration: duration,
+                    imageEffect: s.imageEffect
+                };
+            });
+
+        } else if (scriptJson) {
+            logger.info(`[VideoProcessor] Using legacy script content`, logContext);
+            audioKey = scriptJson.audioKey || `videos/${job.videoId}/audio.wav`; // Legacy auto mode fallback
+
+            // Check if this is a "broken" editor mode video (old schema)
+            if (metadata.editorMode && !scriptJson.audioKey && metadata.audioKey) {
+                audioKey = metadata.audioKey;
+                logger.info(`[VideoProcessor] Legacy editor mode audio fallback`, logContext);
+            }
+
+            subtitles = scriptJson.subtitles || [];
+            segments = (scriptJson.segments || []).map(s => ({
+                imageAssetPath: s.imageKey || s.imageAssetPath || "",
+                duration: s.duration || 0,
+                imageEffect: s.imageEffect as any
+            }));
+        } else {
+            throw new Error("No render data or script content found");
+        }
+
+        // =========================================================================
+        // ASSET URL RESOLUTION (Signing)
+        // =========================================================================
+
+        let subtitleClassName = "";
+        let customSubtitleStyle: any = {};
+        let subtitleTemplateId: string | undefined = undefined;
+
+        const styleId = metadata?.subtitleTemplateId || metadata?.subtitleStyleId;
+        if (styleId) {
+            const style = await db.query.subtitleStyle.findFirst({ where: eq(subtitleStyle.id, styleId) });
+            if (style) {
+                subtitleClassName = style.css || "";
+                subtitleTemplateId = style.name.toLowerCase().replace(/\s+/g, '-');
+                customSubtitleStyle = { color: style.fontColor || 'white', fontSize: style.fontSize || 50, fontFamily: style.fontName || 'sans-serif' };
+            }
+        }
+
+        // Helper to check validity
+        const now = new Date();
+        const isValidSignedUrl = (url?: string, expiresAt?: string | Date) => {
+            if (!url || !expiresAt) return false;
+            const expiry = new Date(expiresAt);
+            // Buffer of 5 minutes
+            return expiry.getTime() > (now.getTime() + 5 * 60000);
+        };
+
+        // Resolve Audio URL
+        let audioUrl = "";
+
+        // Check cache in renderData first
+        if (renderData && isValidSignedUrl(renderData.audioSignedUrl, renderData.audioSignedUrlExpiresAt)) {
+            audioUrl = renderData.audioSignedUrl!;
+        }
+        // Check cache in legacy script
+        else if (scriptJson && isValidSignedUrl(scriptJson.audioSignedUrl, scriptJson.audioSignedUrlExpiresAt)) {
+            audioUrl = scriptJson.audioSignedUrl!;
+        }
+        // Generate new signed URL
+        else if (audioKey) {
+            try {
+                const { url, expiresAt } = await getSignedUrlForKey(audioKey);
+                audioUrl = url;
+
+                // Update cache in metadata (if using renderData)
+                if (renderData) {
+                    renderData.audioSignedUrl = url;
+                    renderData.audioSignedUrlExpiresAt = expiresAt.toISOString();
+
+                    await db.update(video)
+                        .set({ metadata: { ...metadata, renderData } })
+                        .where(eq(video.id, job.videoId));
+                }
+            } catch (err) {
+                logger.error(`[VideoProcessor] Failed to sign audio URL: ${audioKey}`, { ...logContext, error: err });
+            }
+        }
+
+        // Resolve Image URLs for Segments
+        const processedSegments: VideoSegment[] = [];
+        for (let i = 0; i < segments.length; i++) {
+            const s = segments[i];
+            let imageUrl = s.imageAssetPath;
+
+            // If it looks like an S3 key (doesn't start with http), sign it
+            if (imageUrl && !imageUrl.startsWith('http')) {
+                try {
+                    const { url } = await getSignedUrlForKey(imageUrl);
+                    imageUrl = url;
+                } catch (err) {
+                    logger.warn(`[VideoProcessor] Failed to sign image key: ${imageUrl}`, { ...logContext, error: err });
+                }
+            }
+
+            processedSegments.push({
+                imageAssetPath: imageUrl || "",
+                duration: s.duration,
+                imageEffect: s.imageEffect
+            });
+        }
+
+        return {
+            audioUrl: audioUrl,
+            subtitleClassName,
+            subtitleStyle: customSubtitleStyle,
+            subtitleLocation: metadata?.subtitleLocation || 'center',
+            subtitleTemplateId,
+            segments: processedSegments,
+            subtitles: subtitles
+        };
+    }
 }
+
