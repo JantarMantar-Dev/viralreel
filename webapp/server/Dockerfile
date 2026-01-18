@@ -15,9 +15,20 @@ WORKDIR /app
 COPY shared/ ./shared/
 COPY server/ ./server/
 
+# Debug: Show what was copied
+RUN echo "=== Checking /app structure ===" && \
+    ls -la /app && \
+    echo "=== Checking /app/server structure ===" && \
+    ls -la /app/server && \
+    echo "=== Checking /app/server/src exists ===" && \
+    ls -la /app/server/src || echo "ERROR: /app/server/src not found!" && \
+    echo "=== Checking /app/shared structure ===" && \
+    ls -la /app/shared
+
 # Build the application
 WORKDIR /app/server
-RUN NODE_OPTIONS="--max-old-space-size=768" npm run build:prod && \
+RUN echo "=== Running TypeScript build ===" && \
+    NODE_OPTIONS="--max-old-space-size=768" npm run build:prod 2>&1 && \
     echo "=== Build output ===" && \
     ls -la dist/ && \
     test -f dist/index.js || (echo "ERROR: dist/index.js not found!" && exit 1)
