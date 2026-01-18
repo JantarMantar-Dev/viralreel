@@ -13,7 +13,7 @@ RUN npm install
 COPY . .
 
 # Build the application
-RUN NODE_OPTIONS="--max-old-space-size=4096" npm run build:prod
+RUN NODE_OPTIONS="--max-old-space-size=768" npm run build:prod
 
 # Production stage
 FROM node:20-alpine
