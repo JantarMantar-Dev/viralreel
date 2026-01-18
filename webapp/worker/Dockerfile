@@ -158,3 +158,4 @@ VOLUME $VIDEO_WORK_DIR
 # Use the wrapper script as entrypoint
 ENTRYPOINT ["/app/entrypoint.sh"]
 CMD ["npm", "start"]
+# Trigger build
