@@ -6,14 +6,18 @@ WORKDIR /app
 # Install dependencies for file watching
 RUN apk add --no-cache inotify-tools
 
-# Copy package files
-COPY package*.json ./
+# Copy package files for the server
+COPY server/package*.json ./server/
 
 # Install all dependencies (including devDependencies)
+WORKDIR /app/server
 RUN npm install
 
 # Copy source code (will be overridden by volume mount)
-COPY . .
+WORKDIR /app
+COPY shared/ ./shared/
+COPY server/ ./server/
+
 
 # Expose port
 EXPOSE 3000
