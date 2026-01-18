@@ -31,7 +31,8 @@ RUN echo "=== Running TypeScript build ===" && \
     NODE_OPTIONS="--max-old-space-size=768" npm run build:prod 2>&1 && \
     echo "=== Build output ===" && \
     ls -la dist/ && \
-    test -f dist/index.js || (echo "ERROR: dist/index.js not found!" && exit 1)
+    ls -la dist/server/src/ && \
+    test -f dist/server/src/index.js || (echo "ERROR: dist/server/src/index.js not found!" && exit 1)
 
 # Production stage
 FROM node:20-alpine
@@ -119,11 +120,12 @@ COPY --from=builder /app/server/drizzle ./drizzle
 # Verify the copy worked
 RUN echo "=== Production stage dist contents ===" && \
     ls -la dist/ && \
-    test -f dist/index.js || (echo "ERROR: dist/index.js not copied!" && exit 1)
+    ls -la dist/server/src/ && \
+    test -f dist/server/src/index.js || (echo "ERROR: dist/server/src/index.js not copied!" && exit 1)
 
 # Use non-root user
 USER node
 
 EXPOSE 3000
 
-CMD ["node", "dist/index.js"]
+CMD ["node", "dist/server/src/index.js"]
