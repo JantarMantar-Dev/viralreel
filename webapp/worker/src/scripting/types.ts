@@ -5,6 +5,10 @@ export const ScriptSegmentSchema = z.object({
     dialogue: z.string(),
     visualPrompt: z.string(),
     duration: z.number(),
+    start: z.number().optional(),
+    end: z.number().optional(),
+    imageKey: z.string().optional(),
+    imageEffect: z.string().optional(),
     oldDuration: z.number().optional(),
 });
 
@@ -23,6 +27,10 @@ export const ScriptContentSchema = z.object({
     title: z.string(),
     description: z.string().optional(),
     subtitles: z.array(SubtitleWordSchema).optional(),
+    audioKey: z.string().optional(),
+    audioUrl: z.string().optional(),
+    audioSignedUrl: z.string().optional(),
+    audioSignedUrlExpiresAt: z.string().optional(),
 });
 
 export const ScriptWriterOutputSchema = z.object({

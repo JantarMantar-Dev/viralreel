@@ -34,7 +34,7 @@ export const auth = betterAuth({
             hooks: {
                 after: [
                     {
-                        matcher: (context) => context.path?.includes("/change-password") && context.method === "POST",
+                        matcher: (context) => (context.path?.includes("/change-password") ?? false) && context.method === "POST",
                         handler: async (ctx: any) => {
                             const user = ctx.context?.user || ctx.user || ctx.context?.session?.user || ctx.context?.newSession?.user;
 

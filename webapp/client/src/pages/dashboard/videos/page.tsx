@@ -17,7 +17,9 @@ import {
     Zap,
     Edit,
     Download,
-    RotateCcw
+    RotateCcw,
+    Wand2,
+    SlidersHorizontal
 } from "lucide-react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
@@ -29,6 +31,10 @@ import {
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
+    DropdownMenuSub,
+    DropdownMenuSubTrigger,
+    DropdownMenuSubContent,
+    DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
 import {
     Dialog,
@@ -59,14 +65,17 @@ interface Project {
     thumbnailUrl: string
     type: "Single Video" | "Series"
     status: "Draft" | "Rendering" | "Completed" | "Failed"
+    mode?: "auto" | "editor"
     videoCount?: number
     date: string
+    createdAt?: string
     duration?: string
     isHd?: boolean
     is4k?: boolean
     outputUrl?: string
     compressedUrl?: string
     aspectRatio?: "portrait" | "landscape"
+    currentPhase?: "script" | "audio" | "visuals" | "subtitles" | "review"
 }
 
 // --- Components ---
@@ -130,7 +139,19 @@ function VideoTypeBadge({ type }: { type: Project["type"] }) {
     return null
 }
 
-function VideoCard({ project, onClick, onDelete, onRender, onRetry, onOpen }: { project: Project, onClick: () => void, onDelete: () => void, onRender?: () => void, onRetry?: () => void, onOpen?: () => void }) {
+function VideoModeBadge({ mode }: { mode: "auto" | "editor" | undefined }) {
+    if (mode === "editor") {
+        return (
+            <div className="flex items-center gap-1 bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full text-[10px] font-medium border border-blue-100">
+                <SlidersHorizontal className="h-3 w-3" />
+                Editor
+            </div>
+        )
+    }
+    return null
+}
+
+function VideoCard({ project, onClick, onDelete, onRender, onRetry, onOpen, onEdit }: { project: Project, onClick: () => void, onDelete: () => void, onRender?: () => void, onRetry?: () => void, onOpen?: () => void, onEdit?: () => void }) {
     return (
         <Card
             onClick={onClick}
@@ -138,7 +159,10 @@ function VideoCard({ project, onClick, onDelete, onRender, onRetry, onOpen }: { 
         >
             {/* Header: Status | Type or Duration */}
             <div className="flex items-center justify-between mb-3">
-                <ProjectStatusBadge status={project.status} />
+                <div className="flex items-center gap-2">
+                    <ProjectStatusBadge status={project.status} />
+                    <VideoModeBadge mode={project.mode} />
+                </div>
 
                 {project.type === "Series" ? (
                     <VideoTypeBadge type={project.type} />
@@ -175,39 +199,50 @@ function VideoCard({ project, onClick, onDelete, onRender, onRetry, onOpen }: { 
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                if (project.type === "Series" || project.status === "Completed") {
+                        {project.type === "Series" && (
+                            <DropdownMenuItem
+                                onClick={(e) => {
+                                    e.stopPropagation();
                                     onClick();
-                                }
-                            }}
-                            disabled={project.type !== "Series" && project.status !== "Completed"}
-                        >
-                            {project.type === "Series" ? (
-                                <>
-                                    <Layers className="h-4 w-4 mr-2" />
-                                    Open
-                                </>
-                            ) : (
-                                <>
-                                    <Edit className="h-4 w-4 mr-2" />
-                                    Edit Detail
-                                </>
-                            )}
-                        </DropdownMenuItem>
+                                }}
+                            >
+                                <Layers className="h-4 w-4 mr-2" />
+                                Open
+                            </DropdownMenuItem>
+                        )}
+
+                        {/* Editor Mode Draft - Edit Detail */}
+                        {project.type === "Single Video" && project.mode === "editor" && project.status === "Draft" && onEdit && (
+                            <DropdownMenuItem
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onEdit();
+                                }}
+                            >
+                                <Edit className="h-4 w-4 mr-2" />
+                                Edit Detail
+                            </DropdownMenuItem>
+                        )}
+
+                        {/* Auto Mode Completed - Open */}
+                        {project.type === "Single Video" && project.status === "Completed" && (
+                            <DropdownMenuItem
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onOpen?.();
+                                }}
+                            >
+                                <Play className="h-4 w-4 mr-2" />
+                                Open
+                            </DropdownMenuItem>
+                        )}
+
+                        {/* Legacy/Fallback: If none of above matches but we have something to show? 
+                            The original code had a catch-all disabled button. We can skip it to be cleaner. 
+                        */}
+
                         {project.type === "Single Video" && (
                             <>
-                                <DropdownMenuItem
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        if (project.status === "Completed") onOpen?.();
-                                    }}
-                                    disabled={project.status !== "Completed"}
-                                >
-                                    <Play className="h-4 w-4 mr-2" />
-                                    Open
-                                </DropdownMenuItem>
                                 {project.outputUrl && (
                                     <DropdownMenuItem asChild>
                                         <a href={project.outputUrl} download target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
@@ -219,16 +254,40 @@ function VideoCard({ project, onClick, onDelete, onRender, onRetry, onOpen }: { 
                             </>
                         )}
                         {project.type === "Single Video" && project.status === "Draft" && onRender && (
-                            <DropdownMenuItem
-                                className="text-purple-600 font-medium"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onRender();
-                                }}
-                            >
-                                <Zap className="h-4 w-4 mr-2 text-yellow-500" />
-                                Render Now
-                            </DropdownMenuItem>
+                            <>
+                                {project.mode === "editor" && project.currentPhase && project.currentPhase !== "review" ? (
+                                    <TooltipProvider>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <span>
+                                                    <DropdownMenuItem
+                                                        disabled
+                                                        className="text-slate-400 font-medium cursor-not-allowed opacity-50"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    >
+                                                        <Zap className="h-4 w-4 mr-2" />
+                                                        Render Now
+                                                    </DropdownMenuItem>
+                                                </span>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                                <p>You are at {project.currentPhase} stage. Finish editing planning.</p>
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
+                                ) : (
+                                    <DropdownMenuItem
+                                        className="text-purple-600 font-medium"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onRender();
+                                        }}
+                                    >
+                                        <Zap className="h-4 w-4 mr-2 text-yellow-500" />
+                                        Render Now
+                                    </DropdownMenuItem>
+                                )}
+                            </>
                         )}
                         {project.type === "Single Video" && project.status === "Failed" && onRetry && (
                             <DropdownMenuItem
@@ -294,6 +353,7 @@ interface VideoListViewProps {
 }
 
 function VideoListView({ filter, setFilter, navigate, projects, isLoading, onDelete, onRender, onRetry, onOpen }: VideoListViewProps) {
+    const queryClient = useQueryClient()
     return (
         <div className="flex flex-col w-full h-full">
             {/* Top Bar (Search & Actions) - Full Width Header */}
@@ -329,12 +389,35 @@ function VideoListView({ filter, setFilter, navigate, projects, isLoading, onDel
                                 <Plus className="mr-2 h-4 w-4" /> Create New
                             </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => navigate("/create?type=series")}>
-                                <Layers className="mr-2 h-4 w-4" /> Create Series
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => navigate("/create?type=video")}>
-                                <Play className="mr-2 h-4 w-4" /> Create Single Video
+                        <DropdownMenuContent align="end" className="w-56">
+                            {/* Auto Mode with sub-menu */}
+                            <DropdownMenuSub>
+                                <DropdownMenuSubTrigger className="cursor-pointer">
+                                    <Wand2 className="mr-2 h-4 w-4 text-purple-600" />
+                                    <div className="flex flex-col">
+                                        <span className="font-semibold">Auto Mode</span>
+                                        <span className="text-[10px] text-slate-500 font-normal">Quick automated creation</span>
+                                    </div>
+                                </DropdownMenuSubTrigger>
+                                <DropdownMenuSubContent className="w-48">
+                                    <DropdownMenuItem onClick={() => navigate("/create?type=series")} className="cursor-pointer">
+                                        <Layers className="mr-2 h-4 w-4" /> Create Series
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => navigate("/create?type=video")} className="cursor-pointer">
+                                        <Play className="mr-2 h-4 w-4" /> Single Video
+                                    </DropdownMenuItem>
+                                </DropdownMenuSubContent>
+                            </DropdownMenuSub>
+                            
+                            <DropdownMenuSeparator />
+                            
+                            {/* Editor Mode - direct navigation */}
+                            <DropdownMenuItem onClick={() => navigate("/editor/niche")} className="cursor-pointer">
+                                <SlidersHorizontal className="mr-2 h-4 w-4 text-purple-600" />
+                                <div className="flex flex-col">
+                                    <span className="font-semibold">Editor Mode</span>
+                                    <span className="text-[10px] text-slate-500 font-normal">Full creative control</span>
+                                </div>
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
@@ -413,6 +496,10 @@ function VideoListView({ filter, setFilter, navigate, projects, isLoading, onDel
                                         onRender={() => onRender(project)}
                                         onRetry={() => onRetry(project)}
                                         onOpen={() => onOpen(project)}
+                                        onEdit={() => {
+                                            queryClient.invalidateQueries({ queryKey: ["editor-video", project.id] })
+                                            navigate(`/editor/script?videoId=${project.id}`)
+                                        }}
                                     />
                                 ))}
                         </div>
@@ -450,21 +537,41 @@ export default function MyVideosPage() {
         refetchInterval: 10000,
     })
 
-    const projects: Project[] = (response?.projects || []).map((j: any) => ({
-        id: j.id,
-        title: j.title || "Untitled Video",
-        description: j.description || "",
-        thumbnailUrl: j.thumbnailUrl || "",
-        type: j.type, // 'Series' or 'Single Video'
-        status: j.status, // 'Rendering', 'Completed', 'Draft' from backend
-        date: formatRelativeDate(j.date),
-        duration: j.duration ? (j.duration === 0.5 ? "00:30" : `${j.duration}:00`) : undefined,
-        isHd: true,
-        videoCount: j.videoCount,
-        outputUrl: j.outputUrl,
-        compressedUrl: j.compressedUrl,
-        aspectRatio: j.aspectRatio
-    }))
+    const projects: Project[] = (response?.projects || []).map((j: any) => {
+        let status = j.status;
+        const createdAt = j.date;
+
+        // Check if rendering takes more than 2 hours
+        if (status === "Rendering" && createdAt) {
+            const createdDate = new Date(createdAt);
+            const now = new Date();
+            const diffInMs = now.getTime() - createdDate.getTime();
+            const diffInHours = diffInMs / (1000 * 60 * 60);
+
+            if (diffInHours > 2) {
+                status = "Failed";
+            }
+        }
+
+        return {
+            id: j.id,
+            title: j.title || "Untitled Video",
+            description: j.description || "",
+            thumbnailUrl: j.thumbnailUrl || "",
+            type: j.type, // 'Series' or 'Single Video'
+            status: status, // 'Rendering', 'Completed', 'Draft' from backend
+            mode: j.mode || "auto",
+            date: formatRelativeDate(j.date),
+            createdAt: j.date,
+            duration: j.duration ? (j.duration === 0.5 ? "00:30" : `${j.duration}:00`) : undefined,
+            isHd: true,
+            videoCount: j.videoCount,
+            outputUrl: j.outputUrl,
+            compressedUrl: j.compressedUrl,
+            aspectRatio: j.aspectRatio,
+            currentPhase: j.currentPhase
+        };
+    })
 
     // Sort by date (assuming id or createdAt is comparable, technically createdAt string needs parsing but fine for now)
     // Actually better to not sort on client unless we have raw dates. API said "orderBy(desc(series.createdAt))" so they come sorted.

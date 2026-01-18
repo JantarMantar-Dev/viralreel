@@ -8,6 +8,7 @@ import { ScriptContent, ScriptSegment } from '../types.js';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import { logger } from '../lib/logger.js';
+import { uploadToS3 } from '../lib/s3.js';
 
 export class AiProcessor implements Processor {
     name = 'AiProcessor';
@@ -113,9 +114,20 @@ export class AiProcessor implements Processor {
 
                     await this.imageGenerator.generateAndSave(prompt, outputPath, aspectRatio, visualStyle);
 
+                    const imageKey = `videos/${job.videoId}/assets/${fileName}`;
+                    await uploadToS3(outputPath, imageKey, 'image/png');
+                    
+                    // Cleanup local file
+                    try {
+                        await fs.unlink(outputPath);
+                    } catch (cleanupErr) {
+                        logger.warn(`[AiProcessor] Failed to cleanup local image: ${outputPath}`, { ...logContext, error: cleanupErr });
+                    }
+
                     updatedSegments.push({
                         ...segment,
-                        imageAssetPath: outputPath
+                        imageKey: imageKey,
+                        imageAssetPath: imageKey // For backward compatibility or as a placeholder
                     });
                 } catch (err) {
                     logger.error(`[AiProcessor] Failed segment ${i}`, { ...logContext, error: err });
@@ -134,6 +146,39 @@ export class AiProcessor implements Processor {
                     updatedAt: new Date()
                 })
                 .where(eq(script.id, currentScript.id));
+
+            // CRITICAL: Update video.metadata.renderData with generated image keys
+            // This ensures the unified render schema is up to date for the video processor
+            const currentVideo = (await db.select().from(video).where(eq(video.id, job.videoId)).limit(1))[0];
+            const meta = (currentVideo?.metadata || {}) as any;
+            
+            if (meta.renderData) {
+                const updatedRenderData = {
+                    ...meta.renderData,
+                    segments: updatedSegments.map((seg: any) => ({
+                        dialogue: seg.dialogue,
+                        visualPrompt: seg.visualPrompt,
+                        start: seg.start || 0,
+                        end: seg.end || 0,
+                        duration: seg.duration || 0,
+                        imageKey: seg.imageKey, // The key we just generated
+                        imageEffect: seg.imageEffect,
+                    })),
+                    isReady: true
+                };
+
+                await db.update(video)
+                    .set({
+                        metadata: {
+                            ...meta,
+                            renderData: updatedRenderData
+                        },
+                        updatedAt: new Date()
+                    })
+                    .where(eq(video.id, job.videoId));
+                    
+                logger.info(`[AiProcessor] Updated video.metadata.renderData with generated assets`, logContext);
+            }
 
             // Complete Job
             await db.update(renderJob)

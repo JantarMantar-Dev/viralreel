@@ -27,6 +27,7 @@ services:
       - "3000:3000"
     volumes:
       - ./server:/app
+      - ./shared:/shared
       - /app/node_modules
     command: sh -c "npm run db:generate && npm run db:migrate && npm run dev"
     environment:
@@ -40,6 +41,13 @@ services:
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
       - TRUSTED_ORIGINS=${TRUSTED_ORIGINS}
       - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - GROQ_TTS_KEY=${GROQ_TTS_KEY}
+      - S3_ENDPOINT_URL=${S3_ENDPOINT_URL}
+      - S3_REGION=${S3_REGION}
+      - S3_ACCESS_KEY_ID=${S3_ACCESS_KEY_ID}
+      - S3_SECRET_ACCESS_KEY=${S3_SECRET_ACCESS_KEY}
+      - S3_BUCKET_NAME=${S3_BUCKET_NAME}
     depends_on:
       postgres:
         condition: service_healthy
@@ -66,60 +74,21 @@ services:
     networks:
       - webapp-network
 
-  worker-script:
+  worker:
     build:
       context: ./worker
       dockerfile: Dockerfile.dev
-    container_name: webapp-worker-script
+    container_name: webapp-worker
     volumes:
       - ./worker:/app
-      - /app/node_modules
-    environment:
-      - DATABASE_URL=postgresql://user:password@postgres:5432/webapp
-      - SCRIPT_WORKER_SIZE=1
-      - VIDEO_WORK_DIR=/app/work_dir
-    env_file: .env
-    command: npx tsx watch src/script_renderer.ts
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - webapp-network
-
-  worker-ai:
-    build:
-      context: ./worker
-      dockerfile: Dockerfile.dev
-    container_name: webapp-worker-ai
-    volumes:
-      - ./worker:/app
-      - /app/node_modules
-    environment:
-      - DATABASE_URL=postgresql://user:password@postgres:5432/webapp
-      - AI_GEN_WORKER_SIZE=1
-      - VIDEO_WORK_DIR=/app/work_dir
-    env_file: .env
-    command: npx tsx watch src/ai_asset_generator.ts
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - webapp-network
-
-  worker-video:
-    build:
-      context: ./worker
-      dockerfile: Dockerfile.dev
-    container_name: webapp-worker-video
-    volumes:
-      - ./worker:/app
+      - ./shared:/shared
       - /app/node_modules
     environment:
       - DATABASE_URL=postgresql://user:password@postgres:5432/webapp
       - VIDEO_WORK_DIR=/app/work_dir
-      - VIDEO_WORKER_SIZE=1
+      - WORKER_ID=unified-worker-1
     env_file: .env
-    command: npx tsx watch src/video_renderer.ts
+    command: npx tsx watch src/worker.ts
     depends_on:
       postgres:
         condition: service_healthy

@@ -36,7 +36,9 @@ export const SimpleComposition: React.FC<VideoRendererInput> = ({
     const frame = useCurrentFrame();
     const { fps } = useVideoConfig();
 
-    const templateStyle = subtitleTemplateId ? SUBTITLE_STYLES[subtitleTemplateId]?.style || {} : subtitleStyle;
+    // Only apply template style if subtitleTemplateId is set and exists in SUBTITLE_STYLES
+    const hasValidSubtitleTemplate = subtitleTemplateId && SUBTITLE_STYLES[subtitleTemplateId];
+    const templateStyle = hasValidSubtitleTemplate ? SUBTITLE_STYLES[subtitleTemplateId]?.style || {} : {};
 
     const segmentStartFrames = React.useMemo(() => {
         let accumulated = 0;
@@ -72,8 +74,8 @@ export const SimpleComposition: React.FC<VideoRendererInput> = ({
                 );
             })}
 
-            {/* Subtitles Overlay: Only render if we have a template AND subtitles */}
-            {subtitleTemplateId && subtitles && subtitles.length > 0 && subtitles.map((subtitle, index) => {
+            {/* Subtitles Overlay: Only render if we have a valid subtitle template AND subtitles */}
+            {hasValidSubtitleTemplate && subtitles && subtitles.length > 0 && subtitles.map((subtitle, index) => {
                 return (
                     <Sequence
                         key={`top-sub-${index}`}

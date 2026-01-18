@@ -50,7 +50,7 @@ const trustedOrigins = (process.env.TRUSTED_ORIGINS || "")
 // Register CORS
 fastify.register(cors, {
     origin: [...trustedOrigins, process.env.CLIENT_URL || "", "http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:3001", "http://localhost:3002"],
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: [
         "Content-Type",
         "Authorization",
@@ -145,12 +145,22 @@ fastify.register(musicRoutes, { prefix: "/api/music" });
 fastify.register(subtitleRoutes, { prefix: "/api/subtitles" });
 import jobRoutes from "./api/jobs.js";
 fastify.register(jobRoutes, { prefix: "/api/jobs" });
+import editorJobRoutes from "./api/editor-jobs.js";
+fastify.register(editorJobRoutes, { prefix: "/api/editor-jobs" });
 import projectsRoutes from "./api/projects.js";
 fastify.register(projectsRoutes, { prefix: "/api/projects" });
 import paymentsRoutes from "./api/payments.js";
 fastify.register(paymentsRoutes, { prefix: "/api/payments" });
 import publicRoutes from "./api/public.js";
 fastify.register(publicRoutes, { prefix: "/api/public" });
+import scriptingRoutes from "./api/scripting.js";
+fastify.register(scriptingRoutes, { prefix: "/api/scripting" });
+import editorAudioRoutes from "./api/editor-audio.js";
+fastify.register(editorAudioRoutes, { prefix: "/api/editor/audio" });
+import editorVisualsRoutes from "./api/editor-visuals.js";
+fastify.register(editorVisualsRoutes, { prefix: "/api/editor/visuals" });
+import editorRenderRoutes from "./api/editor-render.js";
+fastify.register(editorRenderRoutes, { prefix: "/api/editor/render" });
 
 // Run the server
 const start = async () => {

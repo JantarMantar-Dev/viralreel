@@ -11,19 +11,24 @@
         "start:video": "tsx src/video_renderer.ts",
         "start:worker": "tsx src/worker.ts",
         "build": "tsc",
-        "preview": "remotion preview src/remotion/index.ts"
+        "preview": "remotion preview src/remotion/index.ts",
+        "test:subtitles": "tsx scripts/test-subtitle-condition.ts"
     },
     "dependencies": {
         "@aws-sdk/client-s3": "^3.958.0",
+        "@aws-sdk/s3-request-presigner": "^3.971.0",
         "@google/adk": "^0.2.1",
         "@google/generative-ai": "^0.24.1",
         "@remotion/bundler": "^4.0.222",
         "@remotion/cli": "^4.0.222",
         "@remotion/renderer": "^4.0.222",
+        "@types/lodash-es": "^4.17.12",
         "autoprefixer": "10.4.23",
         "dotenv": "^16.4.7",
         "drizzle-orm": "^0.41.0",
         "groq-sdk": "^0.37.0",
+        "lodash": "npm:lodash-es@^4.17.21",
+        "lodash-es": "^4.17.22",
         "openai": "^6.15.0",
         "pg": "^8.16.3",
         "postcss": "8.5.6",
@@ -34,12 +39,24 @@
         "tsx": "^4.21.0",
         "zod": "^3.24.1"
     },
+    "overrides": {
+        "lodash": "npm:lodash-es@^4.17.21",
+        "esbuild": "0.25.0"
+    },
     "devDependencies": {
         "@types/node": "^25.0.3",
         "@types/pg": "^8.16.0",
         "@types/react": "^19.2.7",
         "@types/uuid": "^10.0.0",
         "postcss-loader": "^8.2.0",
-        "typescript": "^5.9.3"
+        "typescript": "^5.9.3",
+        "vitest": "^4.0.17"
+    },
+    "optionalDependencies": {
+        "@esbuild/linux-arm64": "0.25.0",
+        "@remotion/compositor-linux-arm64-gnu": "4.0.405",
+        "@remotion/compositor-linux-arm64-musl": "4.0.405",
+        "@remotion/compositor-linux-x64-gnu": "4.0.405",
+        "@remotion/compositor-linux-x64-musl": "4.0.405"
     }
 }

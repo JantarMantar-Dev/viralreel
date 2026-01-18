@@ -5,11 +5,14 @@ import {
     zodObjectToSchema,
     Gemini,
     LLMRegistry,
-    InMemoryRunner
+    InMemoryRunner,
+    BuiltInCodeExecutor
 } from '@google/adk';
+import type { LlmRequest } from '@google/adk';
 import { ScriptWriterOutputSchema, SegmenterOutputSchema, VisualizerOutputSchema, ScriptContent, SubtitlesOutputSchema, ScriptWriterOutput, SegmenterOutput, VisualizerOutput } from './types.js';
 import { resolveWorkDir, writeToFile, addWavHeader, reconstructStoryFromSubtitles } from './utils.js';
 import { CustomGeminiTTS } from './custom_tts_model.js';
+import { uploadToS3 } from '../lib/s3.js';
 import dotenv from 'dotenv';
 import Groq from 'groq-sdk';
 import fs from 'fs';
@@ -18,13 +21,25 @@ import path from 'path';
 dotenv.config();
 
 const MODEL_NAME = process.env.GOOGLE_SCRIPT_MODEL || 'gemini-3-flash-preview';
-const TTS_MODEL_NAME = process.env.GOOGLE_TTS_MODEL || 'gemini-2.0-flash-exp';
+const TTS_MODEL_NAME = process.env.GOOGLE_TTS_MODEL || 'gemini-2.5-flash-preview-tts';
 const DEFAULT_VOICE = process.env.GOOGLE_TTS_VOICE || 'Zephyr';
 const API_KEY = process.env.GOOGLE_API_KEY;
+const IS_DEV = process.env.NODE_ENV === 'development';
 
 // Ensure the Gemini model is registered
 LLMRegistry.register(Gemini);
 LLMRegistry.register(CustomGeminiTTS);
+
+/**
+ * No-op code executor that doesn't throw for Gemini 3 models.
+ * ADK's InMemoryRunner auto-assigns BuiltInCodeExecutor which only supports Gemini 2.
+ * This override prevents that error while still satisfying ADK's instanceof check.
+ */
+class NoOpCodeExecutor extends BuiltInCodeExecutor {
+    processLlmRequest(_llmRequest: LlmRequest): void {
+        // Do nothing - we don't need code execution for script generation
+    }
+}
 
 function getGeminiModel() {
     if (!API_KEY) {
@@ -43,7 +58,8 @@ export const createScriptWriter = () => {
         instruction: `You are a professional video script writer. 
 Your sole job is to write a compelling story for the requested video topic and duration. 
 Focus only on the narrative text.`,
-        outputSchema: zodObjectToSchema(ScriptWriterOutputSchema)
+        outputSchema: zodObjectToSchema(ScriptWriterOutputSchema),
+        codeExecutor: new NoOpCodeExecutor()
     });
 };
 
@@ -69,7 +85,8 @@ Your task is to:
    Ensure each segment feels substantial and avoids rapid-fire cuts unless the narrative demands it.
 
 Output a JSON object with a 'segments' array following the requested schema.`,
-        outputSchema: zodObjectToSchema(SegmenterOutputSchema)
+        outputSchema: zodObjectToSchema(SegmenterOutputSchema),
+        codeExecutor: new NoOpCodeExecutor()
     });
 };
 
@@ -89,7 +106,8 @@ Your task is to:
 4. **Continuity**: Ensure the visual flow builds on the previous storytelling and remains consistent.
 
 Output the full segments with dialogue, duration, and the new visualPrompt.`,
-        outputSchema: zodObjectToSchema(VisualizerOutputSchema)
+        outputSchema: zodObjectToSchema(VisualizerOutputSchema),
+        codeExecutor: new NoOpCodeExecutor()
     });
 };
 
@@ -116,7 +134,8 @@ Do not add any additional commentary or text, just generate the audio for the di
                     }
                 }
             }
-        }
+        },
+        codeExecutor: new NoOpCodeExecutor()
     });
 };
 
@@ -138,7 +157,8 @@ Each item must have:
 - 'start': The start time in video frames (assuming 30fps).
 - 'end': The end time in video frames (assuming 30fps).
 Ensure the frames align perfectly with the voice sections.`,
-        outputSchema: zodObjectToSchema(SubtitlesOutputSchema)
+        outputSchema: zodObjectToSchema(SubtitlesOutputSchema),
+        codeExecutor: new NoOpCodeExecutor()
     });
 };
 
@@ -146,6 +166,10 @@ Ensure the frames align perfectly with the voice sections.`,
 // --- Execution Helpers ---
 
 async function runSingleAgent<T>(agent: LlmAgent, input: string): Promise<T> {
+    if (IS_DEV) {
+        console.log(`[Agent: ${agent.name}] Instruction:\n${agent.instruction}`);
+        console.log(`[Agent: ${agent.name}] Input:\n${input}`);
+    }
     const runner = new InMemoryRunner({
         agent: agent,
         appName: 'single-agent-runner'
@@ -184,7 +208,7 @@ async function runSingleAgent<T>(agent: LlmAgent, input: string): Promise<T> {
 /**
  * Step 2: Generate Audio
  */
-export const generateAudio = async (text: string, voiceId: string, videoId?: string): Promise<{ audioBase64: string, wavBase64: string, durationFrames: number }> => {
+export const generateAudio = async (text: string, voiceId: string, videoId?: string): Promise<{ audioBase64: string, wavBase64: string, durationFrames: number, audioKey?: string }> => {
     console.log(`[ScriptingFlow] Generating audio with Voice: ${voiceId}`);
     const audioGenerator = createAudioGenerator({ ttsVoice: voiceId });
     const audioRunner = new InMemoryRunner({
@@ -222,6 +246,8 @@ export const generateAudio = async (text: string, voiceId: string, videoId?: str
     }
 
     let wavBase64 = finalAudioBase64;
+    let audioKey: string | undefined;
+
     // Save locally if videoId provided
     if (videoId) {
         try {
@@ -239,9 +265,14 @@ export const generateAudio = async (text: string, voiceId: string, videoId?: str
             await writeToFile(workDir, 'audio.wav', wavBuffer);
             console.log(`[ScriptingFlow] Saved local audio to: ${audioPath}`);
 
+            // Upload to S3
+            audioKey = `videos/${videoId}/audio.wav`;
+            await uploadToS3(audioPath, audioKey, 'audio/wav');
+            console.log(`[ScriptingFlow] Uploaded audio to S3: ${audioKey}`);
+
             wavBase64 = wavBuffer.toString('base64');
         } catch (err) {
-            console.error(`[ScriptingFlow] Failed to save local audio file:`, err);
+            console.error(`[ScriptingFlow] Failed to save/upload audio file:`, err);
         }
     }
 
@@ -251,7 +282,7 @@ export const generateAudio = async (text: string, voiceId: string, videoId?: str
     const durationSeconds = audioBuffer.length / 48000;
     const durationFrames = Math.ceil(durationSeconds * 30);
 
-    return { audioBase64: finalAudioBase64, wavBase64, durationFrames };
+    return { audioBase64: finalAudioBase64, wavBase64, durationFrames, audioKey };
 };
 
 /**
@@ -339,11 +370,23 @@ export const runContentPipeline = async (videoId: string, prompt: string, voiceI
 
     // 2. Generate Audio
     console.log(`[ContentPipeline] 2. Generating Audio...`);
-    const { durationFrames: audioDurationFrames } = await generateAudio(story, voiceId, videoId);
+    const { durationFrames: audioDurationFrames, audioKey: audioKey } = await generateAudio(story, voiceId, videoId);
 
     // 3. Generate Subtitles
     console.log(`[ContentPipeline] 3. Generating Subtitles...`);
     const subtitles = await generateSubtitles(videoId);
+
+    // Cleanup local audio file
+    try {
+        const workDir = await resolveWorkDir(videoId);
+        const audioPath = path.join(workDir, 'audio.wav');
+        if (fs.existsSync(audioPath)) {
+            await fs.promises.unlink(audioPath);
+            console.log(`[ContentPipeline] Cleaned up local audio file: ${audioPath}`);
+        }
+    } catch (cleanupErr) {
+        console.warn(`[ContentPipeline] Failed to cleanup audio file:`, cleanupErr);
+    }
 
     // 4. Reconstruct Story from Subtitles (Ground Truth)
     const groundTruthStory = reconstructStoryFromSubtitles(subtitles);
@@ -422,7 +465,137 @@ export const runContentPipeline = async (videoId: string, prompt: string, voiceI
     const scriptContent: ScriptContent = {
         title: "",
         segments: finalSegments,
-        subtitles: subtitles || []
+        subtitles: subtitles || [],
+        audioKey: audioKey
+    };
+
+    // Save final script
+    try {
+        const workDir = await resolveWorkDir(videoId);
+        const scriptPath = path.join(workDir, 'script.json');
+
+        try {
+            await fs.promises.unlink(scriptPath);
+        } catch (err) {
+            // Ignore if file doesn't exist
+        }
+
+        await writeToFile(workDir, 'script.json', JSON.stringify(scriptContent, null, 2));
+        console.log(`[ContentPipeline] Saved local script to: ${scriptPath}`);
+    } catch (err) {
+        console.error(`[ContentPipeline] Failed to save local script file:`, err);
+    }
+
+    return {
+        script: scriptContent,
+    };
+};
+
+/**
+ * Orchestrator Pipeline - From Pre-Generated Story (Editor Mode)
+ * Skips story generation and uses the provided story directly
+ */
+export const runContentPipelineFromStory = async (videoId: string, story: string, voiceId: string = DEFAULT_VOICE) => {
+    console.log(`[ContentPipeline] Starting flow from pre-generated story for Video ${videoId}`);
+
+    // 1. Skip story generation - use provided story
+    console.log(`[ContentPipeline] 1. Using pre-generated story: ${story.substring(0, 50)}...`);
+
+    // 2. Generate Audio
+    console.log(`[ContentPipeline] 2. Generating Audio...`);
+    const { durationFrames: audioDurationFrames, audioKey: audioKey } = await generateAudio(story, voiceId, videoId);
+
+    // 3. Generate Subtitles
+    console.log(`[ContentPipeline] 3. Generating Subtitles...`);
+    const subtitles = await generateSubtitles(videoId);
+
+    // Cleanup local audio file
+    try {
+        const workDir = await resolveWorkDir(videoId);
+        const audioPath = path.join(workDir, 'audio.wav');
+        if (fs.existsSync(audioPath)) {
+            await fs.promises.unlink(audioPath);
+            console.log(`[ContentPipeline] Cleaned up local audio file: ${audioPath}`);
+        }
+    } catch (cleanupErr) {
+        console.warn(`[ContentPipeline] Failed to cleanup audio file:`, cleanupErr);
+    }
+
+    // 4. Reconstruct Story from Subtitles (Ground Truth)
+    const groundTruthStory = reconstructStoryFromSubtitles(subtitles);
+    console.log(`[ContentPipeline] 4. Reconstructed Story: ${groundTruthStory.substring(0, 50)}...`);
+
+    // 5. Segment Story
+    console.log(`[ContentPipeline] 5. Segmenting Story...`);
+    const segmenter = createSegmenter();
+    const segmenterOutput = await runSingleAgent<SegmenterOutput>(segmenter, JSON.stringify(subtitles));
+
+    // 6. Visualizer
+    console.log(`[ContentPipeline] 6. Generating Visuals...`);
+    let segments = segmenterOutput.segments;
+
+    // Post-processing segments for duration and alignment
+    if (segments.length > 0) {
+        // Force first segment to start at 0
+        segments[0].start = 0;
+
+        // Bridge gaps between segments to ensure continuous video flow
+        for (let i = 0; i < segments.length - 1; i++) {
+            const currentSeg = segments[i];
+            const nextSeg = segments[i + 1];
+
+            // If there is a gap (or slight overlap), snap current end to next start
+            if (currentSeg.end < nextSeg.start) {
+                currentSeg.end = nextSeg.start;
+            }
+        }
+
+        // Adjust last segment to match total audio duration + buffer
+        const lastSegment = segments[segments.length - 1];
+
+        // Calculate missing frames from end of last segment to end of audio
+        const missingFrames = Math.max(0, audioDurationFrames - lastSegment.end);
+
+        // Add missing frames + 15 extra frames for safety trimming
+        lastSegment.end += missingFrames + 15;
+
+        // Recalculate durations for all segments
+        segments = segments.map(s => {
+            const duration = (s.end - s.start) / 30;
+            return {
+                ...s,
+                duration: parseFloat(duration.toFixed(2))
+            };
+        });
+
+        const finalLastSeg = segments[segments.length - 1];
+        console.log(`[ContentPipeline] Refined Last Segment: end=${finalLastSeg.end}, duration=${finalLastSeg.duration}s`);
+    }
+
+    // Map simplified segments to ScriptSegment type (add empty visualPrompt)
+    let scriptSegments = segments.map(s => ({
+        ...s,
+        visualPrompt: "",
+        duration: s.duration || 0
+    }));
+
+    const visualizer = createVisualizer();
+    const visualizerOutput = await runSingleAgent<VisualizerOutput>(visualizer, JSON.stringify({ segments: scriptSegments }));
+
+    // Merge visual prompts back into our aligned segments
+    const finalSegments = scriptSegments.map((seg, index) => {
+        const visualSeg = visualizerOutput.segments[index];
+        return {
+            ...seg,
+            visualPrompt: visualSeg ? visualSeg.visualPrompt : "Cinematic scene matching the dialogue."
+        };
+    });
+
+    const scriptContent: ScriptContent = {
+        title: "",
+        segments: finalSegments,
+        subtitles: subtitles || [],
+        audioKey: audioKey
     };
 
     // Save final script

@@ -49,6 +49,9 @@ export class StorageProvider {
 
         await upload.done();
 
+        // Invalidate cache for this key so next getSignedUrl returns a fresh URL
+        this.signedUrlCache.delete(key);
+
         // Return the key directly for storage, or constructed URL if needed by legacy
         // For now, we return the URL structure, but we will mostly rely on key extraction or signed URLs
         const endpoint = process.env.S3_ENDPOINT_URL?.replace("https://", "") || "s3.wasabisys.com";
@@ -66,6 +69,34 @@ export class StorageProvider {
         });
 
         await this.client.send(command);
+    }
+
+    /**
+     * Downloads a file from S3 and returns it as a Buffer.
+     * @param key The S3 object key
+     */
+    async downloadFile(key: string): Promise<Buffer> {
+        if (!this.bucket) {
+            throw new Error("S3_BUCKET_NAME is not configured");
+        }
+
+        const command = new GetObjectCommand({
+            Bucket: this.bucket,
+            Key: key,
+        });
+
+        const response = await this.client.send(command);
+
+        if (!response.Body) {
+            throw new Error(`File not found: ${key}`);
+        }
+
+        // Convert the readable stream to a buffer
+        const chunks: Uint8Array[] = [];
+        for await (const chunk of response.Body as AsyncIterable<Uint8Array>) {
+            chunks.push(chunk);
+        }
+        return Buffer.concat(chunks);
     }
 
     /**
@@ -106,28 +137,42 @@ export class StorageProvider {
     }
 
     /**
+     * Ensures we have a valid signed URL.
+     * If input is a key (not a URL), generates a signed URL.
+     * If input is a URL from our bucket (signed or not), regenerates a fresh signed URL.
+     * If input is an external URL, returns it as is.
+     */
+    async ensureValidSignedUrl(input: string, expiresInSeconds = 10800): Promise<string> {
+        if (!input) return input;
+
+        try {
+            const urlObj = new URL(input);
+            
+            // Check if it belongs to our bucket (Path style: /bucket/key)
+            const pathParts = urlObj.pathname.split('/');
+            // pathParts[0] is "", pathParts[1] is bucket
+            
+            if (pathParts[1] === this.bucket) {
+                const key = pathParts.slice(2).join('/');
+                if (key) {
+                    return await this.getSignedUrl(key, expiresInSeconds);
+                }
+            }
+            
+            // Return external URLs as is
+            return input;
+        } catch (e) {
+            // Not a URL, treat as key
+            return await this.getSignedUrl(input, expiresInSeconds);
+        }
+    }
+
+    /**
      * Extracts key from full URL and returns signed URL.
      * If URL is not from this bucket, returns original URL.
      */
     async getSignedUrlFromFullUrl(fullUrl: string): Promise<string> {
-        if (!fullUrl || !this.bucket) return fullUrl;
-
-        try {
-            const urlObj = new URL(fullUrl);
-            const pathParts = urlObj.pathname.split('/');
-            // Expected format: /bucket/key/path/file.ext
-            // pathParts[0] is "", pathParts[1] is bucket
-
-            if (pathParts[1] === this.bucket) {
-                const key = pathParts.slice(2).join('/');
-                if (key) {
-                    return await this.getSignedUrl(key);
-                }
-            }
-            return fullUrl;
-        } catch (e) {
-            return fullUrl;
-        }
+        return this.ensureValidSignedUrl(fullUrl);
     }
 }
 

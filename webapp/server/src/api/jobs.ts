@@ -3,38 +3,13 @@ import { db } from "../db/index.js";
 import { series, video, renderJob, contentNiche, script } from "../db/schema.js";
 import { eq, desc, and, isNull } from "drizzle-orm";
 import { nanoid } from "nanoid";
-import { z } from "zod";
 import { createVideoJob, deleteVideo, queueVideoRender, updateVideoMetadata, retryVideoProcessing } from "../services/video-service.js";
 import { storageProvider } from "../lib/storage.js";
+import { createSimpleJobSchema, CreateSimpleJobBody } from "./schemas/job-schemas.js";
 
-export const baseJobSchema = z.object({
-    nicheId: z.string().nullable(),
-    scriptIdea: z.string().min(1, "Script idea is required"),
-    duration: z.number().min(0.5, "Duration must be at least 30 seconds"),
-    segments: z.number().int().min(1, "At least 1 segment is required"),
-    visualFormat: z.enum(["image", "video"]),
-    voiceId: z.string().optional(),
-    visualStyle: z.string().optional(),
-    subtitleTemplateId: z.string().optional(),
-    musicId: z.string().optional(),
-    aspectRatio: z.enum(["portrait", "landscape"]).default("portrait"),
-    isDraft: z.boolean().default(false),
-});
-
-export const createJobSchema = z.discriminatedUnion("jobType", [
-    baseJobSchema.extend({
-        jobType: z.literal("series"),
-        seriesName: z.string().min(1, "Series name is required"),
-        episodeTitle: z.string().min(1, "Episode title is required"),
-    }),
-    baseJobSchema.extend({
-        jobType: z.literal("video"),
-        seriesName: z.string().optional(),
-        episodeTitle: z.string().min(1, "Video title is required"),
-    }),
-]);
-
-export type CreateJobBody = z.infer<typeof createJobSchema>;
+// Re-export for backward compatibility
+export const createJobSchema = createSimpleJobSchema;
+export type CreateJobBody = CreateSimpleJobBody;
 
 export default async function jobRoutes(fastify: FastifyInstance) {
     // GET /api/jobs - List all active render jobs

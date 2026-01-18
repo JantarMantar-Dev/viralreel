@@ -25,6 +25,15 @@ import PricingPage from "./pages/dashboard/settings/pricing"
 import ContactSalesPage from "./pages/dashboard/settings/contact-sales"
 import FeedbackPage from "./pages/dashboard/feedback"
 
+// Editor Mode imports
+import EditorModeLayout from "./pages/dashboard/editor/layout"
+import SharedNicheStep from "./pages/dashboard/shared/steps/niche-step"
+import EditorScriptStep from "./pages/dashboard/editor/steps/script-step"
+import EditorAudioStep from "./pages/dashboard/editor/steps/audio-step"
+import EditorVisualsStep from "./pages/dashboard/editor/steps/visuals-step"
+import EditorSubtitlesStep from "./pages/dashboard/editor/steps/subtitles-step"
+import EditorReviewStep from "./pages/dashboard/editor/steps/review-step"
+
 function App() {
   return (
     <>
@@ -63,6 +72,18 @@ function App() {
             <Route path="music" element={<MusicStep />} />
             <Route path="review" element={<ReviewStep />} />
           </Route>
+          
+          {/* Editor Mode Routes */}
+          <Route path="editor" element={<EditorModeLayout />}>
+            <Route index element={<Navigate to="niche" replace />} />
+            <Route path="niche" element={<SharedNicheStep />} />
+            <Route path="script" element={<EditorScriptStep />} />
+            <Route path="audio" element={<EditorAudioStep />} />
+            <Route path="visuals" element={<EditorVisualsStep />} />
+            <Route path="subtitles" element={<EditorSubtitlesStep />} />
+            <Route path="review" element={<EditorReviewStep />} />
+          </Route>
+          
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Route>
       </Routes>

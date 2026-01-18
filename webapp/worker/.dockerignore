@@ -1,0 +1,9 @@
+node_modules
+work_dir
+dist
+build
+out
+.env
+.git
+.DS_Store
+*.log
