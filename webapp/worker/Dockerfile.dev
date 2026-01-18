@@ -21,14 +21,21 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Copy package files for the worker
+COPY worker/package*.json ./worker/
 
 # Install dependencies
+WORKDIR /app/worker
 RUN npm install
 
-# Copy source code (will be overridden by volume in dev usually, but good for build)
-COPY . .
+
+# Copy source code
+WORKDIR /app
+COPY shared/ ./shared/
+COPY worker/ ./worker/
+
+WORKDIR /app/worker
+
 
 # Start command (overridden in compose for watch)
 CMD ["npm", "start"]

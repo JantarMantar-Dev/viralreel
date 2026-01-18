@@ -3,16 +3,20 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Copy package files for the server
+COPY server/package*.json ./server/
 
-# Install all dependencies (including devDependencies)
+# Install dependencies for the server
+WORKDIR /app/server
 RUN npm install
 
-# Copy source code
-COPY . .
+# Copy shared code and server source
+WORKDIR /app
+COPY shared/ ./shared/
+COPY server/ ./server/
 
 # Build the application
+WORKDIR /app/server
 RUN NODE_OPTIONS="--max-old-space-size=768" npm run build:prod
 
 # Production stage
@@ -85,17 +89,19 @@ ENV GOOGLE_API_KEY=$GOOGLE_API_KEY
 ARG VIDEO_WORK_DIR
 ENV VIDEO_WORK_DIR=$VIDEO_WORK_DIR
 
-# Copy package files
-COPY package*.json ./
+# Copy package files (from server directory)
+COPY server/package*.json ./
 
 # Install only production dependencies
 RUN npm install --production && \
     npm cache clean --force
 
+
 # Copy built application
-COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/server/dist ./dist
 # Copy drizzle migrations
-COPY --from=builder /app/drizzle ./drizzle
+COPY --from=builder /app/server/drizzle ./drizzle
+
 
 # Use non-root user
 USER node
