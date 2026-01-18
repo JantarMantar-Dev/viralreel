@@ -34,9 +34,13 @@ WORKDIR /app
 
 # Dependencies stage - install npm packages and chrome-headless-shell
 FROM base AS dependencies
-COPY package*.json ./
+WORKDIR /app
 
-# Install all dependencies
+# Copy package files for the worker
+COPY worker/package*.json ./worker/
+
+# Install dependencies for the worker
+WORKDIR /app/worker
 RUN npm ci
 
 # Install chrome-headless-shell using Puppeteer's browser installer
@@ -54,15 +58,21 @@ FROM base AS production
 WORKDIR /app
 
 # Copy node_modules from dependencies stage
-COPY --from=dependencies /app/node_modules ./node_modules
+COPY --from=dependencies /app/worker/node_modules ./node_modules
+
 # Copy chrome-headless-shell installation
 COPY --from=dependencies /app/.cache/puppeteer /app/.cache/puppeteer
 # Copy the chrome path file
 COPY --from=dependencies /app/.chrome-path /app/.chrome-path
-COPY package*.json ./
+COPY worker/package*.json ./
 
-# Copy source code and scripts
-COPY . .
+
+# Copy shared and worker code
+WORKDIR /app
+COPY shared/ ./shared/
+COPY worker/ ./worker/
+WORKDIR /app/worker
+
 
 # Environment Variables
 ENV NODE_ENV=production
