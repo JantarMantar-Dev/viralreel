@@ -5,8 +5,10 @@ import {
     zodObjectToSchema,
     Gemini,
     LLMRegistry,
-    InMemoryRunner
+    InMemoryRunner,
+    BuiltInCodeExecutor
 } from '@google/adk';
+import type { LlmRequest } from '@google/adk';
 import { ScriptWriterOutputSchema, SegmenterOutputSchema, VisualizerOutputSchema, ScriptContent, SubtitlesOutputSchema, ScriptWriterOutput, SegmenterOutput, VisualizerOutput } from './types.js';
 import { resolveWorkDir, writeToFile, addWavHeader, reconstructStoryFromSubtitles } from './utils.js';
 import { CustomGeminiTTS } from './custom_tts_model.js';
@@ -28,6 +30,17 @@ const IS_DEV = process.env.NODE_ENV === 'development';
 LLMRegistry.register(Gemini);
 LLMRegistry.register(CustomGeminiTTS);
 
+/**
+ * No-op code executor that doesn't throw for Gemini 3 models.
+ * ADK's InMemoryRunner auto-assigns BuiltInCodeExecutor which only supports Gemini 2.
+ * This override prevents that error while still satisfying ADK's instanceof check.
+ */
+class NoOpCodeExecutor extends BuiltInCodeExecutor {
+    processLlmRequest(_llmRequest: LlmRequest): void {
+        // Do nothing - we don't need code execution for script generation
+    }
+}
+
 function getGeminiModel() {
     if (!API_KEY) {
         throw new Error("GOOGLE_API_KEY not found in environment variables");
@@ -45,7 +58,8 @@ export const createScriptWriter = () => {
         instruction: `You are a professional video script writer. 
 Your sole job is to write a compelling story for the requested video topic and duration. 
 Focus only on the narrative text.`,
-        outputSchema: zodObjectToSchema(ScriptWriterOutputSchema)
+        outputSchema: zodObjectToSchema(ScriptWriterOutputSchema),
+        codeExecutor: new NoOpCodeExecutor()
     });
 };
 
@@ -71,7 +85,8 @@ Your task is to:
    Ensure each segment feels substantial and avoids rapid-fire cuts unless the narrative demands it.
 
 Output a JSON object with a 'segments' array following the requested schema.`,
-        outputSchema: zodObjectToSchema(SegmenterOutputSchema)
+        outputSchema: zodObjectToSchema(SegmenterOutputSchema),
+        codeExecutor: new NoOpCodeExecutor()
     });
 };
 
@@ -91,7 +106,8 @@ Your task is to:
 4. **Continuity**: Ensure the visual flow builds on the previous storytelling and remains consistent.
 
 Output the full segments with dialogue, duration, and the new visualPrompt.`,
-        outputSchema: zodObjectToSchema(VisualizerOutputSchema)
+        outputSchema: zodObjectToSchema(VisualizerOutputSchema),
+        codeExecutor: new NoOpCodeExecutor()
     });
 };
 
@@ -118,7 +134,8 @@ Do not add any additional commentary or text, just generate the audio for the di
                     }
                 }
             }
-        }
+        },
+        codeExecutor: new NoOpCodeExecutor()
     });
 };
 
@@ -140,7 +157,8 @@ Each item must have:
 - 'start': The start time in video frames (assuming 30fps).
 - 'end': The end time in video frames (assuming 30fps).
 Ensure the frames align perfectly with the voice sections.`,
-        outputSchema: zodObjectToSchema(SubtitlesOutputSchema)
+        outputSchema: zodObjectToSchema(SubtitlesOutputSchema),
+        codeExecutor: new NoOpCodeExecutor()
     });
 };
 
