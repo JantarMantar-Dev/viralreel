@@ -74,6 +74,7 @@ interface Project {
     outputUrl?: string
     compressedUrl?: string
     aspectRatio?: "portrait" | "landscape"
+    currentPhase?: "script" | "audio" | "visuals" | "subtitles" | "review"
 }
 
 // --- Components ---

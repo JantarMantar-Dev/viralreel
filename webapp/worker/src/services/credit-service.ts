@@ -9,7 +9,8 @@ export async function deductCredits(
     amount: number = 1,
     description: string = "Credit Usage",
     videoId?: string,
-    seriesId?: string
+    seriesId?: string,
+    comment?: string
 ) {
     const [balance] = await db.select()
         .from(creditBalance)
@@ -47,6 +48,7 @@ export async function deductCredits(
             description,
             videoId: videoId || null,
             seriesId: seriesId || null,
+            comment: comment || null,
             createdAt: new Date()
         });
     });

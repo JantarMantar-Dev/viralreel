@@ -325,7 +325,8 @@ export const creditTransaction = pgTable("credit_transaction", {
     userId: text("user_id").notNull().references(() => user.id),
     creditBalanceId: text("credit_balance_id").references(() => creditBalance.id), // Which grant was used
     amount: integer("amount").notNull(), // Negative for usage, positive for refunds
-    videoId: text("video_id").references(() => video.id), // Linked content
+    videoId: text("video_id"), // Linked content
+    comment: text("comment"), // New field for video title/comment
     seriesId: text("series_id").references(() => series.id), // Linked content
     description: text("description"), // Audit log description
     createdAt: timestamp("created_at").defaultNow(),

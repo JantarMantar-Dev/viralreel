@@ -133,7 +133,8 @@ async function fetchVideoProjects(userId: string) {
             is4k: false,
             outputUrl: signedOutputUrl,
             compressedUrl: signedCompressedUrl,
-            aspectRatio: (v.metadata as any)?.aspectRatio || "portrait"
+            aspectRatio: (v.metadata as any)?.aspectRatio || "portrait",
+            currentPhase: (v.metadata as any)?.currentPhase
         };
     }));
 }

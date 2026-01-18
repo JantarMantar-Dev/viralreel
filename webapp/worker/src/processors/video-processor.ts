@@ -347,7 +347,8 @@ export class VideoProcessor implements Processor {
                     1,
                     `Video Generation: ${videoData.title}`,
                     videoData.id,
-                    videoData.seriesId || undefined
+                    videoData.seriesId || undefined,
+                    videoData.title // Pass video title as comment
                 );
                 logger.info(`[VideoProcessor] Deducted 1 credit for user ${videoData.userId}`, logContext);
             } catch (err) {
