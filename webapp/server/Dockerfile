@@ -29,9 +29,12 @@ RUN echo "=== Checking /app structure ===" && \
 WORKDIR /app/server
 RUN echo "=== Running TypeScript build ===" && \
     NODE_OPTIONS="--max-old-space-size=768" npm run build:prod 2>&1 && \
+    echo "=== Copying shared package.json for ESM resolution ===" && \
+    cp /app/shared/package.json dist/shared/package.json && \
     echo "=== Build output ===" && \
     ls -la dist/ && \
     ls -la dist/server/src/ && \
+    ls -la dist/shared/ && \
     test -f dist/server/src/index.js || (echo "ERROR: dist/server/src/index.js not found!" && exit 1)
 
 # Production stage
@@ -121,7 +124,9 @@ COPY --from=builder /app/server/drizzle ./drizzle
 RUN echo "=== Production stage dist contents ===" && \
     ls -la dist/ && \
     ls -la dist/server/src/ && \
-    test -f dist/server/src/index.js || (echo "ERROR: dist/server/src/index.js not copied!" && exit 1)
+    ls -la dist/shared/ && \
+    test -f dist/server/src/index.js || (echo "ERROR: dist/server/src/index.js not copied!" && exit 1) && \
+    test -f dist/shared/package.json || (echo "ERROR: dist/shared/package.json not copied!" && exit 1)
 
 # Use non-root user
 USER node
