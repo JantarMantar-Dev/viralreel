@@ -17,7 +17,10 @@ COPY server/ ./server/
 
 # Build the application
 WORKDIR /app/server
-RUN NODE_OPTIONS="--max-old-space-size=768" npm run build:prod
+RUN NODE_OPTIONS="--max-old-space-size=768" npm run build:prod && \
+    echo "=== Build output ===" && \
+    ls -la dist/ && \
+    test -f dist/index.js || (echo "ERROR: dist/index.js not found!" && exit 1)
 
 # Production stage
 FROM node:20-alpine
@@ -102,6 +105,10 @@ COPY --from=builder /app/server/dist ./dist
 # Copy drizzle migrations
 COPY --from=builder /app/server/drizzle ./drizzle
 
+# Verify the copy worked
+RUN echo "=== Production stage dist contents ===" && \
+    ls -la dist/ && \
+    test -f dist/index.js || (echo "ERROR: dist/index.js not copied!" && exit 1)
 
 # Use non-root user
 USER node
