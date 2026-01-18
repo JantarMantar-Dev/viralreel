@@ -89,6 +89,65 @@ export type JobType = "video" | "series";
 export type VisualFormat = "image" | "video";
 export type AspectRatio = "portrait" | "landscape";
 
+// =============================================================================
+// UNIFIED RENDER DATA TYPES
+// Both auto mode and editor mode populate these fields in video.metadata
+// Video processor reads from these fields for rendering
+// =============================================================================
+
+/**
+ * Subtitle segment for word-level timing
+ */
+export interface SubtitleSegment {
+    text: string;
+    start: number; // frames at 30fps
+    end: number;   // frames at 30fps
+}
+
+/**
+ * Render segment - contains all data needed to render a single video segment
+ * This is the unified structure used by both auto and editor modes
+ */
+export interface RenderSegment {
+    // Content
+    dialogue: string;
+    visualPrompt?: string;
+    
+    // Timing (frames at 30fps)
+    start: number;
+    end: number;
+    duration: number; // seconds
+    
+    // Image asset - S3 key for the segment image
+    imageKey?: string;
+    imageSignedUrl?: string;
+    imageSignedUrlExpiresAt?: string;
+    
+    // Effect to apply to the image
+    imageEffect?: string;
+}
+
+/**
+ * Render data structure - unified for both auto and editor modes
+ * This is stored in video.metadata.renderData
+ */
+export interface RenderData {
+    // Audio
+    audioKey: string;
+    audioDurationSeconds: number;
+    audioSignedUrl?: string;
+    audioSignedUrlExpiresAt?: string;
+    
+    // Subtitles - word-level timing for captions
+    subtitles: SubtitleSegment[];
+    
+    // Segments - visual segments with timing and images
+    segments: RenderSegment[];
+    
+    // Ready flag - set to true when all render data is complete
+    isReady: boolean;
+}
+
 /**
  * Common metadata structure stored in video.metadata
  */
@@ -105,13 +164,26 @@ export interface VideoMetadata {
     nicheName?: string;
     aspectRatio: AspectRatio;
     templateId: string;
-    // Editor mode specific
-    isEditorMode?: boolean;
+    
+    // =============================================================================
+    // UNIFIED RENDER DATA (Used by video processor for both auto and editor modes)
+    // =============================================================================
+    renderData?: RenderData;
+    
+    // =============================================================================
+    // EDITOR MODE SPECIFIC (For UI state management and version tracking)
+    // =============================================================================
+    editorMode?: boolean;
+    currentPhase?: string;
+    
+    // Script
     generatedScript?: {
         story: string;
         wordCount: number;
         estimatedDurationSeconds: number;
     };
+    approvedScript?: boolean;
+    
     // Script version tracking
     scriptVersions?: Array<{
         id: string;
@@ -123,8 +195,9 @@ export interface VideoMetadata {
     }>;
     scriptGenerationCount?: number;
     lastScriptGeneratedAt?: string;
-    // Audio version tracking
-    audioKey?: string;
+    
+    // Audio version tracking (editor mode allows multiple versions)
+    audioKey?: string; // Currently selected audio - also in renderData
     audioDurationSeconds?: number;
     audioVersions?: Array<{
         id: string;
@@ -137,11 +210,9 @@ export interface VideoMetadata {
     }>;
     selectedAudioId?: string;
     audioGenerationCount?: number;
-    subtitles?: Array<{
-        text: string;
-        start: number;
-        end: number;
-    }>;
+    
+    // Legacy fields (kept for backward compatibility)
+    subtitles?: SubtitleSegment[];
     scriptSegments?: Array<{
         dialogue: string;
         start: number;

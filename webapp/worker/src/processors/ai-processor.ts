@@ -147,6 +147,39 @@ export class AiProcessor implements Processor {
                 })
                 .where(eq(script.id, currentScript.id));
 
+            // CRITICAL: Update video.metadata.renderData with generated image keys
+            // This ensures the unified render schema is up to date for the video processor
+            const currentVideo = (await db.select().from(video).where(eq(video.id, job.videoId)).limit(1))[0];
+            const meta = (currentVideo?.metadata || {}) as any;
+            
+            if (meta.renderData) {
+                const updatedRenderData = {
+                    ...meta.renderData,
+                    segments: updatedSegments.map((seg: any) => ({
+                        dialogue: seg.dialogue,
+                        visualPrompt: seg.visualPrompt,
+                        start: seg.start || 0,
+                        end: seg.end || 0,
+                        duration: seg.duration || 0,
+                        imageKey: seg.imageKey, // The key we just generated
+                        imageEffect: seg.imageEffect,
+                    })),
+                    isReady: true
+                };
+
+                await db.update(video)
+                    .set({
+                        metadata: {
+                            ...meta,
+                            renderData: updatedRenderData
+                        },
+                        updatedAt: new Date()
+                    })
+                    .where(eq(video.id, job.videoId));
+                    
+                logger.info(`[AiProcessor] Updated video.metadata.renderData with generated assets`, logContext);
+            }
+
             // Complete Job
             await db.update(renderJob)
                 .set({

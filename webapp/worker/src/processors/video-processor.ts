@@ -14,6 +14,7 @@ import { logger } from '../lib/logger.js';
 import { getSignedUrlForKey, uploadToS3 } from '../lib/s3.js';
 
 const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+const BASE_WORK_DIR = process.env.VIDEO_WORK_DIR || path.resolve(process.cwd(), 'work_dir');
 
 /**
  * Check if we're running in production environment
@@ -107,7 +108,10 @@ export class VideoProcessor implements Processor {
         const logContext = { videoId: job.videoId, jobId: job.id, workerId: process.env.WORKER_ID };
         logger.info(`[VideoProcessor] Processing Job`, logContext);
 
+        const workDir = path.join(BASE_WORK_DIR, job.videoId);
+
         try {
+
             // 1. Fetch Video Metadata
             const videoData = await db.query.video.findFirst({
                 where: eq(video.id, job.videoId)
@@ -116,6 +120,58 @@ export class VideoProcessor implements Processor {
 
             // Subtitle Style
             const metadata = videoData.metadata as any;
+
+            // =========================================================================
+            // UNIFIED RENDER DATA RESOLUTION
+            // =========================================================================
+            // We prefer video.metadata.renderData (Unified Schema)
+            // But fallback to script.content for backward compatibility
+
+            let audioKey = "";
+            let subtitles: SubtitleSegment[] = [];
+            let segments: VideoSegment[] = [];
+            let renderData = metadata.renderData;
+
+            // Legacy Script Content Fallback
+            const scriptData = await db.query.script.findFirst({ where: eq(script.videoId, job.videoId) });
+            const scriptJson = scriptData?.content as ScriptContent | undefined;
+
+            if (renderData) {
+                logger.info(`[VideoProcessor] Using unified RenderData from metadata`, logContext);
+                audioKey = renderData.audioKey;
+                subtitles = renderData.subtitles || [];
+
+                // Convert RenderData segments to VideoSegments
+                segments = (renderData.segments || []).map((s: any) => ({
+                    imageAssetPath: s.imageKey || s.imageAssetPath || "",
+                    duration: s.duration || 0,
+                    imageEffect: s.imageEffect
+                }));
+
+            } else if (scriptJson) {
+                logger.info(`[VideoProcessor] Using legacy script content`, logContext);
+                audioKey = scriptJson.audioKey || `videos/${job.videoId}/audio.wav`; // Legacy auto mode fallback
+
+                // Check if this is a "broken" editor mode video (old schema)
+                if (metadata.editorMode && !scriptJson.audioKey && metadata.audioKey) {
+                    audioKey = metadata.audioKey;
+                    logger.info(`[VideoProcessor] Legacy editor mode audio fallback`, logContext);
+                }
+
+                subtitles = scriptJson.subtitles || [];
+                segments = (scriptJson.segments || []).map(s => ({
+                    imageAssetPath: s.imageKey || s.imageAssetPath || "",
+                    duration: s.duration || 0,
+                    imageEffect: s.imageEffect as any
+                }));
+            } else {
+                throw new Error("No render data or script content found");
+            }
+
+            // =========================================================================
+            // ASSET URL RESOLUTION (Signing)
+            // =========================================================================
+
             let subtitleClassName = "";
             let customSubtitleStyle: any = {};
             let subtitleTemplateId: string | undefined = undefined;
@@ -130,17 +186,6 @@ export class VideoProcessor implements Processor {
                 }
             }
 
-            // Script content
-            const baseWorkDir = process.env.VIDEO_WORK_DIR || path.join(process.cwd(), 'work_dir');
-            const workDir = path.join(baseWorkDir, job.videoId);
-            const scriptData = await db.query.script.findFirst({ where: eq(script.videoId, job.videoId) });
-            if (!scriptData) throw new Error(`Script not found`);
-
-            const scriptJson = scriptData.content as ScriptContent;
-            const topLevelSubtitles = scriptJson.subtitles || [];
-            const segments = scriptJson.segments || [];
-            let scriptUpdated = false;
-
             // Helper to check validity
             const now = new Date();
             const isValidSignedUrl = (url?: string, expiresAt?: string | Date) => {
@@ -150,91 +195,58 @@ export class VideoProcessor implements Processor {
                 return expiry.getTime() > (now.getTime() + 5 * 60000);
             };
 
-            // Resolve Audio URL (S3 or fallback)
+            // Resolve Audio URL
             let audioUrl = "";
-            if (isValidSignedUrl(scriptJson.audioSignedUrl, scriptJson.audioSignedUrlExpiresAt)) {
-                audioUrl = scriptJson.audioSignedUrl!;
-                logger.info(`[VideoProcessor] Using cached signed URL for audio`, logContext);
-            } else {
-                let s3Key = scriptJson.audioKey;
-                if (!s3Key) {
-                    s3Key = `videos/${job.videoId}/audio.wav`;
-                    logger.info(`[VideoProcessor] Constructed fallback audio S3 key`, logContext);
-                }
 
+            // Check cache in renderData first
+            if (renderData && isValidSignedUrl(renderData.audioSignedUrl, renderData.audioSignedUrlExpiresAt)) {
+                audioUrl = renderData.audioSignedUrl!;
+            }
+            // Check cache in legacy script
+            else if (scriptJson && isValidSignedUrl(scriptJson.audioSignedUrl, scriptJson.audioSignedUrlExpiresAt)) {
+                audioUrl = scriptJson.audioSignedUrl!;
+            }
+            // Generate new signed URL
+            else if (audioKey) {
                 try {
-                    const { url, expiresAt } = await getSignedUrlForKey(s3Key);
+                    const { url, expiresAt } = await getSignedUrlForKey(audioKey);
                     audioUrl = url;
 
-                    // Update script with new signed URL
-                    scriptJson.audioSignedUrl = url;
-                    scriptJson.audioSignedUrlExpiresAt = expiresAt.toISOString();
-                    scriptUpdated = true;
+                    // Update cache in metadata (if using renderData)
+                    if (renderData) {
+                        renderData.audioSignedUrl = url;
+                        renderData.audioSignedUrlExpiresAt = expiresAt.toISOString();
 
-                    logger.info(`[VideoProcessor] Generated and cached signed URL for audio`, logContext);
+                        await db.update(video)
+                            .set({ metadata: { ...metadata, renderData } })
+                            .where(eq(video.id, job.videoId));
+                    }
                 } catch (err) {
-                    logger.error(`[VideoProcessor] Failed to sign audio URL`, { ...logContext, error: err });
-                    // If signing fails, we might still try to use the key if local? 
-                    // But we removed local support. So this will likely fail later.
+                    logger.error(`[VideoProcessor] Failed to sign audio URL: ${audioKey}`, { ...logContext, error: err });
                 }
             }
 
-            // Process Segments (Update script in place and map for renderer)
+            // Resolve Image URLs for Segments
             const processedSegments: VideoSegment[] = [];
-
             for (let i = 0; i < segments.length; i++) {
                 const s = segments[i];
                 let imageUrl = s.imageAssetPath;
-                let segmentUpdated = false;
 
-                if (isValidSignedUrl(s.imageSignedUrl, s.imageSignedUrlExpiresAt)) {
-                    imageUrl = s.imageSignedUrl!;
-                } else {
-                    let keyToSign = s.imageKey;
-
-                    // Fallback logic for key detection
-                    if (!keyToSign && s.imageAssetPath && !s.imageAssetPath.startsWith('http')) {
-                        if (s.imageAssetPath.includes('videos/')) {
-                            keyToSign = s.imageAssetPath;
-                        }
-                    }
-
-                    if (keyToSign) {
-                        try {
-                            const { url, expiresAt } = await getSignedUrlForKey(keyToSign);
-                            imageUrl = url;
-
-                            // Update segment in script
-                            s.imageSignedUrl = url;
-                            s.imageSignedUrlExpiresAt = expiresAt.toISOString();
-                            // Ensure imageKey is set if we found it via fallback
-                            if (!s.imageKey) s.imageKey = keyToSign;
-
-                            segmentUpdated = true;
-                            scriptUpdated = true;
-                        } catch (err) {
-                            logger.warn(`[VideoProcessor] Failed to sign image key for segment ${i}`, { ...logContext, error: err });
-                        }
+                // If it looks like an S3 key (doesn't start with http), sign it
+                if (imageUrl && !imageUrl.startsWith('http')) {
+                    try {
+                        const { url } = await getSignedUrlForKey(imageUrl);
+                        imageUrl = url;
+                    } catch (err) {
+                        logger.warn(`[VideoProcessor] Failed to sign image key: ${imageUrl}`, { ...logContext, error: err });
                     }
                 }
 
-                // Add to processed segments for renderer
                 processedSegments.push({
-                    imageAssetPath: imageUrl || "", // Renderer expects a string
-                    duration: s.duration || 0,
-                    imageEffect: s.imageEffect as any
+                    imageAssetPath: imageUrl || "",
+                    duration: s.duration,
+                    imageEffect: s.imageEffect
                 });
-            }
-
-            // Persist updated script content if needed
-            if (scriptUpdated) {
-                await db.update(script)
-                    .set({
-                        content: scriptJson,
-                        updatedAt: new Date()
-                    })
-                    .where(eq(script.id, scriptData.id));
-                logger.info(`[VideoProcessor] Persisted updated signed URLs to script`, logContext);
             }
 
             const inputProps: VideoRendererInput = {
@@ -244,7 +256,7 @@ export class VideoProcessor implements Processor {
                 subtitleLocation: metadata?.subtitleLocation || 'center',
                 subtitleTemplateId,
                 segments: processedSegments,
-                subtitles: topLevelSubtitles
+                subtitles: subtitles
             };
 
             // Bundle
@@ -350,7 +362,7 @@ export class VideoProcessor implements Processor {
                     logger.info(`[VideoProcessor] Cleaned up work directory: ${workDir}`, logContext);
 
                     // Also cleanup any old files (older than 2 hours) in the base work directory
-                    cleanupOldFiles(baseWorkDir);
+                    cleanupOldFiles(BASE_WORK_DIR);
                 } catch (cleanupErr) {
                     logger.warn(`[VideoProcessor] Failed to cleanup resources:`, { ...logContext, error: cleanupErr });
                 }

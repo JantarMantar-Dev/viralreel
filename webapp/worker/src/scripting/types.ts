@@ -5,6 +5,10 @@ export const ScriptSegmentSchema = z.object({
     dialogue: z.string(),
     visualPrompt: z.string(),
     duration: z.number(),
+    start: z.number().optional(),
+    end: z.number().optional(),
+    imageKey: z.string().optional(),
+    imageEffect: z.string().optional(),
     oldDuration: z.number().optional(),
 });
 

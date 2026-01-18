@@ -68,13 +68,56 @@ export default async function editorRenderRoutes(fastify: FastifyInstance) {
                 throw new AppError("InsuffCredits", "Insufficient credits to render this video", 402);
             }
 
-            // 4. Update video status
+            // 4. Construct Unified Render Data
+            // We consolidate disparate editor metadata fields into the unified renderData structure
+            // This ensures the video processor can treat both Auto and Editor modes identically
+            
+            // Determine the audio data source (selected version or main metadata)
+            let audioKey = metadata.audioKey;
+            let subtitles = metadata.subtitles;
+            let scriptSegments = metadata.scriptSegments;
+            
+            if (metadata.selectedAudioId && metadata.audioVersions) {
+                const selectedVersion = metadata.audioVersions.find((v: any) => v.id === metadata.selectedAudioId);
+                if (selectedVersion) {
+                    audioKey = selectedVersion.audioKey;
+                    if (selectedVersion.subtitles) subtitles = selectedVersion.subtitles;
+                    if (selectedVersion.segments) scriptSegments = selectedVersion.segments;
+                }
+            }
+
+            // Merge visual segments with timing segments
+            // Editor mode has 'segments' (visuals) and 'scriptSegments' (timing/dialogue)
+            const renderSegments = (metadata.segments || []).map((seg: any, index: number) => {
+                const timing = scriptSegments?.[index] || {};
+                return {
+                    dialogue: seg.dialogue || timing.dialogue || "",
+                    visualPrompt: seg.visualPrompt || "",
+                    start: seg.start ?? timing.start ?? 0,
+                    end: seg.end ?? timing.end ?? 0,
+                    duration: seg.duration ?? timing.duration ?? 0,
+                    imageKey: seg.imageKey,
+                    imageAssetPath: seg.imageAssetPath,
+                    imageEffect: seg.imageEffect
+                };
+            });
+
+            const renderData = {
+                audioKey: audioKey || "",
+                audioDurationSeconds: metadata.audioDurationSeconds || 0,
+                subtitles: subtitles || [],
+                segments: renderSegments,
+                isReady: true
+            };
+
+            // 5. Update video status with unified renderData
             await db.update(video)
                 .set({
                     status: "GENERATING",
                     mode: "editor",
                     metadata: {
                         ...metadata,
+                        renderData, // <--- Unified Schema
                         currentPhase: "render",
                         submittedForRenderAt: new Date().toISOString(),
                     },
