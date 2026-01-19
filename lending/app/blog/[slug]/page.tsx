@@ -2,6 +2,7 @@ import { getPostBySlug, blogPosts } from "@/lib/blog-data";
 import { Navbar } from "@/components/landing/navbar";
 import LaunchPost from "@/components/blog/posts/LaunchPost";
 import FacelessContentPost from "@/components/blog/posts/FacelessContentPost";
+import HowToStartFacelessChannelPost from "@/components/blog/posts/HowToStartFacelessChannelPost";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { notFound } from "next/navigation";
 import { Metadata } from "next";
@@ -11,6 +12,7 @@ import { Metadata } from "next";
 const postComponents: Record<string, React.ComponentType<any>> = {
     'launch-of-getviralreel-ai-video-creator': LaunchPost,
     'what-is-faceless-content': FacelessContentPost,
+    'how-to-start-faceless-youtube-channel': HowToStartFacelessChannelPost,
 };
 
 interface PageProps {
