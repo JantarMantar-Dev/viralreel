@@ -5,6 +5,7 @@ import { Hero } from "@/components/landing/hero"
 import { Navbar } from "@/components/landing/navbar"
 import { Pricing } from "@/components/landing/pricing"
 import { RealExamples } from "@/components/landing/real-examples"
+import { HowItWorks } from "@/components/landing/how-it-works"
 
 import { Metadata } from "next";
 import { FaqJsonLd } from "@/components/json-ld";
@@ -28,6 +29,7 @@ export default function Home() {
         <Navbar />
         <Hero />
         <RealExamples />
+        <HowItWorks />
         <Features />
         <Pricing />
         <FAQ />
