@@ -29,7 +29,7 @@ export function Hero() {
     }
 
     return (
-        <section className="relative min-h-screen flex items-center justify-center pt-20 overflow-hidden">
+        <section className="relative min-h-screen flex items-center justify-center pt-28 overflow-hidden">
             {/* Background Gradients */}
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full max-w-7xl opacity-40 pointer-events-none">
                 <div className="absolute top-20 left-1/4 size-96 bg-purple-500/30 rounded-full blur-[128px]" />
@@ -39,13 +39,13 @@ export function Hero() {
             <div className="container px-6 mx-auto relative z-10 text-center lg:text-left">
                 <div className="grid lg:grid-cols-2 gap-12 items-center">
 
-                    <div className="flex flex-col items-center lg:items-start space-y-8">
+                    <div className="flex flex-col items-center lg:items-start space-y-6">
                         <motion.div
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.5 }}
                         >
-                            <Badge className="mb-4">
+                            <Badge className="mb-2">
                                 <span className="mr-2">🚀</span>
                                 The Future of Automated Content Creation
                             </Badge>
@@ -55,7 +55,7 @@ export function Hero() {
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.5, delay: 0.1 }}
-                            className="text-5xl md:text-7xl font-bold tracking-tight text-slate-900"
+                            className="text-5xl md:text-6xl font-bold tracking-tight text-slate-900"
                         >
                             Create Viral Faceless Videos <br />
                             <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-blue-600">
@@ -92,7 +92,7 @@ export function Hero() {
                                 </Link>
                                 <span className="text-xs text-slate-500 mt-2">No credit card required</span>
                             </div>
-                            
+
                             <Button
                                 variant="outline"
                                 size="lg"
@@ -111,7 +111,7 @@ export function Hero() {
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.5, delay: 0.4 }}
-                            className="flex flex-col gap-6 pt-8 border-t border-slate-200 w-full"
+                            className="flex flex-col gap-4 pt-6 border-t border-slate-200 w-full"
                         >
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-8">
                                 <div>
@@ -162,7 +162,7 @@ export function Hero() {
                         initial={{ opacity: 0, x: 40 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ duration: 0.7, delay: 0.5 }}
-                        className="w-full max-w-sm mx-auto lg:mr-0 rounded-[2rem] border-8 border-slate-900 shadow-2xl overflow-hidden bg-zinc-900 aspect-[9/16] relative"
+                        className="w-full max-w-[20rem] mx-auto lg:mr-0 rounded-[2rem] border-8 border-slate-900 shadow-2xl overflow-hidden bg-zinc-900 aspect-[9/16] relative"
                     >
                         {/* Phone Frame / Reel Preview */}
                         <div

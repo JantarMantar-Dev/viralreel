@@ -13,7 +13,7 @@ export function Footer() {
                         <div className="absolute top-[-50%] left-[-20%] w-[500px] h-[500px] bg-purple-600 rounded-full blur-[100px]" />
                         <div className="absolute bottom-[-50%] right-[-20%] w-[500px] h-[500px] bg-blue-600 rounded-full blur-[100px]" />
                     </div>
-                    
+
                     <div className="relative z-10 max-w-2xl mx-auto">
                         <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">
                             Ready to Start Your Viral Empire?
@@ -57,17 +57,16 @@ export function Footer() {
                         <h4 className="font-bold text-slate-900 mb-4">Company</h4>
                         <ul className="space-y-3 text-sm text-slate-500">
                             <li><Link href="/about" className="hover:text-slate-900 transition-colors">About Us</Link></li>
-                            <li><Link href="/careers" className="hover:text-slate-900 transition-colors">Careers</Link></li>
-                            <li><Link href="/legal" className="hover:text-slate-900 transition-colors">Legal</Link></li>
+                            <li><Link href="/terms-of-use" className="hover:text-slate-900 transition-colors">Legal</Link></li>
                         </ul>
                     </div>
 
                     <div>
                         <h4 className="font-bold text-slate-900 mb-4">Support</h4>
                         <ul className="space-y-3 text-sm text-slate-500">
-                            <li><Link href="mailto:support@viralreel.ai" className="hover:text-slate-900 transition-colors">Contact Support</Link></li>
-                            <li><Link href="/help" className="hover:text-slate-900 transition-colors">Help Center</Link></li>
-                            <li><Link href="/status" className="hover:text-slate-900 transition-colors">System Status</Link></li>
+                            <li><Link href="mailto:support@getviralreel.com" className="hover:text-slate-900 transition-colors">Contact Support</Link></li>
+                            <li><Link href="/faq" className="hover:text-slate-900 transition-colors">Help Center</Link></li>
+                            <li><Link href="/community-guidelines" className="hover:text-slate-900 transition-colors">Community Guidelines</Link></li>
                         </ul>
                     </div>
                 </div>
