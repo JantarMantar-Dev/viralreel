@@ -12,6 +12,17 @@ export interface BlogPost {
 
 export const blogPosts: BlogPost[] = [
     {
+        id: '3',
+        slug: 'how-to-start-faceless-youtube-channel',
+        title: 'How to Start a Faceless YouTube Channel in 2025 (Step-by-Step)',
+        excerpt: 'No camera. No editing skills. No excuses. Learn exactly how to launch, grow, and monetize a faceless YouTube channel from scratch with this complete 7-step guide.',
+        date: 'January 19, 2025',
+        author: 'ViralReel Team',
+        readTime: '12 min read',
+        coverImage: '/blog/start-faceless-channel.jpg',
+        tags: ['Faceless Content', 'YouTube', 'Tutorial', 'Content Creation', 'Monetization']
+    },
+    {
         id: '2',
         slug: 'what-is-faceless-content',
         title: 'What is Faceless Content? The Complete Guide for 2025',
