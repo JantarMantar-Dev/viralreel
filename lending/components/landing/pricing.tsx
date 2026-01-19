@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
-import { Check } from "lucide-react"
+import { Check, ShieldCheck } from "lucide-react"
 import posthog from 'posthog-js'
 
 export function Pricing() {
@@ -14,7 +14,7 @@ export function Pricing() {
                 <div className="text-center max-w-2xl mx-auto mb-16">
                     <h2 className="text-3xl md:text-5xl font-bold mb-6">Choose Your Plan</h2>
                     <p className="text-zinc-400 text-lg">
-                        Select a plan to continue creating your series
+                        Start building passive income with AI-generated content. Cancel anytime.
                     </p>
                 </div>
 
@@ -29,7 +29,7 @@ export function Pricing() {
                                 <span className="text-slate-500">/mo</span>
                             </div>
                             <div className="flex justify-center mb-4">
-                                <Badge className="bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-100">Launch Pricing</Badge>
+                                <Badge className="bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-100">Launch Pricing Ends Soon</Badge>
                             </div>
                             <p className="text-slate-500 text-sm mb-4">Perfect for daily creators.</p>
                             <p className="text-xs font-medium text-slate-400 mb-8">Effective cost: <span className="text-slate-900">$0.96 per video</span></p>
@@ -40,7 +40,7 @@ export function Pricing() {
                                 'All voices & styles',
                                 'High-speed generation',
                                 'Auto-post to YouTube',
-                                'TikTok/IG auto-post (coming soon)',
+                                'TikTok/IG Posting Support',
                                 'Create unlimited niches',
                                 'Full copyright-safe music',
                                 'Commercial use included'
@@ -56,7 +56,7 @@ export function Pricing() {
                                 className="w-full bg-white border-2 border-slate-100 text-slate-900 hover:bg-slate-50 hover:border-purple-200"
                                 onClick={() => posthog.capture('pricing_cta_clicked', { plan: 'creator' })}
                             >
-                                Start Monthly Plan
+                                Start 7-Day Free Trial
                             </Button>
                         </Link>
                     </Card>
@@ -74,7 +74,7 @@ export function Pricing() {
                                 <span className="text-slate-500">/mo</span>
                             </div>
                             <div className="flex justify-center mb-4">
-                                <Badge className="bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-100">Launch Pricing</Badge>
+                                <Badge className="bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-100">Launch Pricing Ends Soon</Badge>
                             </div>
                             <p className="text-slate-500 text-sm mb-4">Double the videos. Best deal.</p>
                             <p className="text-xs font-medium text-slate-400 mb-8">Effective cost: <span className="text-slate-900">$0.65 per video</span></p>
@@ -84,7 +84,7 @@ export function Pricing() {
                                 '60 premium videos per month',
                                 'Priority generation',
                                 'Auto-post to YouTube',
-                                'TikTok/IG auto-post (coming soon)',
+                                'TikTok/IG Posting Support',
                                 'All voices, styles, transitions',
                                 'Multi-niche workflows',
                                 'Early access to new features'
@@ -102,7 +102,7 @@ export function Pricing() {
                                 className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:opacity-90 transition-opacity shadow-lg shadow-purple-200"
                                 onClick={() => posthog.capture('pricing_cta_clicked', { plan: 'creator_plus' })}
                             >
-                                Join Creator Plus
+                                Start 7-Day Free Trial
                             </Button>
                         </Link>
                     </Card>
@@ -140,6 +140,13 @@ export function Pricing() {
                             </Button>
                         </Link>
                     </Card>
+                </div>
+
+                <div className="mt-12 text-center">
+                    <div className="inline-flex items-center gap-2 text-slate-500 text-sm bg-slate-50 px-4 py-2 rounded-full border border-slate-100">
+                        <ShieldCheck className="size-4" />
+                        <span>7-day money-back guarantee on all plans. No questions asked.</span>
+                    </div>
                 </div>
             </div>
         </section>

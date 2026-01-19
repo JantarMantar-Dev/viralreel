@@ -10,39 +10,52 @@ const VIDEOS = [
         id: "anime-tech",
         src: "/videos/anime-tech-first_computer_eniac_story.mp4",
         poster: "/thumbnails/anime-tech-first_computer_eniac_story.jpg",
-        title: "Anime Tech History"
+        title: "Anime Tech History",
+        tag: "Viral Structure",
+        niche: "Tech History"
     },
     {
         id: "comic-crime",
         src: "/videos/comic-true_crime-kids_missing_blue_pen.mp4",
         poster: "/thumbnails/comic-true_crime-kids_missing_blue_pen.jpg",
-        title: "True Crime Comic"
+        title: "True Crime Comic",
+        tag: "High Retention",
+        niche: "True Crime"
     },
     {
         id: "lego-tech",
         src: "/videos/lego-tech-first_mobile_phone_story.mp4",
         poster: "/thumbnails/lego-tech-first_mobile_phone_story.jpg",
-        title: "Lego Tech Story"
+        title: "Lego Tech Story",
+        tag: "Storytelling",
+        niche: "Tech"
     },
     {
         id: "disney-tech",
         src: "/videos/disney-tech-my_little_rocket_ship_kid_story.mp4",
         poster: "/thumbnails/disney-tech-my_little_rocket_ship_kid_story.jpg",
-        title: "Disney Style Story"
+        title: "Disney Style Story",
+        tag: "Educational",
+        niche: "Kids Stories"
     },
     {
         id: "painting-history",
         src: "/videos/painting-history_fact-usa_founding_story.mp4",
         poster: "/thumbnails/painting-history_fact-usa_founding_story.jpg",
-        title: "History Painting"
+        title: "History Painting",
+        tag: "Historical",
+        niche: "History"
     }
 ]
+
+import Link from "next/link"
+import { Button } from "@/components/ui/button"
 
 export function RealExamples() {
     const [selectedVideo, setSelectedVideo] = useState<typeof VIDEOS[0] | null>(null)
 
     return (
-        <section className="relative py-24 overflow-hidden">
+        <section className="relative py-24 overflow-hidden" id="examples">
             {/* Background Gradients - Matching Hero Style */}
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full max-w-7xl opacity-40 pointer-events-none">
                 <div className="absolute bottom-20 left-1/4 size-96 bg-purple-500/30 rounded-full blur-[128px]" />
@@ -57,14 +70,17 @@ export function RealExamples() {
                         viewport={{ once: true }}
                         className="text-4xl md:text-5xl font-bold tracking-tight text-slate-900 mb-6"
                     >
-                        Real videos created in 5 minutes. <br />
+                        Professional Quality Videos <br />
                         <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-blue-600">
-                            Millions of views, zero effort.
+                            Created with Zero Effort
                         </span>
                     </motion.h2>
+                    <p className="text-lg text-slate-600">
+                        See what's possible. These videos were created 100% by AI in minutes.
+                    </p>
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-16">
                     {VIDEOS.map((video, index) => (
                         <VideoCard
                             key={video.id}
@@ -73,6 +89,14 @@ export function RealExamples() {
                             onClick={(resolvedSrc) => setSelectedVideo({ ...video, src: resolvedSrc })}
                         />
                     ))}
+                </div>
+
+                <div className="flex justify-center">
+                    <Link href={process.env.NEXT_PUBLIC_APP_URL || '#'}>
+                        <Button size="lg" variant="gradient" className="min-w-[200px]">
+                            Start Creating for Free
+                        </Button>
+                    </Link>
                 </div>
             </div>
 
@@ -134,6 +158,14 @@ function VideoCard({
             onMouseLeave={handleMouseLeave}
             onClick={() => onClick(videoUrl)}
         >
+            {/* Badges */}
+            <div className="absolute top-2 left-2 bg-black/70 text-white px-2 py-1 rounded text-xs font-medium z-10 backdrop-blur-sm">
+                {video.tag}
+            </div>
+            <div className="absolute bottom-2 left-2 bg-white/90 text-slate-900 px-2 py-1 rounded text-xs font-medium z-10 shadow-sm">
+                {video.niche}
+            </div>
+
             <video
                 ref={videoRef}
                 src={videoUrl}

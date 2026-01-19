@@ -4,33 +4,33 @@ import { Clock, Share2, TrendingUp, Zap, Globe, Layers } from "lucide-react"
 const features = [
     {
         icon: Clock,
-        title: "Works 24/7 Autopilot",
-        description: "Your AI agent never sleeps. It researches, edits, and posts content while you dream.",
+        title: "Wake Up to Growth",
+        description: "Your AI agent creates and posts while you sleep. Wake up to new followers and revenue every single morning.",
     },
     {
         icon: Share2,
-        title: "Multi-Platform Posting",
-        description: "One click to publish to TikTok, Instagram Reels, and YouTube Shorts simultaneously.",
+        title: "Triple Your Reach",
+        description: "Don't limit yourself. One click publishes to TikTok, Instagram, and YouTube simultaneously for 3x the traffic.",
     },
     {
         icon: TrendingUp,
-        title: "Trend Analysis",
-        description: "Our AI scans millions of videos to identify viral hooks and trending audio real-time.",
+        title: "Go Viral on Command",
+        description: "Stop guessing. Our AI analyzes millions of videos to predict exactly what hooks and sounds will go viral next.",
     },
     {
         icon: Zap,
-        title: "Instant Generation",
-        description: "Go from idea to fully edited video in under 60 seconds. Speed is your competitive advantage.",
+        title: "100 Videos in Minutes",
+        description: "Create a month's worth of content in one sitting. Dominate your niche with consistency that humans can't match.",
     },
     {
         icon: Globe,
-        title: "Global Reach",
-        description: "Auto-translate and dub your content into 30+ languages to reach a worldwide audience.",
+        title: "Global Empire",
+        description: "Unlock 8 billion viewers. Automatically translate and dub your videos into 30+ languages to reach the world.",
     },
     {
         icon: Layers,
-        title: "Niche Domination",
-        description: "Perfect for any niche: True Crime, History, Facts, Motivation, Finance, and more.",
+        title: "Dominate Any Niche",
+        description: "Whether it's True Crime, History, or Finance, our AI adapts to create the perfect style for your audience.",
     },
 ]
 
@@ -43,9 +43,9 @@ export function Features() {
 
             <div className="container px-6 mx-auto relative z-10">
                 <div className="text-center max-w-2xl mx-auto mb-16">
-                    <h2 className="text-3xl md:text-5xl font-bold mb-6 text-slate-900">Built for Viral Growth</h2>
+                    <h2 className="text-3xl md:text-5xl font-bold mb-6 text-slate-900">Why Creators Choose ViralReel</h2>
                     <p className="text-slate-600 text-lg">
-                        Everything you need to automate your content empire without showing your face.
+                        The unfair advantage that lets you build a content empire without the burnout.
                     </p>
                 </div>
 
