@@ -688,7 +688,7 @@ export default function HowToStartFacelessChannelPost() {
                             </Link>
                         </Button>
                         <Button size="lg" variant="outline" className="h-14 px-8 text-lg border-slate-600 text-slate-300 hover:bg-slate-800 hover:text-white transition-all w-full sm:w-auto font-semibold rounded-full whitespace-nowrap" asChild>
-                            <Link href="/pricing" className="inline-flex items-center gap-2">
+                            <Link href="/#pricing" className="inline-flex items-center gap-2">
                                 View Pricing <ChevronRight className="size-5" />
                             </Link>
                         </Button>
