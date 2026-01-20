@@ -12,6 +12,17 @@ export interface BlogPost {
 
 export const blogPosts: BlogPost[] = [
     {
+        id: '4',
+        slug: 'how-to-create-viral-ai-shorts-auto-mode',
+        title: 'From Idea to Viral: How to Create Professional AI Shorts in 60 Seconds',
+        excerpt: 'Discover how to automate your content creation with ViralReel\'s Auto Mode. Turn text into viral TikToks, Reels, and YouTube Shorts in minutes.',
+        date: 'January 20, 2025',
+        author: 'ViralReel Team',
+        readTime: '5 min read',
+        coverImage: '/blog/auto-mode-guide.jpg',
+        tags: ['Auto Mode', 'Tutorial', 'AI Video', 'Shorts', 'TikTok']
+    },
+    {
         id: '3',
         slug: 'how-to-start-faceless-youtube-channel',
         title: 'How to Start a Faceless YouTube Channel in 2025 (Step-by-Step)',
