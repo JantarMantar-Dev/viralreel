@@ -56,7 +56,7 @@ describe('Render Date Fix Integration (SQLite)', () => {
   beforeEach(async () => {
     // Clear data between tests
     sqlite.exec(`DELETE FROM render_job; DELETE FROM video; DELETE FROM user;`);
-    
+
     // Seed User
     await db.insert(schema.user).values({
       id: testUserId,
@@ -67,8 +67,8 @@ describe('Render Date Fix Integration (SQLite)', () => {
       updatedAt: new Date(),
     });
 
-    fastify = await createTestFastify({ 
-      authenticated: true, 
+    fastify = await createTestFastify({
+      authenticated: true,
       user: { id: testUserId, email: 'test@example.com', name: 'Test User' },
       session: { userId: testUserId }
     });
@@ -125,10 +125,10 @@ describe('Render Date Fix Integration (SQLite)', () => {
       // 3. Verify render_job.createdAt is updated to NOW
       const jobs = await db.select().from(schema.renderJob).where(eq(schema.renderJob.id, renderJobId));
       expect(jobs).toHaveLength(1);
-      
+
       const job = jobs[0];
       expect(job.status).toBe('QUEUED');
-      
+
       // Check date
       expect(job.createdAt).not.toEqual(oldDate);
       const now = new Date();
@@ -150,10 +150,10 @@ describe('Render Date Fix Integration (SQLite)', () => {
         mode: 'editor',
         createdAt: oldDate,
         updatedAt: oldDate,
-        metadata: { 
-            approvedScript: true,
-            editorMode: true,
-            segments: [{}] 
+        metadata: {
+          approvedScript: true,
+          editorMode: true,
+          segments: [{}]
         }
       });
 
@@ -178,10 +178,10 @@ describe('Render Date Fix Integration (SQLite)', () => {
       // 4. Verify DB
       const jobs = await db.select().from(schema.renderJob).where(eq(schema.renderJob.id, renderJobId));
       expect(jobs).toHaveLength(1);
-      
+
       const job = jobs[0];
       expect(job.status).toBe('VIDEO_QUEUED');
-      
+
       // Check date updated
       expect(job.createdAt).not.toEqual(oldDate);
       const now = new Date();
@@ -191,7 +191,7 @@ describe('Render Date Fix Integration (SQLite)', () => {
     it('should return renderJob.createdAt as date for Rendering projects', async () => {
       const videoId = 'video-rendering-1';
       const renderJobId = 'job-rendering-1';
-      
+
       const draftDate = new Date('2023-01-01T10:00:00Z');
       const renderStartDate = new Date('2023-01-01T12:00:00Z'); // 2 hours later
 
@@ -223,11 +223,11 @@ describe('Render Date Fix Integration (SQLite)', () => {
       expect(response.statusCode).toBe(200);
       const body = response.json();
       expect(body.success).toBe(true);
-      
+
       const project = body.projects.find((p: any) => p.id === videoId);
       expect(project).toBeDefined();
       expect(project.status).toBe('Rendering');
-      
+
       // 3. Verify the date returned is the Render Job Start Date, NOT the Video Creation Date
       // API returns ISO strings, so we compare those
       expect(project.date).toBe(renderStartDate.toISOString());
