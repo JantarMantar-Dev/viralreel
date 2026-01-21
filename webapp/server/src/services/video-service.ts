@@ -190,7 +190,7 @@ export async function queueVideoRender(videoId: string, userId: string) {
     const renderStatus = isEditorMode ? "VIDEO_QUEUED" : "QUEUED";
 
     await db.update(renderJob)
-        .set({ status: renderStatus, updatedAt: new Date() })
+        .set({ status: renderStatus, createdAt: new Date(), updatedAt: new Date() })
         .where(eq(renderJob.videoId, videoId));
 
     return { success: true, message: "Rendering queued successfully" };
@@ -291,6 +291,7 @@ export async function retryVideoProcessing(videoId: string, userId: string) {
             error: null,
             retryCount: 0,
             progress: 0,
+            createdAt: new Date(),
             updatedAt: new Date()
         })
         .where(eq(renderJob.videoId, videoId));

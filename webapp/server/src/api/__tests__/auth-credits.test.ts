@@ -5,39 +5,20 @@ import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { eq } from 'drizzle-orm';
 import * as sqliteSchema from '../../test/sqlite-schema.js';
+import { createTables } from '../../test/db-helper.js';
 
 // Setup SQLite DB
 const sqlite = new Database(':memory:');
 const db = drizzle(sqlite, { schema: sqliteSchema });
 
-// Initialize DB structure (same as in service test)
-sqlite.exec(`
-    CREATE TABLE user (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        email TEXT NOT NULL UNIQUE,
-        email_verified INTEGER NOT NULL,
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
-    );
-    CREATE TABLE credit_balance (
-        id TEXT PRIMARY KEY,
-        user_id TEXT NOT NULL REFERENCES user(id),
-        amount_total INTEGER NOT NULL,
-        amount_used INTEGER NOT NULL DEFAULT 0,
-        updated_at INTEGER,
-        created_at INTEGER
-    );
-    CREATE TABLE credit_transaction (
-        id TEXT PRIMARY KEY,
-        user_id TEXT NOT NULL REFERENCES user(id),
-        credit_balance_id TEXT REFERENCES credit_balance(id),
-        amount INTEGER NOT NULL,
-        description TEXT,
-        comment TEXT,
-        created_at INTEGER
-    );
-`);
+// PATCH: better-sqlite3 transactions are sync, but our service uses async.
+// We mock the transaction method to just execute the callback.
+(db as any).transaction = async (cb: any) => {
+    return cb(db);
+};
+
+// Initialize DB structure
+createTables(sqlite);
 
 // Mock the DB and Schema
 vi.mock('../../db/index.js', () => ({
@@ -66,23 +47,28 @@ describe('Auth-Credits Integration (Real SQLite)', () => {
         // In a real app, this would be the better-auth handler, but we simulate the logic here
         // to verify that the credit service integration works correctly with the DB.
         fastify.post('/api/auth/signup', async (request, reply) => {
-            const newUser = {
-                id: userId,
-                name: 'New User',
-                email: 'new@example.com',
-                emailVerified: false,
-                createdAt: new Date(),
-                updatedAt: new Date()
-            };
-            
-            // 1. Create User
-            await db.insert(sqliteSchema.user).values(newUser);
-            
-            // 2. Trigger the credit granting logic (as the auth hook would)
-            const { grantInitialCredits } = await import('../../services/credit-service.js');
-            await grantInitialCredits(newUser.id, 3);
-            
-            return { success: true, user: newUser };
+            try {
+                const newUser = {
+                    id: userId,
+                    name: 'New User',
+                    email: 'new@example.com',
+                    emailVerified: false,
+                    createdAt: new Date(),
+                    updatedAt: new Date()
+                };
+                
+                // 1. Create User
+                await db.insert(sqliteSchema.user).values(newUser);
+                
+                // 2. Trigger the credit granting logic (as the auth hook would)
+                const { grantInitialCredits } = await import('../../services/credit-service.js');
+                await grantInitialCredits(newUser.id, 3);
+                
+                return { success: true, user: newUser };
+            } catch (error) {
+                console.error('Test Handler Error:', error);
+                return reply.code(500).send({ error: error });
+            }
         });
 
         const response = await fastify.inject({
