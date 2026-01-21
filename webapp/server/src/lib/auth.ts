@@ -18,6 +18,20 @@ export const auth = betterAuth({
                     } catch (error) {
                         console.error(`[AuthHook] Failed to grant initial credits to user ${user.id}:`, error);
                     }
+
+                    try {
+                        const { submitOpnForm, USER_LIST_FORM } = await import("./opnform.js");
+                        await submitOpnForm({
+                            slug: USER_LIST_FORM.SLUG,
+                            data: {
+                                [USER_LIST_FORM.FIELDS.USER_NAME]: user.name,
+                                [USER_LIST_FORM.FIELDS.EMAIL]: user.email,
+                                [USER_LIST_FORM.FIELDS.APP_NAME]: USER_LIST_FORM.APP_NAME_VALUE,
+                            },
+                        });
+                    } catch (error) {
+                        console.error(`[AuthHook] Failed to submit user ${user.id} to OpnForm:`, error);
+                    }
                 }
             }
         }
