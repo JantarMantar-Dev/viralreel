@@ -8,6 +8,20 @@ export const auth = betterAuth({
         provider: "pg",
         schema: schema,
     }),
+    databaseHooks: {
+        user: {
+            create: {
+                after: async (user) => {
+                    try {
+                        const { grantInitialCredits } = await import("../services/credit-service.js");
+                        await grantInitialCredits(user.id, 3);
+                    } catch (error) {
+                        console.error(`[AuthHook] Failed to grant initial credits to user ${user.id}:`, error);
+                    }
+                }
+            }
+        }
+    },
     baseURL: process.env.BETTER_AUTH_URL,
     emailAndPassword: {
         enabled: true,

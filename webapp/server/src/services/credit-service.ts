@@ -61,3 +61,42 @@ export async function deductCredits(
 
     return true;
 }
+
+export async function grantInitialCredits(userId: string, amount: number = 3) {
+    // Check if balance already exists
+    const [existing] = await db.select()
+        .from(creditBalance)
+        .where(eq(creditBalance.userId, userId))
+        .limit(1);
+
+    if (existing) {
+        console.warn(`[CreditService] User ${userId} already has a credit balance record. Skipping initial grant.`);
+        return existing;
+    }
+
+    const balanceId = randomUUID();
+
+    return await db.transaction(async (tx) => {
+        // 1. Create balance
+        const [balance] = await tx.insert(creditBalance).values({
+            id: balanceId,
+            userId,
+            amountTotal: amount,
+            amountUsed: 0,
+            updatedAt: new Date(),
+            createdAt: new Date()
+        }).returning();
+
+        // 2. Log transaction
+        await tx.insert(creditTransaction).values({
+            id: randomUUID(),
+            userId,
+            creditBalanceId: balance.id,
+            amount: amount, // Positive for grant
+            description: "Initial Free Credits",
+            comment: "Welcome bonus"
+        });
+
+        return balance;
+    });
+}
