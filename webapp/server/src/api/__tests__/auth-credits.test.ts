@@ -39,7 +39,7 @@ describe('Auth-Credits Integration (Real SQLite)', () => {
         sqlite.exec('DELETE FROM user');
     });
 
-    it('should grant 3 credits when a user is created via the auth flow', async () => {
+    it('should grant 7 credits when a user is created via the auth flow', async () => {
         const userId = 'user_' + Math.random().toString(36).substring(7);
         const fastify = await createTestFastify({ authenticated: false });
         
@@ -62,7 +62,7 @@ describe('Auth-Credits Integration (Real SQLite)', () => {
                 
                 // 2. Trigger the credit granting logic (as the auth hook would)
                 const { grantInitialCredits } = await import('../../services/credit-service.js');
-                await grantInitialCredits(newUser.id, 3);
+                await grantInitialCredits(newUser.id, 7);
                 
                 return { success: true, user: newUser };
             } catch (error) {
@@ -82,11 +82,11 @@ describe('Auth-Credits Integration (Real SQLite)', () => {
         // Verify via direct DB query (using SQLite schema)
         const [balance] = await db.select().from(sqliteSchema.creditBalance).where(eq(sqliteSchema.creditBalance.userId, userId));
         expect(balance).toBeDefined();
-        expect(balance.amountTotal).toBe(3);
+        expect(balance.amountTotal).toBe(7);
         
         const transactions = await db.select().from(sqliteSchema.creditTransaction).where(eq(sqliteSchema.creditTransaction.userId, userId));
         expect(transactions).toHaveLength(1);
-        expect(transactions[0].amount).toBe(3);
+        expect(transactions[0].amount).toBe(7);
         expect(transactions[0].description).toBe('Initial Free Credits');
     });
 });
