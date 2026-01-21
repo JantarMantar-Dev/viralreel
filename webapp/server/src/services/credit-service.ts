@@ -62,7 +62,7 @@ export async function deductCredits(
     return true;
 }
 
-export async function grantInitialCredits(userId: string, amount: number = 3) {
+export async function grantInitialCredits(userId: string, amount: number = 7) {
     // Check if balance already exists
     const [existing] = await db.select()
         .from(creditBalance)

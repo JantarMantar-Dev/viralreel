@@ -24,7 +24,7 @@ export interface SharedCreationContext {
     updateMusicId: (id: string | undefined, name?: string, details?: string) => void
 
     // Navigation
-    nextStep: () => void
+    nextStep: (bypassOverride?: boolean) => void
     prevStep: () => void
     currentStep: number
 

@@ -14,7 +14,7 @@ export const auth = betterAuth({
                 after: async (user) => {
                     try {
                         const { grantInitialCredits } = await import("../services/credit-service.js");
-                        await grantInitialCredits(user.id, 3);
+                        await grantInitialCredits(user.id, 7);
                     } catch (error) {
                         console.error(`[AuthHook] Failed to grant initial credits to user ${user.id}:`, error);
                     }

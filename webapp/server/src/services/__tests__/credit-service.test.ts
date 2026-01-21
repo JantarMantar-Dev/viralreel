@@ -62,16 +62,16 @@ describe('Credit Service Unit Tests (Real SQLite)', () => {
             updatedAt: new Date()
         });
 
-        await service.grantInitialCredits(userId, 3);
+        await service.grantInitialCredits(userId, 7);
 
         const [balance] = await db.select().from(sqliteSchema.creditBalance).where(eq(sqliteSchema.creditBalance.userId, userId));
         expect(balance).toBeDefined();
-        expect(balance.amountTotal).toBe(3);
+        expect(balance.amountTotal).toBe(7);
         expect(balance.amountUsed).toBe(0);
 
         const transactions = await db.select().from(sqliteSchema.creditTransaction).where(eq(sqliteSchema.creditTransaction.userId, userId));
         expect(transactions).toHaveLength(1);
-        expect(transactions[0].amount).toBe(3);
+        expect(transactions[0].amount).toBe(7);
     });
 
     it('should not grant initial credits if balance already exists', async () => {
@@ -86,11 +86,11 @@ describe('Credit Service Unit Tests (Real SQLite)', () => {
             updatedAt: new Date()
         });
 
-        await service.grantInitialCredits(userId, 3);
+        await service.grantInitialCredits(userId, 7);
         await service.grantInitialCredits(userId, 5); // Should skip
 
         const [balance] = await db.select().from(sqliteSchema.creditBalance).where(eq(sqliteSchema.creditBalance.userId, userId));
-        expect(balance.amountTotal).toBe(3); // Still 3
+        expect(balance.amountTotal).toBe(7); // Still 7
     });
 
     it('should correctly check if user has enough credits', async () => {
@@ -105,11 +105,11 @@ describe('Credit Service Unit Tests (Real SQLite)', () => {
             updatedAt: new Date()
         });
 
-        await service.grantInitialCredits(userId, 3);
+        await service.grantInitialCredits(userId, 7);
 
         expect(await service.hasEnoughCredits(userId, 1)).toBe(true);
-        expect(await service.hasEnoughCredits(userId, 3)).toBe(true);
-        expect(await service.hasEnoughCredits(userId, 4)).toBe(false);
+        expect(await service.hasEnoughCredits(userId, 7)).toBe(true);
+        expect(await service.hasEnoughCredits(userId, 8)).toBe(false);
     });
 
     it('should deduct credits correctly', async () => {
@@ -124,7 +124,7 @@ describe('Credit Service Unit Tests (Real SQLite)', () => {
             updatedAt: new Date()
         });
 
-        await service.grantInitialCredits(userId, 3);
+        await service.grantInitialCredits(userId, 7);
         await service.deductCredits(userId, 1, 'Test deduction');
 
         const [balance] = await db.select().from(sqliteSchema.creditBalance).where(eq(sqliteSchema.creditBalance.userId, userId));
