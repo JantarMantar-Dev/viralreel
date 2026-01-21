@@ -12,14 +12,14 @@ import { Label } from "@/components/ui/label"
 import { API_BASE_URL } from "@/lib/config"
 import { cn } from "@/lib/utils"
 import StepHeader from "./step-header"
-import { useCreation } from "../context/creation-context"
+import { useSharedCreation } from "../../shared/context/shared-creation-interface"
 
 interface CustomNicheFormProps {
     onBack: () => void
 }
 
 export default function CustomNicheForm({ onBack }: CustomNicheFormProps) {
-    const { updateRequest, nextStep, setCustomNext, setCustomPrev, setCanContinue, setIsStepLoading } = useCreation()
+    const { updateNicheId, nextStep, setCustomNext, setCustomPrev, setCanContinue, setIsStepLoading } = useSharedCreation()
     const queryClient = useQueryClient()
 
     const [name, setName] = useState("")
@@ -76,10 +76,7 @@ export default function CustomNicheForm({ onBack }: CustomNicheFormProps) {
         onSuccess: (newNiche) => {
             toast.success("Niche created successfully!")
             queryClient.invalidateQueries({ queryKey: ["niches"] })
-            updateRequest({
-                nicheId: newNiche.id,
-                nicheName: newNiche.name
-            })
+            updateNicheId(newNiche.id, newNiche.name)
             // Reset local state in NicheStep
             onBack()
             // Reset custom actions before proceeding
