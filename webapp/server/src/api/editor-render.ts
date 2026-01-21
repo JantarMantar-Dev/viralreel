@@ -145,6 +145,7 @@ export default async function editorRenderRoutes(fastify: FastifyInstance) {
                         retryCount: 0,
                         startedAt: null,
                         completedAt: null,
+                        createdAt: new Date(),
                         updatedAt: new Date()
                     })
                     .where(eq(renderJob.id, renderJobId));

@@ -38,9 +38,11 @@ async function fetchSeriesProjects(userId: string) {
         const episodes = await db.select({
             id: video.id,
             status: video.status,
-            thumbnailUrl: video.thumbnailUrl // Still need thumbnail from first episode
+            thumbnailUrl: video.thumbnailUrl, // Still need thumbnail from first episode
+            renderJobCreatedAt: renderJob.createdAt
         })
             .from(video)
+            .leftJoin(renderJob, eq(video.id, renderJob.videoId))
             .where(eq(video.seriesId, s.id))
             .orderBy(desc(video.createdAt)); // Newest first
 
@@ -66,6 +68,24 @@ async function fetchSeriesProjects(userId: string) {
         if (episodeCount === 0 || isAnyDraft) status = "Draft";
         else if (isRendering) status = "Rendering";
 
+        // If rendering, calculate the earliest start time of active render jobs
+        let activeRenderStart: string | null = null;
+        if (status === "Rendering") {
+            const renderingEpisodes = episodes.filter(e =>
+                e.status === "SCRIPTING" ||
+                e.status === "GENERATING" ||
+                e.status === "SCRIPT_READY"
+            );
+            
+            const timestamps = renderingEpisodes
+                .map(e => e.renderJobCreatedAt ? new Date(e.renderJobCreatedAt).getTime() : 0)
+                .filter(t => t > 0);
+            
+            if (timestamps.length > 0) {
+                activeRenderStart = new Date(Math.min(...timestamps)).toISOString();
+            }
+        }
+
         return {
             id: s.id,
             title: s.name,
@@ -74,7 +94,7 @@ async function fetchSeriesProjects(userId: string) {
             type: "Series" as const,
             status,
             videoCount: episodeCount,
-            date: s.createdAt,
+            date: activeRenderStart || s.createdAt,
             duration: null,
             isSd: false,
             isHd: true,
@@ -97,7 +117,8 @@ async function fetchVideoProjects(userId: string) {
         mode: video.mode,
         metadata: video.metadata,
         outputUrl: video.outputUrl,
-        compressedUrl: video.compressedUrl
+        compressedUrl: video.compressedUrl,
+        renderJobCreatedAt: renderJob.createdAt
     })
         .from(video)
         .leftJoin(renderJob, eq(video.id, renderJob.videoId))
@@ -117,6 +138,11 @@ async function fetchVideoProjects(userId: string) {
         const signedOutputUrl = await storageProvider.getSignedUrlFromFullUrl(v.outputUrl || "");
         const signedCompressedUrl = await storageProvider.getSignedUrlFromFullUrl(v.compressedUrl || "");
 
+        // If rendering, use the render job start time to prevent "Failed" state for old drafts
+        const date = (status === "Rendering" && v.renderJobCreatedAt) 
+            ? v.renderJobCreatedAt 
+            : v.createdAt;
+
         return {
             id: v.id,
             title: v.title,
@@ -126,7 +152,7 @@ async function fetchVideoProjects(userId: string) {
             status,
             mode: v.mode,
             videoCount: undefined,
-            date: v.createdAt,
+            date: date,
             duration: (v.metadata as any)?.duration,
             isSd: false,
             isHd: true,
