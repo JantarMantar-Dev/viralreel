@@ -172,18 +172,16 @@ export default function MusicStep() {
                     {activeSource === "upload" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-purple-600 rounded-full" />}
                 </button>
                 <button
-                    onClick={() => setActiveSource("library")}
+                    onClick={() => {}}
+                    disabled={true}
                     className={cn(
-                        "flex items-center gap-2 pb-4 text-sm font-bold transition-all relative",
-                        activeSource === "library" ? "text-purple-600" : "text-slate-400 hover:text-slate-600"
+                        "flex items-center gap-2 pb-4 text-sm font-bold transition-all relative cursor-not-allowed opacity-60",
+                        activeSource === "library" ? "text-purple-600" : "text-slate-400"
                     )}
                 >
                     <Music className="h-4 w-4" />
                     Music Library
-                    {defaultTracks && defaultTracks.length > 0 && (
-                        <span className="text-[10px] bg-purple-100 text-purple-600 px-2 py-0.5 rounded-full font-black ml-1 tracking-tighter">{defaultTracks.length}</span>
-                    )}
-                    {activeSource === "library" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-purple-600 rounded-full" />}
+                    <span className="text-[10px] bg-amber-100 text-amber-600 px-2 py-0.5 rounded-full font-black ml-1 tracking-tight uppercase">Coming Soon</span>
                 </button>
             </div>
 
